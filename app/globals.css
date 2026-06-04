@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { background: theme('colors.paper'); color: theme('colors.ink'); }
+body { font-family: 'EB Garamond', ui-serif, Georgia, serif; }
+.font-sans { font-family: ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', sans-serif; }
