@@ -1,0 +1,25 @@
+# dependencies / build
+node_modules
+.next
+out
+tsconfig.tsbuildinfo
+
+# env & secrets
+.env
+.env*.local
+
+# OS
+.DS_Store
+
+# scraper + AI caches (regeneratable)
+.scrape-cache
+.enrich-cache
+
+# generated catalog data + embeddings (huge; regenerate with the pipeline)
+data/*.json
+data/embeddings.f32
+data/embeddings.ids.json
+
+# keep projects.json (app state) and a .gitkeep placeholder
+!data/projects.json
+!data/.gitkeep
