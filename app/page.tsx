@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { categoryCounts, loadCatalog } from '@/lib/catalog';
 import { CATEGORIES, categoryName } from '@/lib/categories';
 import { SOURCE_META, type Source } from '@/lib/types';
-import { ItemCard } from '@/components/item-card';
+import { BrowseGrid } from '@/components/browse-grid';
 import { SearchBar } from '@/components/search-bar';
 
 const SUGGESTIONS = [
@@ -26,9 +26,15 @@ export default async function HomePage() {
 
   const vendorCounts = new Map<Source, number>();
   for (const i of catalog) vendorCounts.set(i.source, (vendorCounts.get(i.source) ?? 0) + 1);
-  const vendors = [...vendorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const vendors = [...vendorCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, count]) => ({ id, name: SOURCE_META[id].name, count }));
 
-  const activeCategories = CATEGORIES.filter((c) => (counts[c.slug] ?? 0) > 0);
+  const categories = CATEGORIES.filter((c) => (counts[c.slug] ?? 0) > 0).map((c) => ({
+    slug: c.slug,
+    name: categoryName(c.slug),
+    count: counts[c.slug] ?? 0,
+  }));
 
   return (
     <>
@@ -64,63 +70,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Browse — sidebar + grid */}
-      <div className="flex gap-10 pt-10">
-        <aside className="hidden w-52 shrink-0 space-y-8 md:block">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-3">City</p>
-            <div className="border border-ink/15 bg-card px-3 py-2 text-sm">Los Angeles, CA</div>
-          </div>
-
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-3">Category</p>
-            <div className="space-y-0.5">
-              {activeCategories.map((c) => (
-                <Link
-                  key={c.slug}
-                  href={`/category/${c.slug}`}
-                  className="flex items-center justify-between rounded-sm px-2 py-1.5 text-[13px] text-ink transition hover:bg-muted"
-                >
-                  <span>{categoryName(c.slug)}</span>
-                  <span className="font-mono text-[10px] text-muted-foreground">{counts[c.slug]}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-3">Vendor</p>
-            <div className="space-y-0.5">
-              {vendors.map(([id, n]) => (
-                <a
-                  key={id}
-                  href={SOURCE_META[id].url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-sm px-2 py-1.5 text-[13px] text-ink/75 transition hover:bg-muted hover:text-ink"
-                >
-                  <span className="truncate">{SOURCE_META[id].name}</span>
-                  <span className="ml-2 shrink-0 font-mono text-[10px] text-muted-foreground">{n}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </aside>
-
-        {/* Grid */}
-        <div className="flex-1">
-          <div className="mb-6 flex items-center justify-between">
-            <p className="font-mono text-xs text-muted-foreground">
-              Featured — {catalog.length.toLocaleString()} items across {vendorCounts.size} vendors
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
-            {featured.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* Browse — dynamic sidebar filters + grid */}
+      <BrowseGrid
+        categories={categories}
+        vendors={vendors}
+        initialItems={featured}
+        totalCatalog={catalog.length}
+        vendorCount={vendorCounts.size}
+      />
     </>
   );
 }
