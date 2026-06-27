@@ -4,62 +4,98 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { ItemCard } from '@/components/item-card';
 import { SearchBar } from '@/components/search-bar';
-import type { SearchResponse } from '@/lib/types';
+import type { SearchMatch, SearchResponse } from '@/lib/types';
+
+type KeywordResponse = { query: string; matches: SearchMatch[]; total: number };
+
+type State =
+  | { status: 'idle' }
+  | { status: 'loading'; kind: 'keyword' | 'ai' }
+  | { status: 'keyword'; data: KeywordResponse }
+  | { status: 'ai'; data: SearchResponse }
+  | { status: 'error'; message: string };
 
 function SearchInner() {
   const params = useSearchParams();
   const initialQ = params.get('q') ?? '';
-  const [state, setState] = useState<
-    | { status: 'idle' }
-    | { status: 'loading' }
-    | { status: 'ok'; data: SearchResponse }
-    | { status: 'error'; message: string }
-  >({ status: 'idle' });
+  const wantsAI = params.get('ai') === '1';
+  const [query, setQuery] = useState(initialQ);
+  const [state, setState] = useState<State>({ status: 'idle' });
 
-  const runText = useCallback((q: string, mode: string) => {
+  // Fast, free, literal: returns items whose metadata matches the words typed.
+  const runKeyword = useCallback((q: string) => {
     if (!q) {
       setState({ status: 'idle' });
       return;
     }
-    setState({ status: 'loading' });
+    setQuery(q);
+    setState({ status: 'loading', kind: 'keyword' });
+    fetch(`/api/keyword?q=${encodeURIComponent(q)}`)
+      .then(async (r) => {
+        const data = (await r.json()) as KeywordResponse;
+        if (!r.ok) setState({ status: 'error', message: `HTTP ${r.status}` });
+        else setState({ status: 'keyword', data });
+      })
+      .catch((e: unknown) => setState({ status: 'error', message: (e as Error).message }));
+  }, []);
+
+  // AI curation of the same query: interprets intent and suggests a whole set.
+  const runAI = useCallback((q: string) => {
+    if (!q) return;
+    setQuery(q);
+    setState({ status: 'loading', kind: 'ai' });
     fetch('/api/search', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ query: q, mode }),
+      body: JSON.stringify({ query: q, mode: 'text' }),
     })
       .then(async (r) => {
         const data = (await r.json()) as SearchResponse;
         if (!r.ok || data.error) setState({ status: 'error', message: data.error || `HTTP ${r.status}` });
-        else setState({ status: 'ok', data });
+        else setState({ status: 'ai', data });
       })
       .catch((e: unknown) => setState({ status: 'error', message: (e as Error).message }));
   }, []);
 
   const runMultipart = useCallback((form: FormData) => {
-    setState({ status: 'loading' });
+    const q = form.get('query');
+    if (typeof q === 'string') setQuery(q);
+    setState({ status: 'loading', kind: 'ai' });
     fetch('/api/search', { method: 'POST', body: form })
       .then(async (r) => {
         const data = (await r.json()) as SearchResponse;
         if (!r.ok || data.error) setState({ status: 'error', message: data.error || `HTTP ${r.status}` });
-        else setState({ status: 'ok', data });
+        else setState({ status: 'ai', data });
       })
       .catch((e: unknown) => setState({ status: 'error', message: (e as Error).message }));
   }, []);
 
-  // Initial run from URL query
+  // Initial run from URL query → keyword (fast default) or AI when ?ai=1.
   useEffect(() => {
-    runText(initialQ, params.get('mode') ?? 'text');
-  }, [initialQ, params, runText]);
+    if (!initialQ) {
+      setState({ status: 'idle' });
+      return;
+    }
+    if (wantsAI) runAI(initialQ);
+    else runKeyword(initialQ);
+  }, [initialQ, wantsAI, runKeyword, runAI]);
 
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <h1 className="font-display text-4xl">AI Search</h1>
-        <SearchBar initial={initialQ} large onSubmitMultipart={runMultipart} />
+        <h1 className="font-display text-4xl">Search</h1>
+        <SearchBar
+          initial={initialQ}
+          large
+          initialEngine={wantsAI ? 'ai' : 'keyword'}
+          onSubmitMultipart={runMultipart}
+        />
       </div>
 
       {state.status === 'loading' && (
-        <p className="font-sans text-ink/60">Thinking through the catalog…</p>
+        <p className="font-sans text-ink/60">
+          {state.kind === 'ai' ? 'Thinking through the catalog…' : 'Searching…'}
+        </p>
       )}
       {state.status === 'error' && (
         <div className="border border-red-400 bg-red-50 p-4 font-sans text-sm">
@@ -72,8 +108,50 @@ function SearchInner() {
           )}
         </div>
       )}
-      {state.status === 'ok' && <Results data={state.data} />}
+      {state.status === 'keyword' && (
+        <KeywordResults data={state.data} onAskAI={() => runAI(query)} />
+      )}
+      {state.status === 'ai' && <Results data={state.data} />}
     </div>
+  );
+}
+
+function KeywordResults({ data, onAskAI }: { data: KeywordResponse; onAskAI: () => void }) {
+  const { matches, total, query } = data;
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-ink/15 pb-3">
+        <p className="font-sans text-sm text-ink/60">
+          {total === 0 ? (
+            <>No metadata matches for “{query}”.</>
+          ) : (
+            <>
+              <span className="text-ink">{total}</span> match{total === 1 ? '' : 'es'} for “{query}”
+            </>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={onAskAI}
+          className="font-sans text-xs uppercase tracking-widest px-4 py-2 border border-ink/30 hover:bg-ink hover:text-paper transition"
+          title="Let AI interpret your query and curate a fuller set"
+        >
+          {total === 0 ? 'Try Ask AI →' : 'Ask AI to curate →'}
+        </button>
+      </div>
+
+      {matches.length === 0 ? (
+        <p className="font-sans text-ink/60">
+          Nothing matched those words directly. Ask AI to interpret the brief instead.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {matches.map((m) => (
+            <ItemCard key={m.item.id} item={m.item} matchedVia={m.matchedVia} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
