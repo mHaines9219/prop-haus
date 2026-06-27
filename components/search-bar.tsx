@@ -20,14 +20,20 @@ const MODE_HINT: Record<SearchMode, string> = {
 };
 
 const MODE_STORAGE_KEY = 'prophaus.searchMode';
+const ENGINE_STORAGE_KEY = 'prophaus.searchEngine';
+
+type Engine = 'keyword' | 'ai';
 
 export function SearchBar({
   initial = '',
   large = false,
+  initialEngine,
   onSubmitMultipart,
 }: {
   initial?: string;
   large?: boolean;
+  /** Reflect the active engine when landing on a results page (?ai=1 → 'ai'). */
+  initialEngine?: Engine;
   /**
    * If provided, the bar submits FormData here instead of navigating to /search?q=.
    * The search page passes this so it can drive its own state from the same input.
@@ -38,6 +44,7 @@ export function SearchBar({
   const [value, setValue] = useState(initial);
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [mode, setMode] = useState<SearchMode>('haiku');
+  const [engine, setEngine] = useState<Engine>(initialEngine ?? 'keyword');
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,6 +52,16 @@ export function SearchBar({
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem(MODE_STORAGE_KEY) : null;
     if (saved && (SEARCH_MODES as readonly string[]).includes(saved)) setMode(saved as SearchMode);
   }, []);
+
+  useEffect(() => {
+    if (initialEngine) return; // explicit prop wins over saved preference
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(ENGINE_STORAGE_KEY) : null;
+    if (saved === 'keyword' || saved === 'ai') setEngine(saved);
+  }, [initialEngine]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(ENGINE_STORAGE_KEY, engine);
+  }, [engine]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(MODE_STORAGE_KEY, mode);
@@ -90,7 +107,8 @@ export function SearchBar({
     const q = value.trim();
     if (!q && files.length === 0) return;
 
-    if (onSubmitMultipart || files.length > 0) {
+    // Moodboard files → AI/vision search.
+    if (files.length > 0) {
       const fd = new FormData();
       if (q) fd.append('query', q);
       fd.append('mode', mode);
@@ -99,14 +117,21 @@ export function SearchBar({
         onSubmitMultipart(fd);
         return;
       }
-      // Fallback: navigate to /search with the query and let the page repost.
-      // (Files can't survive a route change without state.) — push and submit there.
+      // Files can't survive a route change without state; fall back to the query.
       router.push(`/search?q=${encodeURIComponent(q)}&mode=${mode}`);
       return;
     }
 
-    router.push(`/search?q=${encodeURIComponent(q)}&mode=${mode}`);
+    // Text-only → engine decides: instant keyword/metadata vs AI curation.
+    if (engine === 'ai') {
+      router.push(`/search?q=${encodeURIComponent(q)}&ai=1`);
+    } else {
+      router.push(`/search?q=${encodeURIComponent(q)}`);
+    }
   }
+
+  const hasFiles = files.length > 0;
+  const aiActive = hasFiles || engine === 'ai';
 
   return (
     <form onSubmit={handleSubmit} className={large ? 'w-full max-w-2xl mx-auto' : 'w-full max-w-md'}>
@@ -145,15 +170,15 @@ export function SearchBar({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={
-            files.length > 0
+            hasFiles
               ? 'Add a brief (optional)…'
               : large
-                ? 'Try: a brown velvet couch for a 70s scene — or drop a moodboard'
+                ? 'Search: couch · blue couch · mid century · or drop a moodboard for AI'
                 : 'Search props…'
           }
           className={`flex-1 bg-transparent outline-none px-3 ${large ? 'py-4 text-lg' : 'py-2 text-sm'} font-sans`}
         />
-        {large && (
+        {large && hasFiles && (
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as SearchMode)}
@@ -171,11 +196,49 @@ export function SearchBar({
           type="submit"
           className={`font-sans uppercase tracking-widest ${large ? 'px-6 text-sm' : 'px-4 text-xs'} bg-ink text-paper hover:bg-accent transition`}
         >
-          Ask AI
+          {aiActive ? 'Ask AI' : 'Search'}
         </button>
       </div>
 
-      {large && (
+      {large && !hasFiles && (
+        <div className="mt-2 flex items-center gap-3 pl-1">
+          <div
+            role="radiogroup"
+            aria-label="Search engine"
+            className="inline-flex border border-ink/20 bg-paper"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={engine === 'keyword'}
+              onClick={() => setEngine('keyword')}
+              className={`font-sans text-[10px] uppercase tracking-widest px-3 py-1 transition ${
+                engine === 'keyword' ? 'bg-ink text-paper' : 'text-ink/60 hover:text-ink'
+              }`}
+            >
+              Keyword
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={engine === 'ai'}
+              onClick={() => setEngine('ai')}
+              className={`font-sans text-[10px] uppercase tracking-widest px-3 py-1 transition border-l border-ink/20 ${
+                engine === 'ai' ? 'bg-ink text-paper' : 'text-ink/60 hover:text-ink'
+              }`}
+            >
+              Ask AI
+            </button>
+          </div>
+          <p className="font-sans text-[10px] uppercase tracking-widest text-ink/40">
+            {engine === 'ai'
+              ? 'interprets your brief · curates a set'
+              : 'exact metadata matches · instant'}
+          </p>
+        </div>
+      )}
+
+      {large && hasFiles && (
         <p className="font-sans text-[10px] uppercase tracking-widest text-ink/40 mt-1.5 pl-1">
           {MODE_LABEL[mode]} — {MODE_HINT[mode]}
         </p>
