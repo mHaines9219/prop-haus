@@ -1,23 +1,25 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { postJson } from '@/lib/api';
 
 export function ApproveButton({ id }: { id: string }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
+  const approve = useMutation({
+    mutationFn: () => postJson(`/api/projects/${id}/approve`, {}),
+    onSuccess: () => {
+      router.push(`/projects/${id}`);
+      router.refresh();
+    },
+  });
   return (
     <button
-      onClick={async () => {
-        setPending(true);
-        await fetch(`/api/projects/${id}/approve`, { method: 'POST' });
-        router.push(`/projects/${id}`);
-        router.refresh();
-      }}
-      disabled={pending}
+      onClick={() => approve.mutate()}
+      disabled={approve.isPending}
       className="font-sans uppercase tracking-widest text-sm px-5 py-3 bg-ink text-paper hover:bg-accent transition disabled:opacity-50"
     >
-      {pending ? 'Approving…' : 'Approve & confirm'}
+      {approve.isPending ? 'Approving…' : 'Approve & confirm'}
     </button>
   );
 }
