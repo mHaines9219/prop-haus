@@ -1,30 +1,34 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { postJson } from '@/lib/api';
 import type { LineItem, LineStatus } from '@/lib/projects';
+
+type UpdateVars = { itemId: string; status: LineStatus; priceQuote?: number; subNote?: string };
 
 export function VendorResponseForm({ token, items }: { token: string; items: LineItem[] }) {
   const router = useRouter();
-  const [pending, setPending] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (vars: UpdateVars) => postJson(`/api/vendor/${token}`, vars),
+    onSuccess: () => router.refresh(),
+  });
 
-  async function update(item: LineItem, status: LineStatus, extra: { priceQuote?: number; subNote?: string } = {}) {
-    setPending(item.itemId);
-    await fetch(`/api/vendor/${token}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ itemId: item.itemId, status, ...extra }),
-    });
-    setPending(null);
-    router.refresh();
-  }
+  const update = (item: LineItem, status: LineStatus, extra: { priceQuote?: number; subNote?: string } = {}) =>
+    mutation.mutate({ itemId: item.itemId, status, ...extra });
 
   return (
     <section className="space-y-4">
       <h2 className="font-display text-2xl">Items requested</h2>
       <ul className="divide-y divide-ink/15 border-y border-ink/15">
         {items.map((item) => (
-          <ItemRow key={item.itemId} item={item} pending={pending === item.itemId} onUpdate={update} />
+          <ItemRow
+            key={item.itemId}
+            item={item}
+            pending={mutation.isPending && mutation.variables?.itemId === item.itemId}
+            onUpdate={update}
+          />
         ))}
       </ul>
       <p className="font-sans text-xs text-ink/60">

@@ -1,8 +1,10 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { postForm } from '@/lib/api';
 import { useProfile } from '@/lib/profile-store';
 import type { BusinessProfile, InsurancePolicy } from '@/lib/insurance';
 import type { Endorsement } from '@/lib/vendor-coi';
@@ -44,9 +46,17 @@ export default function InsuranceOnboardingPage() {
   ]);
   const [documentUrl, setDocumentUrl] = useState('');
 
-  const [parsing, setParsing] = useState(false);
-  const [parseError, setParseError] = useState<string | null>(null);
   const [parsedFields, setParsedFields] = useState<Set<string>>(new Set());
+
+  // Upload a COI and let the parser pre-fill whatever fields it recognizes.
+  const parseUpload = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return postForm<{ parsed: ParsedCoi }>('/api/insurance/parse', fd);
+    },
+    onSuccess: ({ parsed }) => setParsedFields(applyParsed(parsed)),
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -80,77 +90,31 @@ export default function InsuranceOnboardingPage() {
     setEndorsements((cur) => (cur.includes(e) ? cur.filter((x) => x !== e) : [...cur, e]));
   }
 
-  async function handleUpload(file: File) {
-    setParsing(true);
-    setParseError(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/insurance/parse', { method: 'POST', body: fd });
-      const data = (await res.json()) as { parsed?: ParsedCoi; error?: string };
-      if (!res.ok || !data.parsed) {
-        throw new Error(data.error ?? 'Parse failed');
+  // Apply each field the parser returned, recording which ones were filled so
+  // the UI can flag them. Presence rules differ by type (strings: truthy;
+  // numbers: non-null so 0 still applies; endorsements: non-empty).
+  function applyParsed(p: ParsedCoi): Set<string> {
+    const hits = new Set<string>();
+    const apply = <T,>(key: string, present: boolean, value: T, set: (v: T) => void) => {
+      if (present) {
+        set(value);
+        hits.add(key);
       }
-      const p = data.parsed;
-      const hits = new Set<string>();
-      if (p.companyName) {
-        setCompanyName(p.companyName);
-        hits.add('companyName');
-      }
-      if (p.address) {
-        setAddress(p.address);
-        hits.add('address');
-      }
-      if (p.carrier) {
-        setCarrier(p.carrier);
-        hits.add('carrier');
-      }
-      if (p.policyNumber) {
-        setPolicyNumber(p.policyNumber);
-        hits.add('policyNumber');
-      }
-      if (p.effectiveDate) {
-        setEffectiveDate(p.effectiveDate);
-        hits.add('effectiveDate');
-      }
-      if (p.expirationDate) {
-        setExpirationDate(p.expirationDate);
-        hits.add('expirationDate');
-      }
-      if (p.brokerName) {
-        setBrokerName(p.brokerName);
-        hits.add('brokerName');
-      }
-      if (p.brokerEmail) {
-        setBrokerEmail(p.brokerEmail);
-        hits.add('brokerEmail');
-      }
-      if (p.brokerPhone) {
-        setBrokerPhone(p.brokerPhone);
-        hits.add('brokerPhone');
-      }
-      if (p.glPerOccurrence !== null) {
-        setGlOcc(p.glPerOccurrence);
-        hits.add('glOcc');
-      }
-      if (p.glAggregate !== null) {
-        setGlAgg(p.glAggregate);
-        hits.add('glAgg');
-      }
-      if (p.autoLiability !== null) {
-        setAutoLiability(p.autoLiability);
-        hits.add('autoLiability');
-      }
-      if (p.endorsements.length > 0) {
-        setEndorsements(p.endorsements);
-        hits.add('endorsements');
-      }
-      setParsedFields(hits);
-    } catch (e) {
-      setParseError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setParsing(false);
-    }
+    };
+    apply('companyName', !!p.companyName, p.companyName!, setCompanyName);
+    apply('address', !!p.address, p.address!, setAddress);
+    apply('carrier', !!p.carrier, p.carrier!, setCarrier);
+    apply('policyNumber', !!p.policyNumber, p.policyNumber!, setPolicyNumber);
+    apply('effectiveDate', !!p.effectiveDate, p.effectiveDate!, setEffectiveDate);
+    apply('expirationDate', !!p.expirationDate, p.expirationDate!, setExpirationDate);
+    apply('brokerName', !!p.brokerName, p.brokerName!, setBrokerName);
+    apply('brokerEmail', !!p.brokerEmail, p.brokerEmail!, setBrokerEmail);
+    apply('brokerPhone', !!p.brokerPhone, p.brokerPhone!, setBrokerPhone);
+    apply('glOcc', p.glPerOccurrence !== null, p.glPerOccurrence!, setGlOcc);
+    apply('glAgg', p.glAggregate !== null, p.glAggregate!, setGlAgg);
+    apply('autoLiability', p.autoLiability !== null, p.autoLiability!, setAutoLiability);
+    apply('endorsements', p.endorsements.length > 0, p.endorsements, setEndorsements);
+    return hits;
   }
 
   function submit(e: React.FormEvent) {
@@ -204,18 +168,18 @@ export default function InsuranceOnboardingPage() {
           <input
             type="file"
             accept="application/pdf"
-            disabled={parsing}
+            disabled={parseUpload.isPending}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void handleUpload(f);
+              if (f) parseUpload.mutate(f);
             }}
             className="font-sans text-sm"
           />
-          {parsing && <span className="font-sans text-xs text-ink/60">Parsing…</span>}
+          {parseUpload.isPending && <span className="font-sans text-xs text-ink/60">Parsing…</span>}
         </div>
-        {parseError && (
+        {parseUpload.isError && (
           <p className="font-sans text-xs text-rose-800 bg-rose-50 border border-rose-200 p-2">
-            {parseError}
+            {parseUpload.error.message}
           </p>
         )}
       </section>

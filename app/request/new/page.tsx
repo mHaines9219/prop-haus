@@ -1,8 +1,10 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { postJson } from '@/lib/api';
 import { useCart } from '@/lib/cart-store';
 import { useProfile } from '@/lib/profile-store';
 import { SOURCE_META, type Source } from '@/lib/types';
@@ -15,7 +17,16 @@ export default function NewRequestPage() {
   const { lines, startDate, endDate, setDates, clear } = useCart();
   const { profile } = useProfile();
   const [mounted, setMounted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+
+  const submitProject = useMutation({
+    mutationFn: (body: CreateProjectInput) =>
+      postJson<{ id: string }>('/api/projects', body),
+    onSuccess: (data) => {
+      clear();
+      router.push(`/projects/${data.id}`);
+    },
+    onError: (e) => alert(e.message),
+  });
 
   const [productionName, setProductionName] = useState('');
   const [productionType, setProductionType] = useState('commercial');
@@ -55,14 +66,13 @@ export default function NewRequestPage() {
     return acc;
   }, {});
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!startDate || !endDate) {
       alert('Please set start and end dates');
       return;
     }
-    setSubmitting(true);
-    const body: CreateProjectInput = {
+    submitProject.mutate({
       productionName,
       productionType,
       startDate,
@@ -82,20 +92,7 @@ export default function NewRequestPage() {
         image: l.item.images[0],
         qty: l.qty,
       })),
-    };
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
     });
-    const data = (await res.json()) as { id?: string; error?: string };
-    if (!data.id) {
-      setSubmitting(false);
-      alert(data.error ?? 'Submission failed');
-      return;
-    }
-    clear();
-    router.push(`/projects/${data.id}`);
   }
 
   return (
@@ -264,10 +261,10 @@ export default function NewRequestPage() {
         </Link>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitProject.isPending}
           className="font-sans uppercase tracking-widest text-sm px-5 py-3 bg-ink text-paper hover:bg-accent transition disabled:opacity-50"
         >
-          {submitting ? 'Submitting…' : 'Submit request'}
+          {submitProject.isPending ? 'Submitting…' : 'Submit request'}
         </button>
       </div>
     </form>

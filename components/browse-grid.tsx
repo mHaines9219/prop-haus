@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { ItemCard } from '@/components/item-card';
+import { getJson } from '@/lib/api';
 import type { PropItem } from '@/lib/types';
 
 type CategoryOpt = { slug: string; name: string; count: number };
 type VendorOpt = { id: string; name: string; count: number };
+type BrowsePage = { items: PropItem[]; total: number };
 
 const PAGE = 24;
 
@@ -25,62 +28,39 @@ export function BrowseGrid({
   const [category, setCategory] = useState<string | null>(null);
   const [vendor, setVendor] = useState<string | null>(null);
 
-  const [items, setItems] = useState<PropItem[]>(initialItems);
-  const [total, setTotal] = useState(initialItems.length);
-  const [offset, setOffset] = useState(0);
-  const [loading, setLoading] = useState(false);
-
   const filterActive = category !== null || vendor !== null;
-  // Guards against out-of-order responses when filters change quickly.
-  const reqId = useRef(0);
 
-  const fetchPage = useCallback(
-    async (cat: string | null, ven: string | null, off: number, append: boolean) => {
-      const id = ++reqId.current;
-      setLoading(true);
+  // TanStack handles the offset paging, stale-request races (by query key), and
+  // loading flags that this component used to track by hand. Disabled entirely
+  // when no filter is active — we show the server-rendered featured set then.
+  const query = useInfiniteQuery({
+    queryKey: ['browse', category, vendor],
+    enabled: filterActive,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
-      if (cat) params.set('category', cat);
-      if (ven) params.set('vendor', ven);
-      params.set('offset', String(off));
+      if (category) params.set('category', category);
+      if (vendor) params.set('vendor', vendor);
+      params.set('offset', String(pageParam));
       params.set('limit', String(PAGE));
-      try {
-        const r = await fetch(`/api/browse?${params.toString()}`);
-        const data = (await r.json()) as { items: PropItem[]; total: number };
-        if (id !== reqId.current) return; // a newer request superseded this one
-        setTotal(data.total);
-        setItems((prev) => (append ? [...prev, ...data.items] : data.items));
-      } finally {
-        if (id === reqId.current) setLoading(false);
-      }
+      return getJson<BrowsePage>(`/api/browse?${params.toString()}`);
     },
-    [],
-  );
+    getNextPageParam: (_last, pages) => {
+      const loaded = pages.reduce((n, p) => n + p.items.length, 0);
+      const total = pages[0]?.total ?? 0;
+      return loaded < total ? loaded : undefined;
+    },
+  });
 
-  // Refetch whenever the active filters change.
-  const firstRun = useRef(true);
-  useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
-    setOffset(0);
-    if (!filterActive) {
-      // Back to the unfiltered default — restore the featured set.
-      reqId.current++;
-      setItems(initialItems);
-      setTotal(initialItems.length);
-      setLoading(false);
-      return;
-    }
-    fetchPage(category, vendor, 0, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, vendor]);
-
-  const loadMore = () => {
-    const next = offset + PAGE;
-    setOffset(next);
-    fetchPage(category, vendor, next, true);
-  };
+  const items = filterActive
+    ? (query.data?.pages.flatMap((p) => p.items) ?? [])
+    : initialItems;
+  const total = filterActive
+    ? (query.data?.pages[0]?.total ?? 0)
+    : initialItems.length;
+  const loading = filterActive && query.isFetching && !query.isFetchingNextPage;
+  const hasMore = filterActive && query.hasNextPage;
+  const loadMore = () => query.fetchNextPage();
 
   const toggleCategory = (slug: string) =>
     setCategory((c) => (c === slug ? null : slug));
@@ -96,8 +76,6 @@ export function BrowseGrid({
   const activeVendorName = vendor
     ? (vendors.find((v) => v.id === vendor)?.name ?? vendor)
     : null;
-
-  const hasMore = filterActive && items.length < total;
 
   return (
     <div className="flex gap-10 pt-10">
@@ -199,10 +177,10 @@ export function BrowseGrid({
                 <button
                   type="button"
                   onClick={loadMore}
-                  disabled={loading}
+                  disabled={query.isFetchingNextPage}
                   className="border border-ink/20 px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.15em] text-ink transition hover:bg-ink hover:text-paper disabled:opacity-50"
                 >
-                  {loading ? 'Loading…' : 'Load more'}
+                  {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
                 </button>
               </div>
             )}

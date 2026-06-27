@@ -1,84 +1,63 @@
 'use client';
 
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { ItemCard } from '@/components/item-card';
 import { SearchBar } from '@/components/search-bar';
+import { getJson, postForm, postJson } from '@/lib/api';
 import type { SearchMatch, SearchResponse } from '@/lib/types';
 
 type KeywordResponse = { query: string; matches: SearchMatch[]; total: number };
-
-type State =
-  | { status: 'idle' }
-  | { status: 'loading'; kind: 'keyword' | 'ai' }
-  | { status: 'keyword'; data: KeywordResponse }
-  | { status: 'ai'; data: SearchResponse }
-  | { status: 'error'; message: string };
 
 function SearchInner() {
   const params = useSearchParams();
   const initialQ = params.get('q') ?? '';
   const wantsAI = params.get('ai') === '1';
+
   const [query, setQuery] = useState(initialQ);
-  const [state, setState] = useState<State>({ status: 'idle' });
+  // Which engine's results to show. Keyword is a cacheable GET query; AI is an
+  // event-driven POST mutation (text body or multipart moodboard).
+  const [engine, setEngine] = useState<'keyword' | 'ai'>(wantsAI ? 'ai' : 'keyword');
 
-  // Fast, free, literal: returns items whose metadata matches the words typed.
-  const runKeyword = useCallback((q: string) => {
-    if (!q) {
-      setState({ status: 'idle' });
-      return;
-    }
-    setQuery(q);
-    setState({ status: 'loading', kind: 'keyword' });
-    fetch(`/api/keyword?q=${encodeURIComponent(q)}`)
-      .then(async (r) => {
-        const data = (await r.json()) as KeywordResponse;
-        if (!r.ok) setState({ status: 'error', message: `HTTP ${r.status}` });
-        else setState({ status: 'keyword', data });
-      })
-      .catch((e: unknown) => setState({ status: 'error', message: (e as Error).message }));
-  }, []);
+  const keyword = useQuery({
+    queryKey: ['keyword', query],
+    enabled: engine === 'keyword' && !!query,
+    queryFn: () => getJson<KeywordResponse>(`/api/keyword?q=${encodeURIComponent(query)}`),
+  });
 
-  // AI curation of the same query: interprets intent and suggests a whole set.
-  const runAI = useCallback((q: string) => {
+  const ai = useMutation({
+    mutationFn: (input: string | FormData) =>
+      typeof input === 'string'
+        ? postJson<SearchResponse>('/api/search', { query: input, mode: 'text' })
+        : postForm<SearchResponse>('/api/search', input),
+  });
+
+  const runAI = (q: string) => {
     if (!q) return;
     setQuery(q);
-    setState({ status: 'loading', kind: 'ai' });
-    fetch('/api/search', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ query: q, mode: 'text' }),
-    })
-      .then(async (r) => {
-        const data = (await r.json()) as SearchResponse;
-        if (!r.ok || data.error) setState({ status: 'error', message: data.error || `HTTP ${r.status}` });
-        else setState({ status: 'ai', data });
-      })
-      .catch((e: unknown) => setState({ status: 'error', message: (e as Error).message }));
-  }, []);
+    setEngine('ai');
+    ai.mutate(q);
+  };
 
-  const runMultipart = useCallback((form: FormData) => {
+  const runMultipart = (form: FormData) => {
     const q = form.get('query');
     if (typeof q === 'string') setQuery(q);
-    setState({ status: 'loading', kind: 'ai' });
-    fetch('/api/search', { method: 'POST', body: form })
-      .then(async (r) => {
-        const data = (await r.json()) as SearchResponse;
-        if (!r.ok || data.error) setState({ status: 'error', message: data.error || `HTTP ${r.status}` });
-        else setState({ status: 'ai', data });
-      })
-      .catch((e: unknown) => setState({ status: 'error', message: (e as Error).message }));
-  }, []);
+    setEngine('ai');
+    ai.mutate(form);
+  };
 
-  // Initial run from URL query → keyword (fast default) or AI when ?ai=1.
+  // Initial run from the URL: AI when ?ai=1, otherwise the keyword query fires
+  // automatically via `enabled`. Guarded so it only happens once on mount.
+  const didInit = useRef(false);
   useEffect(() => {
-    if (!initialQ) {
-      setState({ status: 'idle' });
-      return;
-    }
-    if (wantsAI) runAI(initialQ);
-    else runKeyword(initialQ);
-  }, [initialQ, wantsAI, runKeyword, runAI]);
+    if (didInit.current) return;
+    didInit.current = true;
+    if (initialQ && wantsAI) ai.mutate(initialQ);
+  }, [initialQ, wantsAI, ai]);
+
+  const loading = engine === 'ai' ? ai.isPending : keyword.isFetching;
+  const error = engine === 'ai' ? ai.error : keyword.error;
 
   return (
     <div className="space-y-8">
@@ -92,26 +71,26 @@ function SearchInner() {
         />
       </div>
 
-      {state.status === 'loading' && (
+      {loading && (
         <p className="font-sans text-ink/60">
-          {state.kind === 'ai' ? 'Thinking through the catalog…' : 'Searching…'}
+          {engine === 'ai' ? 'Thinking through the catalog…' : 'Searching…'}
         </p>
       )}
-      {state.status === 'error' && (
+      {error && (
         <div className="border border-red-400 bg-red-50 p-4 font-sans text-sm">
           <p className="font-semibold">Search failed</p>
-          <p className="text-ink/70 mt-1">{state.message}</p>
-          {state.message.includes('OPENROUTER_API_KEY') && (
+          <p className="text-ink/70 mt-1">{error.message}</p>
+          {error.message.includes('OPENROUTER_API_KEY') && (
             <p className="text-ink/70 mt-2">
               Copy <code>.env.local.example</code> → <code>.env.local</code>, paste your OpenRouter key, then restart the dev server.
             </p>
           )}
         </div>
       )}
-      {state.status === 'keyword' && (
-        <KeywordResults data={state.data} onAskAI={() => runAI(query)} />
+      {engine === 'keyword' && !loading && !error && keyword.data && (
+        <KeywordResults data={keyword.data} onAskAI={() => runAI(query)} />
       )}
-      {state.status === 'ai' && <Results data={state.data} />}
+      {engine === 'ai' && !loading && !error && ai.data && <Results data={ai.data} />}
     </div>
   );
 }

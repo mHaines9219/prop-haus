@@ -1,8 +1,10 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
+import { postJson } from '@/lib/api';
 import type { CoiStatus, VendorRequest } from '@/lib/projects';
 import type { BusinessProfile } from '@/lib/insurance';
 import { buildBrokerCertEmail } from '@/lib/insurance';
@@ -26,21 +28,23 @@ export function CoiVendorPanel({
   endDate: string;
 }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
   const [certUrl, setCertUrl] = useState(vendor.coi.certUrl ?? '');
   const req = VENDOR_COI[vendor.vendor];
   const meta = SOURCE_META[vendor.vendor];
 
-  async function setStatus(status: CoiStatus, extraCertUrl?: string) {
-    setPending(true);
-    await fetch(`/api/projects/${projectId}/coi`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ vendor: vendor.vendor, status, certUrl: extraCertUrl }),
-    });
-    setPending(false);
-    router.refresh();
-  }
+  const mutation = useMutation({
+    mutationFn: (vars: { status: CoiStatus; certUrl?: string }) =>
+      postJson(`/api/projects/${projectId}/coi`, {
+        vendor: vendor.vendor,
+        status: vars.status,
+        certUrl: vars.certUrl,
+      }),
+    onSuccess: () => router.refresh(),
+  });
+  const pending = mutation.isPending;
+
+  const setStatus = (status: CoiStatus, extraCertUrl?: string) =>
+    mutation.mutate({ status, certUrl: extraCertUrl });
 
   const mailto = insured?.policy
     ? (() => {
