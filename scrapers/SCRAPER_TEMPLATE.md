@@ -4,7 +4,7 @@ Each vendor scraper lives at `scrapers/{sourceId}.ts` and emits `data/{sourceId}
 
 ## Source IDs (must match `lib/types.ts` SOURCES)
 
-`gilandroy, hpr, platinum, omega, artdimensions, ec, heritage, formdecor, historyforhire, propheaven, target, rcvintage, universal, propserviceswest, pina, warnerbros, objects, alleycats, alpha, depict33, iss, premiere, shagcarpet`
+`gilandroy, hpr, platinum, omega, artdimensions, ec, heritage, historyforhire, propheaven, target, rcvintage, universal, propserviceswest, pina, warnerbros, objects, alleycats, alpha, depict33, iss, premiere`
 
 ## Skeleton
 

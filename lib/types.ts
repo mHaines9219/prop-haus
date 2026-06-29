@@ -8,7 +8,6 @@ export const SOURCES = [
   'artdimensions',
   'ec',
   'heritage',
-  'formdecor',
   'historyforhire',
   'propheaven',
   'target',
@@ -23,7 +22,6 @@ export const SOURCES = [
   'depict33',
   'iss',
   'premiere',
-  'shagcarpet',
 ] as const;
 export type Source = (typeof SOURCES)[number];
 
@@ -35,7 +33,6 @@ export const SOURCE_META: Record<Source, { name: string; url: string }> = {
   artdimensions: { name: 'Art Dimensions Inc.', url: 'https://www.theacme.com/directory/art-dimensions-inc' },
   ec: { name: 'EC Props', url: 'https://ecprops.com' },
   heritage: { name: 'Heritage Props LA', url: 'https://heritagepropsla.com' },
-  formdecor: { name: 'FormDecor', url: 'https://formdecor.com' },
   historyforhire: { name: 'History For Hire', url: 'https://www.historyforhire.com' },
   propheaven: { name: 'Prop Heaven', url: 'https://www.propheaven.com' },
   target: { name: 'Target Props', url: 'https://targetprops.com' },
@@ -50,7 +47,6 @@ export const SOURCE_META: Record<Source, { name: string; url: string }> = {
   depict33: { name: 'Depict 33', url: 'http://www.depict33.com' },
   iss: { name: 'ISS Props', url: 'https://props.issprops.com' },
   premiere: { name: 'Premiere Props', url: 'https://www.premiereprops.net' },
-  shagcarpet: { name: 'Shag Carpet Props', url: 'https://www.shagcarpetprops.com' },
 };
 
 export const Dimensions = z.object({
@@ -66,6 +62,17 @@ export const VendorRef = z.object({
   city: z.literal('LA'),
   sourceUrl: z.string().url(),
 });
+
+// Rental price as published on the vendor's site. Present only for vendors that
+// publish rates (e.g. WooCommerce rental shops); quote-only houses leave this
+// undefined, which the app treats as "request a quote". `unit` is the rental
+// period when the site states it — often unspecified, so it stays optional.
+export const Price = z.object({
+  amount: z.number().positive(),
+  currency: z.string().default('USD'),
+  unit: z.enum(['day', 'week', 'month', 'event', 'purchase']).optional(),
+});
+export type Price = z.infer<typeof Price>;
 
 export const PropItem = z.object({
   id: z.string(),
@@ -89,6 +96,7 @@ export const PropItem = z.object({
   tags: z.array(z.string()).optional(),
 
   dimensions: Dimensions.optional(),
+  price: Price.optional(),
 
   vendor: VendorRef,
   images: z.array(z.string().url()),

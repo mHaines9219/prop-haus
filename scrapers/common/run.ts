@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { PropItem, type Source } from '../../lib/types';
+import { PropItem, type Price, type Source } from '../../lib/types';
 import { mapToUnifiedCategory } from '../../lib/categories';
 import { vendorRef } from '../../lib/vendors';
 
@@ -13,6 +13,7 @@ export type RawItem = {
   sourceUrl: string;
   description?: string;
   dimensions?: { width?: number; depth?: number; height?: number };
+  price?: Price;
 };
 
 export function normalize(raw: RawItem) {
@@ -26,6 +27,7 @@ export function normalize(raw: RawItem) {
     subcategory: raw.sourceCategoryPath[raw.sourceCategoryPath.length - 1],
     sourceCategoryPath: raw.sourceCategoryPath,
     dimensions: raw.dimensions ? { ...raw.dimensions, unit: 'in' as const } : undefined,
+    price: raw.price,
     vendor: vendorRef(raw.source),
     images: raw.images.filter((u) => /^https?:\/\//.test(u)),
     sourceUrl: raw.sourceUrl,

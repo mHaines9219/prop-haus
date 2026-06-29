@@ -1,5 +1,6 @@
 import { fetchHtml, parseLimitArg } from './common/fetch';
 import { normalize, writeSource, type RawItem } from './common/run';
+import { priceFromShopifyVariants } from './common/price';
 
 const SOURCE = 'gilandroy' as const;
 const BASE = 'https://www.gilandroyprops.tv';
@@ -14,6 +15,7 @@ type ShopifyProduct = {
   product_type?: string;
   tags?: string[];
   images: Array<{ src: string }>;
+  variants?: Array<{ price?: string }>;
 };
 
 async function fetchAllProducts(): Promise<ShopifyProduct[]> {
@@ -71,6 +73,7 @@ function toRawItem(p: ShopifyProduct): RawItem | null {
     sourceUrl: `${BASE}/products/${p.handle}`,
     description: desc,
     dimensions: dims,
+    price: priceFromShopifyVariants(p.variants),
   };
 }
 

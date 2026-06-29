@@ -1,5 +1,6 @@
 import { fetchHtml, parseLimitArg } from './common/fetch';
 import { normalize, writeSource, type RawItem } from './common/run';
+import { priceFromShopifyVariants } from './common/price';
 
 const SOURCE = 'heritage' as const;
 const BASE = 'https://heritagepropsla.com';
@@ -13,6 +14,7 @@ type ShopifyProduct = {
   product_type?: string;
   tags?: string[];
   images: ShopifyImage[];
+  variants?: Array<{ price?: string }>;
 };
 
 async function fetchCollections(): Promise<Array<{ handle: string; title: string }>> {
@@ -112,6 +114,7 @@ async function main() {
       images,
       sourceUrl: `${BASE}/products/${product.handle}`,
       description: stripHtml(product.body_html),
+      price: priceFromShopifyVariants(product.variants),
     };
     try {
       items.push(normalize(raw));

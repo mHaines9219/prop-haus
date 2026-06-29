@@ -25,6 +25,17 @@ For the catalog and search to work end-to-end you also need to regenerate the da
 pnpm scrape:merge                  # rebuild data/catalog.json from per-vendor files
 pnpm enrich --limit 1000           # AI tag style/era/materials/colors/vibes (sample)
 pnpm embed                         # build data/embeddings.f32 for vector search
+pnpm db:load                       # load catalog + embeddings into Postgres (catalog schema)
+```
+
+`db:load` reads `data/catalog.json` + the embeddings and bulk-loads them into the
+isolated `catalog` schema via staging + atomic swap (migration
+`20260627190000_catalog_inventory`). It connects as the scoped `catalog_writer`
+role — set `CATALOG_DATABASE_URL` to that role's connection string (never the
+service role):
+
+```bash
+CATALOG_DATABASE_URL=postgresql://catalog_writer:<password>@db.<ref>.supabase.co:5432/postgres pnpm db:load
 ```
 
 ## AI search modes
