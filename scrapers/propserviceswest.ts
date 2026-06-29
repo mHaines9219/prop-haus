@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { fetchHtml, parseLimitArg } from './common/fetch';
 import { normalize, writeSource, type RawItem } from './common/run';
+import { extractPrice } from './common/price';
 
 const SOURCE = 'propserviceswest' as const;
 const BASE = 'https://propserviceswest.com';
@@ -82,6 +83,7 @@ async function parseItem(url: string): Promise<RawItem | null> {
     images: Array.from(images),
     sourceUrl: url,
     description,
+    price: extractPrice($),
   };
 }
 

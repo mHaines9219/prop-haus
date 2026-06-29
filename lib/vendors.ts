@@ -23,7 +23,6 @@ export const VENDORS: Record<Source, Vendor> = {
   artdimensions: { id: 'artdimensions', name: SOURCE_META.artdimensions.name, city: 'LA', website: SOURCE_META.artdimensions.url, tier: 'hard', coiStatus: 'unknown', notes: 'Theacme directory listing only — likely manual seed.' },
   ec: { id: 'ec', name: SOURCE_META.ec.name, city: 'LA', website: SOURCE_META.ec.url, tier: 'easy', coiStatus: 'unknown' },
   heritage: { id: 'heritage', name: SOURCE_META.heritage.name, city: 'LA', website: SOURCE_META.heritage.url, tier: 'easy', coiStatus: 'unknown' },
-  formdecor: { id: 'formdecor', name: SOURCE_META.formdecor.name, city: 'LA', website: SOURCE_META.formdecor.url, tier: 'easy', coiStatus: 'unknown', notes: 'Furniture-focused; 20th C. designer.' },
   historyforhire: { id: 'historyforhire', name: SOURCE_META.historyforhire.name, city: 'LA', website: SOURCE_META.historyforhire.url, tier: 'hard', coiStatus: 'unknown', notes: '403 on automated fetch; needs browser automation.' },
   propheaven: { id: 'propheaven', name: SOURCE_META.propheaven.name, city: 'LA', website: SOURCE_META.propheaven.url, tier: 'easy', coiStatus: 'unknown' },
   target: { id: 'target', name: SOURCE_META.target.name, city: 'LA', website: SOURCE_META.target.url, tier: 'medium', coiStatus: 'unknown', notes: 'Registration required; futuristic + rigged props.' },
@@ -38,7 +37,6 @@ export const VENDORS: Record<Source, Vendor> = {
   depict33: { id: 'depict33', name: SOURCE_META.depict33.name, city: 'LA', website: SOURCE_META.depict33.url, tier: 'easy', coiStatus: 'unknown' },
   iss: { id: 'iss', name: SOURCE_META.iss.name, city: 'LA', website: SOURCE_META.iss.url, tier: 'medium', coiStatus: 'unknown' },
   premiere: { id: 'premiere', name: SOURCE_META.premiere.name, city: 'LA', website: SOURCE_META.premiere.url, tier: 'easy', coiStatus: 'unknown' },
-  shagcarpet: { id: 'shagcarpet', name: SOURCE_META.shagcarpet.name, city: 'LA', website: SOURCE_META.shagcarpet.url, tier: 'easy', coiStatus: 'unknown', notes: 'Multi-era, decade-themed.' },
 };
 
 export function vendorRef(id: Source) {

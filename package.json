@@ -10,7 +10,8 @@
     "lint": "next lint",
     "scrape:merge": "tsx scrapers/merge.ts",
     "enrich": "tsx scripts/enrich.ts",
-    "embed": "tsx scripts/embed.ts"
+    "embed": "tsx scripts/embed.ts",
+    "db:load": "tsx scripts/load-catalog.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
@@ -19,6 +20,7 @@
     "next": "^15.1.0",
     "openai": "^6.41.0",
     "p-limit": "^6.1.0",
+    "pg": "^8.13.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.23.8",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",

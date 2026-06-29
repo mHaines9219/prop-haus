@@ -1,5 +1,6 @@
 import { fetchHtml, parseLimitArg } from './common/fetch';
 import { normalize, writeSource, type RawItem } from './common/run';
+import { priceFromShopifyVariants } from './common/price';
 
 const SOURCE = 'platinum' as const;
 const BASE = 'https://platinumprophouse.com';
@@ -13,6 +14,7 @@ type ShopifyProduct = {
   product_type?: string;
   tags?: string[];
   images: ShopifyImage[];
+  variants?: Array<{ price?: string }>;
 };
 
 function stripHtml(s?: string) {
@@ -59,6 +61,7 @@ async function main() {
         images,
         sourceUrl: `${BASE}/products/${p.handle}`,
         description: stripHtml(p.body_html),
+        price: priceFromShopifyVariants(p.variants),
       };
       try {
         items.push(normalize(raw));

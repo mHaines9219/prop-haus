@@ -188,6 +188,7 @@ function parseArgs() {
     source: get('--source') as Source | undefined,
     limit: get('--limit') ? Number(get('--limit')) : undefined,
     file: get('--file'),
+    all: argv.includes('--all'),
   };
 }
 
@@ -206,8 +207,14 @@ async function main() {
   console.log(`Reading ${file}`);
   const raw = await fs.readFile(file, 'utf8');
   const items = Catalog.parse(JSON.parse(raw));
-  const targets = args.limit ? items.slice(0, args.limit) : items;
-  console.log(`Enriching ${targets.length} items with ${MODEL} (concurrency ${CONCURRENCY})`);
+  // Incremental resume: skip items already enriched (have any AI-tag field).
+  // Pass --all to force re-enrichment of everything.
+  const isEnriched = (i: PropItem) =>
+    !!(i.style?.length || i.vibes?.length || i.tags?.length || i.materials?.length ||
+       i.colors?.length || i.settingType?.length || i.genreFit?.length || i.era);
+  const pending = args.all ? items : items.filter((i) => !isEnriched(i));
+  const targets = args.limit ? pending.slice(0, args.limit) : pending;
+  console.log(`Enriching ${targets.length} of ${items.length} items with ${MODEL} (concurrency ${CONCURRENCY})`);
 
   const system = buildSystemPrompt();
   const limit = pLimit(CONCURRENCY);
