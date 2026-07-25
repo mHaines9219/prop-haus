@@ -108,6 +108,16 @@ export type PropItem = z.infer<typeof PropItem>;
 export const Catalog = z.array(PropItem);
 export type Catalog = z.infer<typeof Catalog>;
 
+// Minimal shape the grid/cards actually render. List endpoints project full
+// PropItems down to this so list payloads ship ~a tenth of the bytes — no
+// enrichment arrays, description, dimensions, price, vendor blob, or the extra
+// image URLs. PropItem is structurally assignable to CardItem, so anything that
+// already holds a full item can be passed straight to an <ItemCard>.
+export type CardItem = Pick<
+  PropItem,
+  'id' | 'source' | 'sourceId' | 'name' | 'subcategory' | 'images'
+>;
+
 // ---------- Multimodal Ask AI ----------
 
 export const SEARCH_MODES = ['text', 'haiku', 'sonnet', 'haiku-then-sonnet'] as const;

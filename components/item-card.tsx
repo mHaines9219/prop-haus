@@ -2,14 +2,14 @@ import { ClickableCard } from '@astryxdesign/core/ClickableCard';
 import { AspectRatio } from '@astryxdesign/core/AspectRatio';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Text } from '@astryxdesign/core/Text';
-import type { PropItem } from '@/lib/types';
+import type { CardItem } from '@/lib/types';
 import { SOURCE_META } from '@/lib/types';
 
 export function ItemCard({
   item,
   matchedVia,
 }: {
-  item: PropItem;
+  item: CardItem;
   matchedVia?: string[];
 }) {
   const img = item.images[0];
