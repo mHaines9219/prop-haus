@@ -1,4 +1,7 @@
-import Link from 'next/link';
+import { ClickableCard } from '@astryxdesign/core/ClickableCard';
+import { AspectRatio } from '@astryxdesign/core/AspectRatio';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Text } from '@astryxdesign/core/Text';
 import type { PropItem } from '@/lib/types';
 import { SOURCE_META } from '@/lib/types';
 
@@ -11,49 +14,50 @@ export function ItemCard({
 }) {
   const img = item.images[0];
   return (
-    <Link
+    <ClickableCard
       href={`/item/${item.source}/${encodeURIComponent(item.sourceId)}`}
-      className="group block"
+      label={item.name}
+      padding={0}
     >
-      <div className="aspect-[4/5] bg-ink/5 overflow-hidden relative">
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={img}
-            alt={item.name}
-            loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full grid place-items-center text-ink/30 font-sans text-xs">
-            No image
-          </div>
-        )}
-        <span className="absolute top-2 left-2 font-sans text-[10px] uppercase tracking-widest px-2 py-0.5 bg-paper/90 border border-ink/20">
-          {SOURCE_META[item.source].name}
+      <div className="relative overflow-hidden">
+        <AspectRatio ratio={4 / 5} fit="cover">
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={img}
+              alt={item.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+            />
+          ) : (
+            <span className="grid h-full w-full place-items-center">
+              <Text type="supporting" color="placeholder">
+                No image
+              </Text>
+            </span>
+          )}
+        </AspectRatio>
+        <span className="absolute left-2 top-2">
+          <Badge label={SOURCE_META[item.source].name} />
         </span>
         {matchedVia && matchedVia.length > 0 && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+          <span className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
             {matchedVia.slice(0, 3).map((tag, i) => (
-              <span
-                key={i}
-                className="font-sans text-[10px] uppercase tracking-widest px-2 py-0.5 bg-accent/90 text-paper truncate max-w-full"
-                title={tag}
-              >
-                {tag}
-              </span>
+              <Badge key={i} label={tag} variant="blue" />
             ))}
-          </div>
+          </span>
         )}
       </div>
-      <div className="mt-2">
-        <p className="font-display text-base leading-tight line-clamp-2">{item.name}</p>
+      <div className="p-3">
+        <Text weight="medium" maxLines={2}>
+          {item.name}
+        </Text>
         {item.subcategory && (
-          <p className="font-sans text-[10px] uppercase tracking-widest text-ink/50 mt-0.5">
+          <Text type="supporting" color="secondary">
             {item.subcategory}
-          </p>
+          </Text>
         )}
       </div>
-    </Link>
+    </ClickableCard>
   );
 }

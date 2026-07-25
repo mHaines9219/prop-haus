@@ -1,7 +1,17 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { Link } from '@astryxdesign/core/Link';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { List, ListItem } from '@astryxdesign/core/List';
+import { Item } from '@astryxdesign/core/Item';
+import { DateInput } from '@astryxdesign/core/DateInput';
+import type { ISODateString } from '@astryxdesign/core/Calendar';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { useCart } from '@/lib/cart-store';
 import { useProfile } from '@/lib/profile-store';
 import { checkCompatibility } from '@/lib/insurance';
@@ -9,6 +19,7 @@ import { SOURCE_META, type Source } from '@/lib/types';
 import { CoiBadge } from '@/components/coi-badge';
 
 export default function CartPage() {
+  const router = useRouter();
   const { lines, remove, setQty, startDate, endDate, setDates, clear } = useCart();
   const { profile } = useProfile();
   const [mounted, setMounted] = useState(false);
@@ -22,155 +33,135 @@ export default function CartPage() {
   }));
   const hasGap = compat.some((c) => c.result.status === 'gap');
 
-  if (!mounted) return <p className="font-sans text-ink/60">Loading…</p>;
+  if (!mounted) return <Text color="secondary">Loading…</Text>;
 
   if (lines.length === 0) {
     return (
-      <div className="text-center py-16 space-y-4">
-        <h1 className="font-display text-4xl">Your cart is empty</h1>
-        <Link
-          href="/"
-          className="inline-block font-sans uppercase tracking-widest text-sm border border-ink/40 px-4 py-2"
-        >
-          Browse catalog
-        </Link>
-      </div>
+      <EmptyState
+        title="Your cart is empty"
+        description="Browse the catalog and add pieces from any vendor to start a quote request."
+        actions={<Button label="Browse catalog" variant="primary" onClick={() => router.push('/')} />}
+      />
     );
   }
 
   return (
-    <div className="space-y-8 max-w-3xl">
-      <h1 className="font-display text-4xl">Quote Request</h1>
+    <div className="max-w-3xl space-y-8">
+      <Heading level={1}>Quote Request</Heading>
 
       <div className="grid grid-cols-2 gap-4">
-        <label className="font-sans text-sm space-y-1">
-          <span className="block uppercase text-[10px] tracking-widest text-ink/50">Start date</span>
-          <input
-            type="date"
-            value={startDate ?? ''}
-            onChange={(e) => setDates(e.target.value || null, endDate)}
-            className="border border-ink/30 px-3 py-2 w-full bg-paper"
-          />
-        </label>
-        <label className="font-sans text-sm space-y-1">
-          <span className="block uppercase text-[10px] tracking-widest text-ink/50">End date</span>
-          <input
-            type="date"
-            value={endDate ?? ''}
-            onChange={(e) => setDates(startDate, e.target.value || null)}
-            className="border border-ink/30 px-3 py-2 w-full bg-paper"
-          />
-        </label>
+        <DateInput
+          label="Start date"
+          value={(startDate ?? undefined) as ISODateString | undefined}
+          onChange={(v) => setDates(v ?? null, endDate)}
+        />
+        <DateInput
+          label="End date"
+          value={(endDate ?? undefined) as ISODateString | undefined}
+          onChange={(v) => setDates(startDate, v ?? null)}
+        />
       </div>
 
-      <ul className="divide-y divide-ink/15 border-y border-ink/15">
-        {lines.map((line) => (
-          <li key={line.item.id} className="flex gap-4 py-4">
-            <Link
-              href={`/item/${line.item.source}/${encodeURIComponent(line.item.sourceId)}`}
-              className="shrink-0"
-            >
-              {line.item.images[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={line.item.images[0]} alt="" className="w-24 h-24 object-cover bg-ink/5" />
-              ) : (
-                <div className="w-24 h-24 bg-ink/10" />
-              )}
-            </Link>
-            <div className="flex-1">
-              <Link
-                href={`/item/${line.item.source}/${encodeURIComponent(line.item.sourceId)}`}
-                className="font-display text-lg"
-              >
-                {line.item.name}
-              </Link>
-              <p className="font-sans text-xs uppercase tracking-widest text-ink/50 mt-0.5">
-                {line.item.source}
-              </p>
-              <div className="flex items-center gap-3 mt-2 font-sans text-sm">
-                <label className="flex items-center gap-2">
-                  Qty
-                  <input
-                    type="number"
-                    min={1}
-                    value={line.qty}
-                    onChange={(e) => setQty(line.item.id, Number(e.target.value))}
-                    className="w-16 border border-ink/30 px-2 py-1 bg-paper"
+      <List hasDividers>
+        {lines.map((line) => {
+          const href = `/item/${line.item.source}/${encodeURIComponent(line.item.sourceId)}`;
+          return (
+            <Item
+              as="li"
+              key={line.item.id}
+              startContent={
+                <Link href={href}>
+                  {line.item.images[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={line.item.images[0]}
+                      alt={line.item.name}
+                      className="h-20 w-20 object-cover"
+                    />
+                  ) : (
+                    <span className="block h-20 w-20 bg-muted" />
+                  )}
+                </Link>
+              }
+              label={<Link href={href}>{line.item.name}</Link>}
+              description={SOURCE_META[line.item.source]?.name ?? line.item.source}
+              endContent={
+                <div className="flex items-center gap-3">
+                  <div className="w-24">
+                    <NumberInput
+                      label="Quantity"
+                      isLabelHidden
+                      size="sm"
+                      min={1}
+                      isIntegerOnly
+                      value={line.qty}
+                      onChange={(v) => setQty(line.item.id, v)}
+                    />
+                  </div>
+                  <Button
+                    label="Remove"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => remove(line.item.id)}
                   />
-                </label>
-                <button
-                  onClick={() => remove(line.item.id)}
-                  className="text-ink/60 hover:text-ink underline"
-                >
-                  remove
-                </button>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+                </div>
+              }
+            />
+          );
+        })}
+      </List>
 
-      <section className="border border-ink/15 p-4 space-y-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="font-display text-xl">Insurance check</h2>
-          {profile?.policy ? (
-            <Link
-              href="/onboarding/insurance?next=/cart"
-              className="font-sans text-xs uppercase tracking-widest text-ink/60 underline"
-            >
-              Edit
+      <Card>
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <Heading level={2}>Insurance check</Heading>
+            <Link href="/onboarding/insurance?next=/cart">
+              {profile?.policy ? 'Edit' : 'Add insurance'}
             </Link>
-          ) : (
-            <Link
-              href="/onboarding/insurance?next=/cart"
-              className="font-sans text-xs uppercase tracking-widest border border-ink/40 px-3 py-1 hover:bg-ink hover:text-paper transition"
-            >
-              Add insurance
-            </Link>
+          </div>
+          {!profile?.policy && (
+            <Text type="supporting" color="secondary">
+              Add your business policy once and we&rsquo;ll check every vendor against your coverage.
+            </Text>
           )}
+          <List hasDividers>
+            {compat.map(({ source, result }) => (
+              <ListItem
+                key={source}
+                label={SOURCE_META[source]?.name ?? source}
+                endContent={
+                  <div className="flex items-center gap-3">
+                    {result.issues.length > 0 && (
+                      <Text type="supporting" color="secondary">
+                        {result.issues
+                          .slice(0, 2)
+                          .map((i) => i.field)
+                          .join(', ')}
+                        {result.issues.length > 2 && ` +${result.issues.length - 2}`}
+                      </Text>
+                    )}
+                    <CoiBadge result={result} />
+                  </div>
+                }
+              />
+            ))}
+          </List>
         </div>
-        {!profile?.policy && (
-          <p className="font-sans text-xs text-ink/60">
-            Add your business policy once and we&rsquo;ll check every vendor against your coverage.
-          </p>
-        )}
-        <ul className="divide-y divide-ink/10">
-          {compat.map(({ source, result }) => (
-            <li key={source} className="py-2 flex items-center justify-between gap-3">
-              <span className="font-sans text-sm">{SOURCE_META[source]?.name ?? source}</span>
-              <div className="flex items-center gap-3">
-                {result.issues.length > 0 && (
-                  <span className="font-sans text-xs text-ink/60">
-                    {result.issues
-                      .slice(0, 2)
-                      .map((i) => i.field)
-                      .join(', ')}
-                    {result.issues.length > 2 && ` +${result.issues.length - 2}`}
-                  </span>
-                )}
-                <CoiBadge result={result} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      </Card>
 
       <div className="flex items-center justify-between gap-4">
-        <button onClick={clear} className="font-sans text-sm text-ink/60 underline">
-          Clear cart
-        </button>
-        <div className="text-right space-y-2">
-          <p className="font-sans text-xs uppercase tracking-widest text-ink/50">
+        <Button label="Clear cart" variant="ghost" size="sm" onClick={clear} />
+        <div className="flex flex-col items-end gap-2">
+          <Text type="supporting" color="secondary">
             {lines.length} item{lines.length === 1 ? '' : 's'} · {vendorCount} vendor
             {vendorCount === 1 ? '' : 's'}
             {hasGap && ' · coverage gap'}
-          </p>
-          <Link
-            href="/request/new"
-            className="inline-block font-sans uppercase tracking-widest text-sm px-5 py-3 bg-ink text-paper hover:bg-accent transition"
-          >
-            Continue to project request →
-          </Link>
+          </Text>
+          <Button
+            label="Continue to project request →"
+            variant="primary"
+            onClick={() => router.push('/request/new')}
+          />
         </div>
       </div>
     </div>

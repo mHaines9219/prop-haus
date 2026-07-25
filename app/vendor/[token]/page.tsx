@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { MetadataList, MetadataListItem } from '@astryxdesign/core/MetadataList';
 import { getProjectByToken } from '@/lib/projects';
 import { SOURCE_META } from '@/lib/types';
 import { VendorResponseForm } from './form';
@@ -12,44 +14,29 @@ export default async function VendorPage({ params }: { params: Promise<{ token: 
 
   return (
     <div className="max-w-3xl space-y-8">
-      <div className="border-l-4 border-accent pl-4">
-        <p className="font-sans text-[10px] uppercase tracking-widest text-ink/50">
+      <div className="space-y-1 border-l-4 border-accent pl-4">
+        <Text type="label" color="secondary">
           Vendor reply page · {meta?.name ?? vendor.vendor}
-        </p>
-        <h1 className="font-display text-4xl mt-1">{project.productionName}</h1>
-        <p className="font-sans text-sm text-ink/60 mt-1">
+        </Text>
+        <Heading level={1}>{project.productionName}</Heading>
+        <Text color="secondary">
           Request #{project.id} · {project.startDate} → {project.endDate}
-        </p>
+        </Text>
       </div>
 
-      <section className="grid grid-cols-2 gap-4 border-y border-ink/15 py-5 font-sans text-sm">
-        <div>
-          <p className="uppercase text-[10px] tracking-widest text-ink/50">Production</p>
-          <p>
+      <section className="border-y border-ink/15 py-5">
+        <MetadataList columns="multi">
+          <MetadataListItem label="Production">
             {project.productionType} · {project.contactName}
-          </p>
-        </div>
-        <div>
-          <p className="uppercase text-[10px] tracking-widest text-ink/50">Delivery</p>
-          <p>{project.deliveryAddress}</p>
-        </div>
-        <div>
-          <p className="uppercase text-[10px] tracking-widest text-ink/50">Contact</p>
-          <p>
+          </MetadataListItem>
+          <MetadataListItem label="Delivery">{project.deliveryAddress}</MetadataListItem>
+          <MetadataListItem label="Contact">
             {project.contactEmail}
             {project.contactPhone && ` · ${project.contactPhone}`}
-          </p>
-        </div>
-        <div>
-          <p className="uppercase text-[10px] tracking-widest text-ink/50">Budget</p>
-          <p>{project.budget || '—'}</p>
-        </div>
-        {project.notes && (
-          <div className="col-span-2">
-            <p className="uppercase text-[10px] tracking-widest text-ink/50">Notes</p>
-            <p>{project.notes}</p>
-          </div>
-        )}
+          </MetadataListItem>
+          <MetadataListItem label="Budget">{project.budget || '—'}</MetadataListItem>
+          {project.notes && <MetadataListItem label="Notes">{project.notes}</MetadataListItem>}
+        </MetadataList>
       </section>
 
       <VendorResponseForm token={vendor.token} items={vendor.items} />

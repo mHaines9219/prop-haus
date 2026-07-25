@@ -1,9 +1,16 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { Link } from '@astryxdesign/core/Link';
+import { Button } from '@astryxdesign/core/Button';
+import { Banner } from '@astryxdesign/core/Banner';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { DateInput } from '@astryxdesign/core/DateInput';
+import type { ISODateString } from '@astryxdesign/core/Calendar';
 import { postForm } from '@/lib/api';
 import { useProfile } from '@/lib/profile-store';
 import type { BusinessProfile, InsurancePolicy } from '@/lib/insurance';
@@ -17,7 +24,9 @@ const ALL_ENDORSEMENTS: Endorsement[] = [
   'blanket-additional-insured',
 ];
 
-export default function InsuranceOnboardingPage() {
+const AUTOFILLED = { type: 'success', message: 'auto-filled' } as const;
+
+function InsuranceOnboardingForm() {
   const router = useRouter();
   const params = useSearchParams();
   const nextHref = params.get('next') ?? '/';
@@ -84,7 +93,7 @@ export default function InsuranceOnboardingPage() {
     }
   }, [profile]);
 
-  if (!mounted) return <p className="font-sans text-ink/60">Loading…</p>;
+  if (!mounted) return <Text color="secondary">Loading…</Text>;
 
   function toggleEndorsement(e: Endorsement) {
     setEndorsements((cur) => (cur.includes(e) ? cur.filter((x) => x !== e) : [...cur, e]));
@@ -140,30 +149,35 @@ export default function InsuranceOnboardingPage() {
     router.push(nextHref);
   }
 
+  const flag = (key: string) => (parsedFields.has(key) ? AUTOFILLED : undefined);
+
   return (
-    <form onSubmit={submit} className="space-y-10 max-w-3xl">
+    <form onSubmit={submit} className="max-w-3xl space-y-10">
       <div className="space-y-2">
-        <p className="font-sans text-xs uppercase tracking-widest text-ink/50">Onboarding</p>
-        <h1 className="font-display text-4xl">Your business insurance</h1>
-        <p className="font-sans text-sm text-ink/70">
-          Enter your master policy once. We&rsquo;ll automatically check it against every prop house&rsquo;s
-          requirements and let you know if there&rsquo;s a coverage gap before you submit a project.
-        </p>
+        <Text type="label" color="secondary">
+          Onboarding
+        </Text>
+        <Heading level={1}>Your business insurance</Heading>
+        <Text color="secondary">
+          Enter your master policy once. We&rsquo;ll automatically check it against every prop
+          house&rsquo;s requirements and let you know if there&rsquo;s a coverage gap before you submit
+          a project.
+        </Text>
       </div>
 
-      <section className="border-2 border-dashed border-ink/25 p-6 space-y-3">
+      <section className="space-y-3 border-2 border-dashed border-ink/25 p-6">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="font-display text-xl">Upload your COI (skip the typing)</h2>
+          <Heading level={2}>Upload your COI (skip the typing)</Heading>
           {parsedFields.size > 0 && (
-            <span className="font-sans text-xs uppercase tracking-widest text-emerald-800">
+            <Text type="label" color="accent">
               {parsedFields.size} field{parsedFields.size === 1 ? '' : 's'} auto-filled
-            </span>
+            </Text>
           )}
         </div>
-        <p className="font-sans text-sm text-ink/70">
+        <Text color="secondary">
           Drop an ACORD 25 PDF and we&rsquo;ll extract your carrier, policy, limits, broker, and
-          endorsements. <strong>Always review the fields below before saving.</strong>
-        </p>
+          endorsements. Always review the fields below before saving.
+        </Text>
         <div className="flex items-center gap-3">
           <input
             type="file"
@@ -173,265 +187,82 @@ export default function InsuranceOnboardingPage() {
               const f = e.target.files?.[0];
               if (f) parseUpload.mutate(f);
             }}
-            className="font-sans text-sm"
+            className="text-sm"
           />
-          {parseUpload.isPending && <span className="font-sans text-xs text-ink/60">Parsing…</span>}
+          {parseUpload.isPending && <Text type="supporting" color="secondary">Parsing…</Text>}
         </div>
         {parseUpload.isError && (
-          <p className="font-sans text-xs text-rose-800 bg-rose-50 border border-rose-200 p-2">
-            {parseUpload.error.message}
-          </p>
+          <Banner status="error" title="Couldn’t read that PDF" description={parseUpload.error.message} />
         )}
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-display text-xl">Business</h2>
+        <Heading level={2}>Business</Heading>
         <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="Company name"
-            required
-            value={companyName}
-            onChange={setCompanyName}
-            highlight={parsedFields.has('companyName')}
-          />
-          <Field
-            label="Address"
-            required
-            value={address}
-            onChange={setAddress}
-            highlight={parsedFields.has('address')}
-          />
-          <Field label="Primary contact name" required value={contactName} onChange={setContactName} />
-          <Field label="Contact email" required type="email" value={contactEmail} onChange={setContactEmail} />
-          <Field label="Contact phone" value={contactPhone} onChange={setContactPhone} />
+          <TextInput label="Company name" isRequired value={companyName} onChange={setCompanyName} status={flag('companyName')} />
+          <TextInput label="Address" isRequired value={address} onChange={setAddress} status={flag('address')} />
+          <TextInput label="Primary contact name" isRequired value={contactName} onChange={setContactName} />
+          <TextInput label="Contact email" type="email" isRequired value={contactEmail} onChange={setContactEmail} />
+          <TextInput label="Contact phone" value={contactPhone} onChange={setContactPhone} />
         </div>
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-display text-xl">Policy</h2>
+        <Heading level={2}>Policy</Heading>
         <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="Carrier"
-            required
-            value={carrier}
-            onChange={setCarrier}
-            placeholder="e.g. The Hartford"
-            highlight={parsedFields.has('carrier')}
-          />
-          <Field
-            label="Policy number"
-            required
-            value={policyNumber}
-            onChange={setPolicyNumber}
-            highlight={parsedFields.has('policyNumber')}
-          />
-          <DateField
-            label="Effective date"
-            required
-            value={effectiveDate}
-            onChange={setEffectiveDate}
-            highlight={parsedFields.has('effectiveDate')}
-          />
-          <DateField
-            label="Expiration date"
-            required
-            value={expirationDate}
-            onChange={setExpirationDate}
-            highlight={parsedFields.has('expirationDate')}
-          />
+          <TextInput label="Carrier" isRequired value={carrier} onChange={setCarrier} placeholder="e.g. The Hartford" status={flag('carrier')} />
+          <TextInput label="Policy number" isRequired value={policyNumber} onChange={setPolicyNumber} status={flag('policyNumber')} />
+          <DateInput label="Effective date" isRequired value={(effectiveDate || undefined) as ISODateString | undefined} onChange={(v) => setEffectiveDate(v ?? '')} status={flag('effectiveDate')} />
+          <DateInput label="Expiration date" isRequired value={(expirationDate || undefined) as ISODateString | undefined} onChange={(v) => setExpirationDate(v ?? '')} status={flag('expirationDate')} />
         </div>
 
-        <h3 className="font-sans uppercase text-[10px] tracking-widest text-ink/50 pt-2">Limits</h3>
+        <Text type="label" color="secondary">
+          Limits
+        </Text>
         <div className="grid grid-cols-3 gap-4">
-          <NumField
-            label="GL per occurrence"
-            value={glOcc}
-            onChange={setGlOcc}
-            highlight={parsedFields.has('glOcc')}
-          />
-          <NumField
-            label="GL aggregate"
-            value={glAgg}
-            onChange={setGlAgg}
-            highlight={parsedFields.has('glAgg')}
-          />
-          <NumField
-            label="Auto liability"
-            value={autoLiability}
-            onChange={setAutoLiability}
-            highlight={parsedFields.has('autoLiability')}
-          />
+          <NumberInput label="GL per occurrence" min={0} step={50000} value={glOcc} onChange={setGlOcc} status={flag('glOcc')} />
+          <NumberInput label="GL aggregate" min={0} step={50000} value={glAgg} onChange={setGlAgg} status={flag('glAgg')} />
+          <NumberInput label="Auto liability" min={0} step={50000} value={autoLiability} onChange={setAutoLiability} status={flag('autoLiability')} />
         </div>
 
-        <h3 className="font-sans uppercase text-[10px] tracking-widest text-ink/50 pt-2">
-          Endorsements
-          {parsedFields.has('endorsements') && (
-            <span className="text-emerald-700 normal-case ml-2">· auto-filled</span>
-          )}
-        </h3>
+        <Text type="label" color="secondary">
+          Endorsements{parsedFields.has('endorsements') && ' · auto-filled'}
+        </Text>
         <div className="flex flex-wrap gap-2">
-          {ALL_ENDORSEMENTS.map((e) => {
-            const on = endorsements.includes(e);
-            return (
-              <button
-                type="button"
-                key={e}
-                onClick={() => toggleEndorsement(e)}
-                className={`font-sans text-xs uppercase tracking-widest px-3 py-2 border transition ${
-                  on ? 'bg-ink text-paper border-ink' : 'border-ink/30 hover:bg-ink hover:text-paper'
-                }`}
-              >
-                {ENDORSEMENT_LABEL[e]}
-              </button>
-            );
-          })}
+          {ALL_ENDORSEMENTS.map((e) => (
+            <Button
+              key={e}
+              label={ENDORSEMENT_LABEL[e]}
+              size="sm"
+              variant={endorsements.includes(e) ? 'primary' : 'secondary'}
+              onClick={() => toggleEndorsement(e)}
+            />
+          ))}
         </div>
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-display text-xl">Broker</h2>
+        <Heading level={2}>Broker</Heading>
         <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="Broker name"
-            required
-            value={brokerName}
-            onChange={setBrokerName}
-            highlight={parsedFields.has('brokerName')}
-          />
-          <Field
-            label="Broker email"
-            required
-            type="email"
-            value={brokerEmail}
-            onChange={setBrokerEmail}
-            highlight={parsedFields.has('brokerEmail')}
-          />
-          <Field
-            label="Broker phone"
-            value={brokerPhone}
-            onChange={setBrokerPhone}
-            highlight={parsedFields.has('brokerPhone')}
-          />
-          <Field
-            label="Master policy document URL (optional)"
-            value={documentUrl}
-            onChange={setDocumentUrl}
-            placeholder="https://..."
-          />
+          <TextInput label="Broker name" isRequired value={brokerName} onChange={setBrokerName} status={flag('brokerName')} />
+          <TextInput label="Broker email" type="email" isRequired value={brokerEmail} onChange={setBrokerEmail} status={flag('brokerEmail')} />
+          <TextInput label="Broker phone" value={brokerPhone} onChange={setBrokerPhone} status={flag('brokerPhone')} />
+          <TextInput label="Master policy document URL" isOptional value={documentUrl} onChange={setDocumentUrl} placeholder="https://..." />
         </div>
       </section>
 
       <div className="flex items-center justify-between border-t border-ink/15 pt-6">
-        <Link href={nextHref} className="font-sans text-sm text-ink/60 underline">
-          Skip for now
-        </Link>
-        <button
-          type="submit"
-          className="font-sans uppercase tracking-widest text-sm px-5 py-3 bg-ink text-paper hover:bg-accent transition"
-        >
-          Save insurance
-        </button>
+        <Link href={nextHref}>Skip for now</Link>
+        <Button label="Save insurance" variant="primary" type="submit" />
       </div>
     </form>
   );
 }
 
-function fieldClass(highlight?: boolean) {
-  return `border px-3 py-2 w-full bg-paper ${highlight ? 'border-emerald-500 bg-emerald-50' : 'border-ink/30'}`;
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  required,
-  type = 'text',
-  placeholder,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-  type?: string;
-  placeholder?: string;
-  highlight?: boolean;
-}) {
+export default function InsuranceOnboardingPage() {
   return (
-    <label className="font-sans text-sm space-y-1">
-      <span className="block uppercase text-[10px] tracking-widest text-ink/50">
-        {label}
-        {required && ' *'}
-        {highlight && <span className="text-emerald-700 normal-case"> · auto-filled</span>}
-      </span>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={fieldClass(highlight)}
-      />
-    </label>
-  );
-}
-
-function NumField({
-  label,
-  value,
-  onChange,
-  highlight,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  highlight?: boolean;
-}) {
-  return (
-    <label className="font-sans text-sm space-y-1">
-      <span className="block uppercase text-[10px] tracking-widest text-ink/50">
-        {label}
-        {highlight && <span className="text-emerald-700 normal-case"> · auto-filled</span>}
-      </span>
-      <input
-        type="number"
-        min={0}
-        step={50000}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className={fieldClass(highlight)}
-      />
-    </label>
-  );
-}
-
-function DateField({
-  label,
-  value,
-  onChange,
-  required,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-  highlight?: boolean;
-}) {
-  return (
-    <label className="font-sans text-sm space-y-1">
-      <span className="block uppercase text-[10px] tracking-widest text-ink/50">
-        {label}
-        {required && ' *'}
-        {highlight && <span className="text-emerald-700 normal-case"> · auto-filled</span>}
-      </span>
-      <input
-        type="date"
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={fieldClass(highlight)}
-      />
-    </label>
+    <Suspense fallback={null}>
+      <InsuranceOnboardingForm />
+    </Suspense>
   );
 }

@@ -25,6 +25,9 @@ const config: Config = {
       },
     },
   },
+  // Astryx ships its own reset (@astryxdesign/core/reset.css); disable Tailwind's
+  // duplicate preflight so the two don't conflict.
+  corePlugins: { preflight: false },
   plugins: [],
 };
 

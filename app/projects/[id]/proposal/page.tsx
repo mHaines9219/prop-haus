@@ -1,8 +1,22 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { Link } from '@astryxdesign/core/Link';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Card } from '@astryxdesign/core/Card';
+import { List } from '@astryxdesign/core/List';
+import { Item } from '@astryxdesign/core/Item';
 import { getProject } from '@/lib/projects';
 import { SOURCE_META } from '@/lib/types';
 import { ApproveButton } from './approve';
+
+type BadgeVariant = React.ComponentProps<typeof Badge>['variant'];
+
+const LINE_STATUS: Record<string, BadgeVariant> = {
+  available: 'success',
+  sub: 'warning',
+  unavailable: 'neutral',
+  pending: 'neutral',
+};
 
 export default async function ProposalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,76 +33,80 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   const grandTotal = vendorTotals.reduce((n, v) => n + v.subtotal, 0);
 
   return (
-    <div className="space-y-10 max-w-4xl">
+    <div className="max-w-4xl space-y-10">
       <div className="space-y-2">
-        <Link
-          href={`/projects/${project.id}`}
-          className="font-sans text-xs uppercase tracking-widest text-ink/50"
-        >
-          ← back to project
-        </Link>
-        <h1 className="font-display text-4xl">Consolidated proposal</h1>
-        <p className="font-sans text-sm text-ink/60">
+        <Link href={`/projects/${project.id}`}>← back to project</Link>
+        <Heading level={1}>Consolidated proposal</Heading>
+        <Text color="secondary">
           {project.productionName} · #{project.id} · {project.startDate} → {project.endDate}
-        </p>
+        </Text>
       </div>
 
       <div className="space-y-6">
         {vendorTotals.map(({ vendor: v, subtotal }) => {
           const meta = SOURCE_META[v.vendor];
           return (
-            <div key={v.token} className="border border-ink/15 p-5">
-              <div className="flex items-baseline justify-between mb-4">
-                <h2 className="font-display text-xl">{meta?.name ?? v.vendor}</h2>
-                <span className="font-sans text-sm">
-                  Subtotal: <strong>${subtotal.toFixed(2)}</strong>
-                </span>
+            <Card key={v.token}>
+              <div className="mb-4 flex items-baseline justify-between">
+                <Heading level={2}>{meta?.name ?? v.vendor}</Heading>
+                <Text>
+                  Subtotal:{' '}
+                  <Text as="span" weight="semibold">
+                    ${subtotal.toFixed(2)}
+                  </Text>
+                </Text>
               </div>
-              <ul className="divide-y divide-ink/10 font-sans text-sm">
-                {v.items.map((i) => (
-                  <li key={i.itemId} className="py-3 flex items-start gap-3">
-                    {i.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={i.image} alt="" className="w-14 h-14 object-cover bg-ink/5 shrink-0" />
-                    ) : (
-                      <div className="w-14 h-14 bg-ink/10 shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <span>
-                          {i.name}{' '}
-                          <span className="text-ink/50">×{i.qty}</span>
-                        </span>
-                        <LineBadge status={i.status} />
-                      </div>
-                      {i.subNote && (
-                        <p className="text-xs text-amber-800 mt-1">Sub: {i.subNote}</p>
-                      )}
-                      {i.priceQuote !== undefined && (i.status === 'available' || i.status === 'sub') && (
-                        <p className="text-xs text-ink/60 mt-1">
-                          ${i.priceQuote.toFixed(2)} × {i.qty} = $
-                          {(i.priceQuote * i.qty).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              <List hasDividers>
+                {v.items.map((i) => {
+                  const priced =
+                    i.priceQuote !== undefined && (i.status === 'available' || i.status === 'sub');
+                  const detail = [
+                    i.subNote ? `Sub: ${i.subNote}` : null,
+                    priced
+                      ? `$${i.priceQuote!.toFixed(2)} × ${i.qty} = $${(i.priceQuote! * i.qty).toFixed(2)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                  return (
+                    <Item
+                      as="li"
+                      key={i.itemId}
+                      startContent={
+                        i.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={i.image} alt="" className="h-14 w-14 shrink-0 object-cover" />
+                        ) : (
+                          <span className="block h-14 w-14 shrink-0 bg-muted" />
+                        )
+                      }
+                      label={
+                        <>
+                          {i.name} <Text as="span" color="secondary">×{i.qty}</Text>
+                        </>
+                      }
+                      description={detail || undefined}
+                      endContent={
+                        <Badge variant={LINE_STATUS[i.status] ?? 'neutral'} label={i.status} />
+                      }
+                    />
+                  );
+                })}
+              </List>
+            </Card>
           );
         })}
       </div>
 
-      <div className="border-t border-ink/30 pt-6 flex items-center justify-between">
+      <div className="flex items-center justify-between border-t border-ink/30 pt-6">
         <div>
-          <p className="font-sans text-xs uppercase tracking-widest text-ink/50">Grand total (estimate)</p>
-          <p className="font-display text-3xl">${grandTotal.toFixed(2)}</p>
+          <Text type="label" color="secondary">
+            Grand total (estimate)
+          </Text>
+          <Heading level={2}>${grandTotal.toFixed(2)}</Heading>
         </div>
         {project.status === 'confirmed' ? (
-          <Link
-            href={`/projects/${project.id}`}
-            className="font-sans uppercase tracking-widest text-sm px-5 py-3 border border-ink/40"
-          >
+          <Link href={`/projects/${project.id}`} isStandalone>
             Approved — view project
           </Link>
         ) : (
@@ -96,17 +114,5 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         )}
       </div>
     </div>
-  );
-}
-
-function LineBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    available: 'bg-emerald-100 text-emerald-900',
-    sub: 'bg-amber-100 text-amber-900',
-    unavailable: 'bg-ink/10 text-ink/60 line-through',
-    pending: 'bg-ink/10 text-ink/60',
-  };
-  return (
-    <span className={`uppercase tracking-widest text-[10px] px-2 py-0.5 ${map[status] ?? ''}`}>{status}</span>
   );
 }
