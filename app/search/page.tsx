@@ -12,11 +12,14 @@ import { Token } from '@astryxdesign/core/Token';
 import { ItemCard } from '@/components/item-card';
 import { SearchBar } from '@/components/search-bar';
 import { getJson, postForm, postJson } from '@/lib/api';
-import type { SearchMatch, SearchResponse } from '@/lib/types';
+import type { CardItem, SearchResponse } from '@/lib/types';
 
-type KeywordResponse = { query: string; matches: SearchMatch[]; total: number };
+// Both the keyword endpoint (card-projected items) and the AI endpoint (full
+// PropItems, which are assignable to CardItem) feed ResultGrid.
+type CardMatch = { item: CardItem; matchedVia: string[]; score: number };
+type KeywordResponse = { query: string; matches: CardMatch[]; total: number };
 
-function ResultGrid({ matches }: { matches: SearchMatch[] }) {
+function ResultGrid({ matches }: { matches: CardMatch[] }) {
   return (
     <Grid columns={{ minWidth: 200 }} gap={5}>
       {matches.map((m) => (

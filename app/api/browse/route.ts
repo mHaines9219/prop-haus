@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { loadCatalog } from '@/lib/catalog';
+import { loadCatalog, toCardItem } from '@/lib/catalog';
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 60;
@@ -20,7 +20,13 @@ export async function GET(req: Request) {
   if (vendor) filtered = filtered.filter((i) => i.source === vendor);
 
   const total = filtered.length;
-  const items = filtered.slice(offset, offset + limit);
+  const items = filtered.slice(offset, offset + limit).map(toCardItem);
 
-  return NextResponse.json({ items, total });
+  // The catalog only changes on redeploy, so let the CDN serve repeat
+  // filter/page requests. Each unique URL (category/vendor/offset) caches
+  // independently; stale-while-revalidate keeps responses instant after a bump.
+  return NextResponse.json(
+    { items, total },
+    { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } },
+  );
 }

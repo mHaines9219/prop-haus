@@ -1,6 +1,6 @@
 'use client';
 
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { useState } from 'react';
 import { List, ListItem } from '@astryxdesign/core/List';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -10,11 +10,11 @@ import { Token } from '@astryxdesign/core/Token';
 import { Text } from '@astryxdesign/core/Text';
 import { ItemCard } from '@/components/item-card';
 import { getJson } from '@/lib/api';
-import type { PropItem } from '@/lib/types';
+import type { CardItem } from '@/lib/types';
 
 type CategoryOpt = { slug: string; name: string; count: number };
 type VendorOpt = { id: string; name: string; count: number };
-type BrowsePage = { items: PropItem[]; total: number };
+type BrowsePage = { items: CardItem[]; total: number };
 
 const PAGE = 24;
 
@@ -27,7 +27,7 @@ export function BrowseGrid({
 }: {
   categories: CategoryOpt[];
   vendors: VendorOpt[];
-  initialItems: PropItem[];
+  initialItems: CardItem[];
   totalCatalog: number;
   vendorCount: number;
 }) {
@@ -42,6 +42,13 @@ export function BrowseGrid({
   const query = useInfiniteQuery({
     queryKey: ['browse', category, vendor],
     enabled: filterActive,
+    // The catalog is effectively static between deploys, so cached filter
+    // results stay fresh far longer than the 60s global default — no refetch
+    // when a user toggles back to a filter they already viewed.
+    staleTime: 5 * 60_000,
+    // Keep the previous filter's results on screen while the next set loads
+    // instead of dropping to an empty "Loading…" state on every filter change.
+    placeholderData: keepPreviousData,
     initialPageParam: 0,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();

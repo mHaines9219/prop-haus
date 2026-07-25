@@ -1,7 +1,7 @@
 import { Heading, Text } from '@astryxdesign/core/Text';
 import { Link } from '@astryxdesign/core/Link';
 import { MediaTheme } from '@astryxdesign/core/theme';
-import { categoryCounts, loadCatalog } from '@/lib/catalog';
+import { categoryCounts, loadCatalog, toCardItem } from '@/lib/catalog';
 import { CATEGORIES, categoryName } from '@/lib/categories';
 import { SOURCE_META, type Source } from '@/lib/types';
 import { BrowseGrid } from '@/components/browse-grid';
@@ -22,7 +22,8 @@ export default async function HomePage() {
   const featured = catalog
     .filter((i) => i.images.length > 0)
     .sort(() => Math.random() - 0.5)
-    .slice(0, 12);
+    .slice(0, 12)
+    .map(toCardItem);
 
   const heroBg = featured[0]?.images[0];
 

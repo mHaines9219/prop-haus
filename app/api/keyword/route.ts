@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { loadCatalog } from '@/lib/catalog';
+import { loadCatalog, toCardItem } from '@/lib/catalog';
 import { keywordSearch } from '@/lib/keyword-search';
 
 export const runtime = 'nodejs';
@@ -16,9 +16,10 @@ export async function GET(req: Request) {
 
   const catalog = await loadCatalog();
   const all = keywordSearch(catalog, query);
-  return NextResponse.json({
-    query,
-    matches: all.slice(0, LIMIT),
-    total: all.length,
-  });
+  const matches = all.slice(0, LIMIT).map((m) => ({
+    item: toCardItem(m.item),
+    matchedVia: m.matchedVia,
+    score: m.score,
+  }));
+  return NextResponse.json({ query, matches, total: all.length });
 }
