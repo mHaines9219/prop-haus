@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "astryx": {
+    "theme": "stone"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,10 +14,17 @@
     "scrape:merge": "tsx scrapers/merge.ts",
     "enrich": "tsx scripts/enrich.ts",
     "embed": "tsx scripts/embed.ts",
-    "db:load": "tsx scripts/load-catalog.ts"
+    "db:load": "tsx scripts/load-catalog.ts",
+    "db:dump": "tsx scripts/dump-catalog.ts",
+    "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
+    "@astryxdesign/core": "^0.1.8",
+    "@astryxdesign/theme-neutral": "^0.1.8",
+    "@astryxdesign/theme-stone": "^0.1.8",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.8",
     "@tanstack/react-query": "^5.101.1",
     "cheerio": "^1.0.0",
     "next": "^15.1.0",
@@ -27,6 +37,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "^0.1.8",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.0.0",

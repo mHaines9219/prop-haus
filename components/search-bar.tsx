@@ -2,6 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Button } from '@astryxdesign/core/Button';
+import { Selector } from '@astryxdesign/core/Selector';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Thumbnail } from '@astryxdesign/core/Thumbnail';
+import { Token } from '@astryxdesign/core/Token';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon } from '@astryxdesign/core/Icon';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
 
 type StagedFile = { file: File; previewUrl?: string };
@@ -133,8 +141,10 @@ export function SearchBar({
   const hasFiles = files.length > 0;
   const aiActive = hasFiles || engine === 'ai';
 
+  const size = large ? 'lg' : 'md';
+
   return (
-    <form onSubmit={handleSubmit} className={large ? 'w-full max-w-2xl mx-auto' : 'w-full max-w-md'}>
+    <form onSubmit={handleSubmit} className={large ? 'mx-auto w-full max-w-2xl' : 'w-full max-w-md'}>
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -142,19 +152,10 @@ export function SearchBar({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`flex border bg-paper transition ${
-          dragOver ? 'border-accent ring-2 ring-accent/40' : 'border-ink/30 focus-within:border-ink'
+        className={`flex items-start gap-2 rounded-lg transition ${
+          dragOver ? 'ring-2 ring-accent' : ''
         }`}
       >
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          title="Attach moodboard images or PDF"
-          className={`px-3 ${large ? 'text-lg' : 'text-sm'} text-ink/60 hover:text-ink transition border-r border-ink/15`}
-          aria-label="Attach files"
-        >
-          📎
-        </button>
         <input
           ref={inputRef}
           type="file"
@@ -166,110 +167,89 @@ export function SearchBar({
             e.target.value = '';
           }}
         />
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={
-            hasFiles
-              ? 'Add a brief (optional)…'
-              : large
-                ? 'Search: couch · blue couch · mid century · or drop a moodboard for AI'
-                : 'Search props…'
-          }
-          className={`flex-1 bg-transparent outline-none px-3 ${large ? 'py-4 text-lg' : 'py-2 text-sm'} font-sans`}
+        <div className="flex-1">
+          <TextInput
+            label="Search props"
+            isLabelHidden
+            value={value}
+            onChange={(v) => setValue(v)}
+            size={size}
+            startIcon={<Icon icon="search" />}
+            hasClear
+            placeholder={
+              hasFiles
+                ? 'Add a brief (optional)…'
+                : large
+                  ? 'Search: couch · blue couch · mid century · or drop a moodboard for AI'
+                  : 'Search props…'
+            }
+          />
+        </div>
+        <Button
+          label="Moodboard"
+          variant="secondary"
+          size={size}
+          type="button"
+          tooltip="Attach moodboard images or PDF"
+          onClick={() => inputRef.current?.click()}
         />
         {large && hasFiles && (
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as SearchMode)}
-            title={MODE_HINT[mode]}
-            className="font-sans text-xs uppercase tracking-widest bg-paper border-l border-ink/15 px-3 outline-none cursor-pointer hover:bg-ink/5"
-          >
-            {SEARCH_MODES.map((m) => (
-              <option key={m} value={m}>
-                {MODE_LABEL[m]}
-              </option>
-            ))}
-          </select>
+          <div className="w-44 shrink-0">
+            <Selector
+              label="Vision model"
+              isLabelHidden
+              size={size}
+              value={mode}
+              options={SEARCH_MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+              onChange={(v) => setMode(v as SearchMode)}
+            />
+          </div>
         )}
-        <button
-          type="submit"
-          className={`font-sans uppercase tracking-widest ${large ? 'px-6 text-sm' : 'px-4 text-xs'} bg-ink text-paper hover:bg-accent transition`}
-        >
-          {aiActive ? 'Ask AI' : 'Search'}
-        </button>
+        <Button label={aiActive ? 'Ask AI' : 'Search'} variant="primary" size={size} type="submit" />
       </div>
 
       {large && !hasFiles && (
-        <div className="mt-2 flex items-center gap-3 pl-1">
-          <div
-            role="radiogroup"
-            aria-label="Search engine"
-            className="inline-flex border border-ink/20 bg-paper"
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <SegmentedControl
+            label="Search engine"
+            size="sm"
+            value={engine}
+            onChange={(v) => setEngine(v as Engine)}
           >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={engine === 'keyword'}
-              onClick={() => setEngine('keyword')}
-              className={`font-sans text-[10px] uppercase tracking-widest px-3 py-1 transition ${
-                engine === 'keyword' ? 'bg-ink text-paper' : 'text-ink/60 hover:text-ink'
-              }`}
-            >
-              Keyword
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={engine === 'ai'}
-              onClick={() => setEngine('ai')}
-              className={`font-sans text-[10px] uppercase tracking-widest px-3 py-1 transition border-l border-ink/20 ${
-                engine === 'ai' ? 'bg-ink text-paper' : 'text-ink/60 hover:text-ink'
-              }`}
-            >
-              Ask AI
-            </button>
-          </div>
-          <p className="font-sans text-[10px] uppercase tracking-widest text-ink/40">
+            <SegmentedControlItem label="Keyword" value="keyword" />
+            <SegmentedControlItem label="Ask AI" value="ai" />
+          </SegmentedControl>
+          <Text type="supporting" color="secondary">
             {engine === 'ai'
               ? 'interprets your brief · curates a set'
               : 'exact metadata matches · instant'}
-          </p>
+          </Text>
         </div>
       )}
 
       {large && hasFiles && (
-        <p className="font-sans text-[10px] uppercase tracking-widest text-ink/40 mt-1.5 pl-1">
-          {MODE_LABEL[mode]} — {MODE_HINT[mode]}
-        </p>
+        <div className="mt-2">
+          <Text type="supporting" color="secondary">
+            {MODE_LABEL[mode]} — {MODE_HINT[mode]}
+          </Text>
+        </div>
       )}
 
       {files.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {files.map((f, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 border border-ink/20 bg-paper pl-1 pr-2 py-1 font-sans text-xs"
-            >
-              {f.previewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={f.previewUrl} alt="" className="w-8 h-8 object-cover" />
-              ) : (
-                <span className="w-8 h-8 grid place-items-center bg-ink/10 text-[10px] uppercase tracking-widest">
-                  PDF
-                </span>
-              )}
-              <span className="max-w-[12rem] truncate">{f.file.name}</span>
-              <button
-                type="button"
-                onClick={() => removeFile(i)}
-                aria-label={`Remove ${f.file.name}`}
-                className="text-ink/40 hover:text-ink"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+          {files.map((f, i) =>
+            f.previewUrl ? (
+              <Thumbnail
+                key={i}
+                src={f.previewUrl}
+                alt={f.file.name}
+                label={f.file.name}
+                onRemove={() => removeFile(i)}
+              />
+            ) : (
+              <Token key={i} label={f.file.name} onRemove={() => removeFile(i)} />
+            ),
+          )}
         </div>
       )}
     </form>

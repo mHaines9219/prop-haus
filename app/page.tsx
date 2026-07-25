@@ -1,4 +1,6 @@
-import Link from 'next/link';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { Link } from '@astryxdesign/core/Link';
+import { MediaTheme } from '@astryxdesign/core/theme';
 import { categoryCounts, loadCatalog } from '@/lib/catalog';
 import { CATEGORIES, categoryName } from '@/lib/categories';
 import { SOURCE_META, type Source } from '@/lib/types';
@@ -38,36 +40,39 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero — full-bleed dark band */}
-      <section className="relative -mt-8 ml-[50%] w-screen -translate-x-1/2 overflow-hidden bg-ink text-paper">
+      {/* Hero — full-bleed dark band. MediaTheme flips Astryx tokens to
+          light-on-dark so headings/links read correctly over the dark surface. */}
+      <section className="relative -mt-8 ml-[50%] w-screen -translate-x-1/2 overflow-hidden bg-[#1A1815]">
         {heroBg && (
           <div
             className="absolute inset-0 bg-cover bg-center opacity-[0.06]"
             style={{ backgroundImage: `url(${heroBg})` }}
           />
         )}
-        <div className="relative mx-auto max-w-2xl px-4 py-20 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-paper/40 mb-6">
-            AI-Assisted Prop Sourcing
-          </p>
-          <h1 className="font-display text-5xl md:text-6xl font-light leading-[1.05] tracking-tight mb-10">
-            Source anything.
-            <br />
-            <span className="text-brass">From anywhere.</span>
-          </h1>
-          <SearchBar large />
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((s) => (
-              <Link
-                key={s}
-                href={`/search?q=${encodeURIComponent(s)}`}
-                className="font-mono text-[11px] text-paper/50 border border-paper/15 px-3 py-1.5 transition hover:border-paper/40 hover:text-paper"
-              >
-                {s}
-              </Link>
-            ))}
+        <MediaTheme mode="dark">
+          <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 py-20 text-center">
+            <Text type="label" color="secondary">
+              AI-Assisted Prop Sourcing
+            </Text>
+            <Heading level={1}>
+              Source anything.
+              <br />
+              <Text as="span" color="accent">
+                From anywhere.
+              </Text>
+            </Heading>
+            <div className="w-full">
+              <SearchBar large />
+            </div>
+            <div className="flex flex-wrap justify-center gap-3">
+              {SUGGESTIONS.map((s) => (
+                <Link key={s} href={`/search?q=${encodeURIComponent(s)}`}>
+                  {s}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        </MediaTheme>
       </section>
 
       {/* Browse — dynamic sidebar filters + grid */}

@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { Link } from '@astryxdesign/core/Link';
+import { Grid } from '@astryxdesign/core/Grid';
 import { getByCategory } from '@/lib/catalog';
 import { CATEGORIES, categoryName } from '@/lib/categories';
 import { ItemCard } from '@/components/item-card';
@@ -16,23 +18,19 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
   return (
     <div className="space-y-8">
-      <header className="flex items-end justify-between">
-        <div>
-          <Link href="/" className="font-sans text-xs uppercase tracking-widest text-ink/50">
-            ← Catalog
-          </Link>
-          <h1 className="font-display text-4xl mt-2">{categoryName(slug)}</h1>
-          <p className="font-sans text-sm text-ink/60 mt-1">{items.length} items</p>
-        </div>
+      <header className="space-y-2">
+        <Link href="/">← Catalog</Link>
+        <Heading level={1}>{categoryName(slug)}</Heading>
+        <Text color="secondary">{items.length} items</Text>
       </header>
       {items.length === 0 ? (
-        <p className="font-sans text-ink/60">No items in this category yet.</p>
+        <Text color="secondary">No items in this category yet.</Text>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <Grid columns={{ minWidth: 200 }} gap={5}>
           {items.map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
-        </div>
+        </Grid>
       )}
     </div>
   );

@@ -2,8 +2,14 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useState } from 'react';
+import { Text } from '@astryxdesign/core/Text';
+import { Link } from '@astryxdesign/core/Link';
+import { Button } from '@astryxdesign/core/Button';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Card } from '@astryxdesign/core/Card';
+import { Banner } from '@astryxdesign/core/Banner';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { postJson } from '@/lib/api';
 import type { CoiStatus, VendorRequest } from '@/lib/projects';
 import type { BusinessProfile } from '@/lib/insurance';
@@ -11,6 +17,17 @@ import { buildBrokerCertEmail } from '@/lib/insurance';
 import { SOURCE_META } from '@/lib/types';
 import { VENDOR_COI, ENDORSEMENT_LABEL } from '@/lib/vendor-coi';
 import { CoiBadge } from '@/components/coi-badge';
+
+type BadgeVariant = React.ComponentProps<typeof Badge>['variant'];
+
+const COI_STATUS: Record<CoiStatus, BadgeVariant> = {
+  'not-required': 'neutral',
+  gap: 'error',
+  needed: 'warning',
+  requested: 'warning',
+  received: 'success',
+  approved: 'success',
+};
 
 export function CoiVendorPanel({
   projectId,
@@ -60,129 +77,115 @@ export function CoiVendorPanel({
     : null;
 
   return (
-    <div className="border border-ink/15 p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="font-display text-lg">{meta?.name ?? vendor.vendor}</p>
-          <p className="font-sans text-[10px] uppercase tracking-widest text-ink/50">
-            requires: GL ${req.generalLiability.perOccurrence.toLocaleString()} /
-            ${req.generalLiability.aggregate.toLocaleString()}
-            {req.autoLiability && ` · auto $${req.autoLiability.toLocaleString()}`}
-            {req.endorsements.length > 0 &&
-              ` · ${req.endorsements.map((e) => ENDORSEMENT_LABEL[e]).join(', ')}`}
-          </p>
+    <Card>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Text weight="medium">{meta?.name ?? vendor.vendor}</Text>
+            <Text type="supporting" color="secondary">
+              requires: GL ${req.generalLiability.perOccurrence.toLocaleString()} / $
+              {req.generalLiability.aggregate.toLocaleString()}
+              {req.autoLiability && ` · auto $${req.autoLiability.toLocaleString()}`}
+              {req.endorsements.length > 0 &&
+                ` · ${req.endorsements.map((e) => ENDORSEMENT_LABEL[e]).join(', ')}`}
+            </Text>
+          </div>
+          <div className="flex items-center gap-2">
+            <CoiBadge result={vendor.coi.compatibility} />
+            <Badge variant={COI_STATUS[vendor.coi.status]} label={vendor.coi.status} />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <CoiBadge result={vendor.coi.compatibility} />
-          <StatusPill status={vendor.coi.status} />
-        </div>
-      </div>
 
-      {vendor.coi.compatibility.issues.length > 0 && (
-        <div className="bg-rose-50 border border-rose-200 p-3 space-y-1">
-          <p className="font-sans text-xs uppercase tracking-widest text-rose-900">Coverage gaps</p>
-          <ul className="font-sans text-xs text-rose-900 list-disc pl-5">
-            {vendor.coi.compatibility.issues.map((i, idx) => (
-              <li key={idx}>
-                <strong>{i.field}:</strong> need {i.required}, have {i.actual}
-              </li>
-            ))}
-          </ul>
-          <p className="font-sans text-xs text-rose-900/80 pt-1">
-            Contact your broker about adding a rider, or talk to the vendor about adjusting requirements.
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2 font-sans text-xs">
-        {vendor.coi.status === 'gap' && !insured?.policy && (
-          <Link
-            href={`/onboarding/insurance?next=/projects/${projectId}`}
-            className="uppercase tracking-widest border border-ink/40 px-3 py-2 hover:bg-ink hover:text-paper transition"
+        {vendor.coi.compatibility.issues.length > 0 && (
+          <Banner
+            status="error"
+            title="Coverage gaps"
+            description="Contact your broker about adding a rider, or talk to the vendor about adjusting requirements."
           >
-            Add insurance
-          </Link>
+            <ul className="list-disc pl-5">
+              {vendor.coi.compatibility.issues.map((i, idx) => (
+                <li key={idx}>
+                  <Text as="span" weight="medium">
+                    {i.field}:
+                  </Text>{' '}
+                  <Text as="span">
+                    need {i.required}, have {i.actual}
+                  </Text>
+                </li>
+              ))}
+            </ul>
+          </Banner>
         )}
 
-        {mailto && vendor.coi.status !== 'received' && vendor.coi.status !== 'approved' && (
-          <a
-            href={mailto}
-            className="uppercase tracking-widest border border-ink/40 px-3 py-2 hover:bg-ink hover:text-paper transition"
-          >
-            ✉ Email broker for cert
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {vendor.coi.status === 'gap' && !insured?.policy && (
+            <Link href={`/onboarding/insurance?next=/projects/${projectId}`} isStandalone>
+              Add insurance
+            </Link>
+          )}
 
-        {vendor.coi.status !== 'requested' && vendor.coi.status !== 'received' && vendor.coi.status !== 'approved' && insured?.policy && (
-          <button
-            disabled={pending}
-            onClick={() => setStatus('requested')}
-            className="uppercase tracking-widest border border-ink/40 px-3 py-2 hover:bg-ink hover:text-paper transition disabled:opacity-50"
-          >
-            Mark cert requested
-          </button>
-        )}
+          {mailto && vendor.coi.status !== 'received' && vendor.coi.status !== 'approved' && (
+            <Link href={mailto} isStandalone>
+              ✉ Email broker for cert
+            </Link>
+          )}
 
-        {(vendor.coi.status === 'requested' || vendor.coi.status === 'needed') && (
-          <>
-            <input
-              type="text"
-              placeholder="Paste cert URL"
-              value={certUrl}
-              onChange={(e) => setCertUrl(e.target.value)}
-              className="border border-ink/30 px-2 py-1.5 bg-paper flex-1 min-w-[12rem]"
+          {vendor.coi.status !== 'requested' &&
+            vendor.coi.status !== 'received' &&
+            vendor.coi.status !== 'approved' &&
+            insured?.policy && (
+              <Button
+                label="Mark cert requested"
+                variant="secondary"
+                size="sm"
+                isDisabled={pending}
+                onClick={() => setStatus('requested')}
+              />
+            )}
+
+          {(vendor.coi.status === 'requested' || vendor.coi.status === 'needed') && (
+            <>
+              <div className="min-w-[12rem] flex-1">
+                <TextInput
+                  label="Certificate URL"
+                  isLabelHidden
+                  size="sm"
+                  placeholder="Paste cert URL"
+                  value={certUrl}
+                  onChange={(v) => setCertUrl(v)}
+                />
+              </div>
+              <Button
+                label="Mark received"
+                variant="secondary"
+                size="sm"
+                isDisabled={pending || !certUrl}
+                onClick={() => setStatus('received', certUrl)}
+              />
+            </>
+          )}
+
+          {vendor.coi.status === 'received' && (
+            <Button
+              label="Vendor approved"
+              variant="primary"
+              size="sm"
+              isDisabled={pending}
+              onClick={() => setStatus('approved')}
             />
-            <button
-              disabled={pending || !certUrl}
-              onClick={() => setStatus('received', certUrl)}
-              className="uppercase tracking-widest border border-ink/40 px-3 py-2 hover:bg-ink hover:text-paper transition disabled:opacity-50"
-            >
-              Mark received
-            </button>
-          </>
-        )}
+          )}
 
-        {vendor.coi.status === 'received' && (
-          <button
-            disabled={pending}
-            onClick={() => setStatus('approved')}
-            className="uppercase tracking-widest border border-emerald-700 text-emerald-900 px-3 py-2 hover:bg-emerald-700 hover:text-paper transition disabled:opacity-50"
-          >
-            Vendor approved
-          </button>
-        )}
+          {vendor.coi.certUrl && (
+            <Link href={vendor.coi.certUrl} isExternalLink target="_blank" rel="noreferrer">
+              view cert
+            </Link>
+          )}
+        </div>
 
-        {vendor.coi.certUrl && (
-          <a
-            href={vendor.coi.certUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="uppercase tracking-widest text-ink/60 underline"
-          >
-            view cert
-          </a>
-        )}
+        <Text type="supporting" color="secondary">
+          Certificate holder: {req.certificateHolder.name} · {req.certificateHolder.address}
+        </Text>
       </div>
-
-      <p className="font-sans text-[10px] uppercase tracking-widest text-ink/40">
-        Certificate holder: {req.certificateHolder.name} · {req.certificateHolder.address}
-      </p>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: CoiStatus }) {
-  const map: Record<CoiStatus, string> = {
-    'not-required': 'bg-ink/5 text-ink/50',
-    gap: 'bg-rose-100 text-rose-900',
-    needed: 'bg-amber-100 text-amber-900',
-    requested: 'bg-amber-100 text-amber-900',
-    received: 'bg-emerald-100 text-emerald-900',
-    approved: 'bg-emerald-200 text-emerald-900',
-  };
-  return (
-    <span className={`font-sans uppercase tracking-widest text-[10px] px-2 py-1 ${map[status]}`}>
-      {status}
-    </span>
+    </Card>
   );
 }

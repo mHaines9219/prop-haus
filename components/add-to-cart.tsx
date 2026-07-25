@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@astryxdesign/core/Button';
 import { useCart } from '@/lib/cart-store';
 import type { PropItem } from '@/lib/types';
 
@@ -8,7 +9,9 @@ export function AddToCart({ item }: { item: PropItem }) {
   const add = useCart((s) => s.add);
   const [added, setAdded] = useState(false);
   return (
-    <button
+    <Button
+      label={added ? 'Added ✓' : 'Add to cart'}
+      variant="primary"
       onClick={() => {
         add({
           id: item.id,
@@ -22,9 +25,6 @@ export function AddToCart({ item }: { item: PropItem }) {
         setAdded(true);
         setTimeout(() => setAdded(false), 1200);
       }}
-      className="font-sans uppercase tracking-widest text-sm px-4 py-2 bg-ink text-paper hover:bg-accent transition"
-    >
-      {added ? 'Added ✓' : 'Add to cart'}
-    </button>
+    />
   );
 }
