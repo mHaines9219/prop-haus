@@ -22,8 +22,45 @@
 -- THE WORK WE WANT IS CHEAP. Only the place we were storing it was ruinous.
 --
 -- So stop writing to that table. An INSERT into a narrow relation with one GIN
--- index cannot pay 760 buffers/row, because those buffers belong to eleven
+-- index cannot pay ~656 buffers/row, because those buffers belong to eleven
 -- indexes the insert never visits.
+--
+-- REPLICATED AT THREE SCALES (20260802183000, applied)
+--
+-- The 760/row figure above was ONE sample, and the whole rejection of in-place
+-- rested on it. The ladder ran 50 / 200 / 2000 rows under one cache state:
+--
+--   rows    buffers      buffers/row   predicted LINEAR   predicted FLAT
+--     50       40,876          817.5             38,851         155,405
+--    200      133,328          666.6            155,405         155,405
+--   2000    1,317,986          659.0          1,554,050         155,405
+--
+-- LINEAR, at both rungs that discriminate. Least squares over the three points:
+--
+--   marginal    656 buffers/row
+--   fixed     5,187 buffers per statement  -- 0.4% of the 2000-row statement
+--
+-- So there is NO meaningful fixed per-statement cost on this path and chunk size
+-- is not a lever on it. The 8.2s "fixed cost" was wall-clock variance, and its
+-- resemblance to the PostgREST timeout was a coincidence. Whole table at the
+-- measured marginal rate: 90,953 x 656 = ~60 million page accesses.
+--
+-- Two things the ladder also settles, both of which cost someone a claim:
+--
+--   * Child node was `Index Scan` at all three scales. The partial index has
+--     been used throughout; the sequential-scan reading is dead at 3 scales, not
+--     just at 200 rows.
+--   * WALL CLOCK CARRIES NO SIGNAL HERE. 50 rows took 12,630 ms and 200 rows
+--     took 6,906 ms -- 4x the work in half the time, in the same session,
+--     seconds apart. Any ms/row number on this instance, mine included, was
+--     noise wearing a decimal point.
+--
+-- And a correction to the instrument claim itself: "buffers vary only 1.05x" was
+-- drawn from two samples minutes apart in one session. Against this run, 200
+-- rows cost 155,405 then and 133,328 now -- 1.17x. Buffers are far steadier than
+-- milliseconds (1.17x against 3.0x) but not as steady as I said, and I made the
+-- same narrow-sampling error while arguing against narrow sampling. It does not
+-- touch the conclusion: 17% noise cannot blur a 4x and a 10x discrimination.
 --
 -- This is not a compromise on query speed either: the RPC filters on the narrow
 -- relation's GIN index and joins to prop_items by primary key for only the ~60
@@ -32,9 +69,11 @@
 -- REJECTED, with numbers rather than instinct
 --
 --   * Chunked UPDATEs on prop_items. Rejected on BUFFERS, not on a projected
---     wall clock: ~777 buffer accesses per row is paid whatever the chunk size,
---     so 90,953 rows is ~71 million page accesses however it is sliced. Chunking
---     limits blast radius; it cannot make the total work affordable.
+--     wall clock: 656 buffer accesses per row is paid whatever the chunk size,
+--     so 90,953 rows is ~60 million page accesses however it is sliced. Chunking
+--     limits blast radius; it cannot make the total work affordable -- and the
+--     ladder above shows the fixed per-statement term is 0.4%, so there is not
+--     even a chunk size that would help.
 --
 --     Every wall-clock projection made today for this path -- ~4 hours, 85
 --     minutes, ~26 minutes -- is WITHDRAWN. All of them descend from a fixed
