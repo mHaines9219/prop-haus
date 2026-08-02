@@ -44,15 +44,44 @@ export type LogEventInput = {
  * Insert an event. Pass a SERVICE-ROLE Supabase client (see lib/supabase/admin.ts)
  * so the write bypasses RLS and can't be forged from the browser. Decoupled from
  * the client module so this file has no env dependency.
+ *
+ * THROWS on a rejected insert. Supabase reports failures in the returned `error`
+ * rather than by rejecting, so discarding it would drop events silently — the
+ * failure mode we would never notice. Callers that must not fail should use
+ * `recordEvents` in `lib/analytics.ts`, which catches for exactly this reason.
  */
-export async function logEvent(
-  client: { from: (t: string) => { insert: (rows: unknown) => Promise<{ error: unknown }> } },
-  input: LogEventInput,
-): Promise<void> {
-  await client.from('events').insert({
+/** The exact row shape written to `public.events`. */
+type EventRow = {
+  org_id: string | null;
+  user_id: string | null;
+  type: EventType;
+  payload: Record<string, unknown>;
+};
+
+/**
+ * Structural stand-in for a Supabase client, kept minimal so this module has no
+ * dependency on `@supabase/supabase-js`. `insert` takes a concrete `EventRow`
+ * rather than `unknown` — a parameter of type `unknown` is contravariantly
+ * incompatible with the real client's signature, so the previous shape could
+ * not actually be satisfied by `createAdminClient()`. `PromiseLike` because
+ * PostgREST returns a thenable builder, not a Promise.
+ */
+export type EventSink = {
+  from: (table: string) => { insert: (rows: EventRow) => PromiseLike<{ error: unknown }> };
+};
+
+export async function logEvent(client: EventSink, input: LogEventInput): Promise<void> {
+  const { error } = await client.from('events').insert({
     org_id: input.orgId ?? null,
     user_id: input.userId ?? null,
     type: input.type,
     payload: input.payload ?? {},
   });
+  if (error) {
+    const message =
+      typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message: unknown }).message)
+        : String(error);
+    throw new Error(`events insert failed for "${input.type}": ${message}`);
+  }
 }
