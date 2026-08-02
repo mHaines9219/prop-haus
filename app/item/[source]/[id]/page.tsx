@@ -6,7 +6,7 @@ import { AspectRatio } from '@astryxdesign/core/AspectRatio';
 import { Thumbnail } from '@astryxdesign/core/Thumbnail';
 import { Grid } from '@astryxdesign/core/Grid';
 import { MetadataList, MetadataListItem } from '@astryxdesign/core/MetadataList';
-import { getItem, getByCategory } from '@/lib/catalog';
+import { getItemBySourceId, categoryCards } from '@/lib/catalog-db';
 import { SOURCE_META } from '@/lib/types';
 import { categoryName } from '@/lib/categories';
 import { AddToCart } from '@/components/add-to-cart';
@@ -18,9 +18,12 @@ export default async function ItemPage({
   params: Promise<{ source: string; id: string }>;
 }) {
   const { source, id } = await params;
-  const item = await getItem(source, decodeURIComponent(id));
+  const item = await getItemBySourceId(source, decodeURIComponent(id));
   if (!item) notFound();
-  const related = (await getByCategory(item.category)).filter((i) => i.id !== item.id).slice(0, 8);
+  // Fetch one extra so removing the item itself still leaves a full row of 8.
+  const related = (await categoryCards(item.category, 9)).items
+    .filter((i) => i.id !== item.id)
+    .slice(0, 8);
   const meta = SOURCE_META[item.source];
   const dims = item.dimensions;
 
