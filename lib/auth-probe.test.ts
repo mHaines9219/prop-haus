@@ -15,6 +15,16 @@ const HAS_DB = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
+/**
+ * Creating a real auth user is several round trips to the auth admin API and
+ * takes ~2s on its own. Vitest's 5s default left almost no headroom, and these
+ * tests were passing on luck: adding database-bound tests elsewhere in the suite
+ * was enough to tip two of them into a timeout while the code under test was
+ * fine. A slow network call deserves a stated budget rather than an inherited
+ * one — a timeout that trips under unrelated load reports the wrong failure.
+ */
+const AUTH_API_TIMEOUT = 30_000;
+
 async function counts(orgId: string, userId: string) {
   const db = createAdminClient();
   const [org, profile, membership] = await Promise.all([
@@ -36,7 +46,7 @@ describe.skipIf(!HAS_DB)('auth probe lifecycle (integration)', () => {
     } finally {
       await deleteProbeUser(probe);
     }
-  });
+  }, AUTH_API_TIMEOUT);
 
   it('cleanup removes the ORGANIZATION, not just the user', async () => {
     const probe = await createProbeUser('cleanup');
@@ -44,7 +54,7 @@ describe.skipIf(!HAS_DB)('auth probe lifecycle (integration)', () => {
 
     const c = await counts(probe.orgId, probe.userId);
     expect(c).toEqual({ org: 0, profile: 0, membership: 0 });
-  });
+  }, AUTH_API_TIMEOUT);
 
   it('withProbeUser cleans up even when the body throws', async () => {
     let captured: { orgId: string; userId: string } | null = null;
@@ -62,7 +72,7 @@ describe.skipIf(!HAS_DB)('auth probe lifecycle (integration)', () => {
       profile: 0,
       membership: 0,
     });
-  });
+  }, AUTH_API_TIMEOUT);
 
   it('no probe organizations are left anywhere in the database', async () => {
     // Deliberately global rather than scoped to this run. The recurring failure

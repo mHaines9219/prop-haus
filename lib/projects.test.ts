@@ -1,9 +1,12 @@
 import crypto from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  approveProject,
   createProject,
+  getProject,
   lineTotal,
   listProjects,
+  setCoiStatus,
   setProjectArchived,
   suggestPeriods,
   type LineItem,
@@ -172,5 +175,49 @@ describe.skipIf(!HAS_DB)('organization scoping (integration)', () => {
 
   it('returns null for an unknown id', async () => {
     expect(await setProjectArchived(ORG_A, 'nope', true)).toBeNull();
+  });
+
+  /**
+   * Approval and COI are the two writes that were reachable without any session
+   * at all. They are tested here rather than at the route because the org filter
+   * is what actually enforces the boundary — a route check alone would still
+   * leave the function callable across orgs by the next caller who forgets.
+   */
+  it('refuses to approve another org’s proposal, and does not alter it', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'approval' });
+    expect(p.status).not.toBe('confirmed');
+
+    expect(await approveProject(ORG_B, p.id)).toBeNull();
+
+    // The point is not just the null return: assert the row is untouched, since
+    // "returned null but wrote anyway" is the failure that would matter.
+    const after = await getProject(p.id);
+    expect(after?.status).toBe(p.status);
+    expect(after?.approvedAt).toBeUndefined();
+
+    // ...and the real owner still can.
+    expect(await approveProject(ORG_A, p.id)).not.toBeNull();
+    expect((await getProject(p.id))?.status).toBe('confirmed');
+  });
+
+  it('refuses to set COI status on another org’s vendor, and does not alter it', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'coi' });
+    const vendorSource = p.vendors[0].vendor;
+    const before = p.vendors[0].coi.status;
+
+    expect(await setCoiStatus(ORG_B, p.id, vendorSource, 'approved', 'http://evil.example')).toBeNull();
+
+    const after = await getProject(p.id);
+    expect(after?.vendors[0].coi.status).toBe(before);
+    // The cert URL is the part an outsider would most want to write.
+    expect(after?.vendors[0].coi.certUrl).toBeUndefined();
+
+    expect(await setCoiStatus(ORG_A, p.id, vendorSource, 'approved')).not.toBeNull();
+    expect((await getProject(p.id))?.vendors[0].coi.status).toBe('approved');
+  });
+
+  it('returns null rather than throwing for an unknown project id', async () => {
+    expect(await approveProject(ORG_A, 'nope')).toBeNull();
+    expect(await setCoiStatus(ORG_A, 'nope', 'gilandroy', 'approved')).toBeNull();
   });
 });
