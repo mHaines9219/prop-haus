@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { recordEvents } from '@/lib/analytics';
 import { parseAttachments } from '@/lib/upload';
 import { runSearch } from '@/lib/search-modes';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
@@ -59,6 +60,21 @@ export async function POST(req: Request) {
 
   try {
     const result = await runSearch({ query, attachments, mode });
+
+    // Recorded only after the search actually succeeded — every `bad()` return
+    // above and the 502 below produced nothing, and charging demand signal for
+    // a failed request would corrupt the one dataset the brief leans on.
+    // `vision_search` keys off real attachments, not the mode string: a vision
+    // mode with no image attached is a text search wearing a hat.
+    const isVision = attachments.length > 0;
+    await recordEvents(
+      { type: 'search', payload: { mode, query: query ?? '', resultCount: result.matches.length } },
+      ...(isVision ? [{ type: 'vision_search' as const, payload: { mode } }] : []),
+      ...(result.matches.length === 0
+        ? [{ type: 'zero_result_search' as const, payload: { query: query ?? '', mode } }]
+        : []),
+    );
+
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
