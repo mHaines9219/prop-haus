@@ -115,6 +115,14 @@ export type Project = {
    */
   archivedAt?: string;
   insured?: BusinessProfile;
+  /**
+   * Live share credential for /proposal/<token>, or absent when not shared.
+   *
+   * OWNER READS ONLY. `getProjectByShareToken` deletes this before returning, so
+   * a client-facing render cannot carry it. Absent here means "not shared" only
+   * on an owner read — on a share read it means nothing, because it was removed.
+   */
+  shareToken?: string;
 };
 
 export type CreateProjectInput = Omit<
@@ -195,12 +203,15 @@ export async function listProjects(
 }
 
 /**
- * NOT org-scoped, deliberately and as before: the project URL is shared outside
- * the owning org so a production can hand a proposal to a client. Scoping it
- * would break that link. See PLANS/PROP_HAUS_MVP_GAP_ANALYSIS.md — this wants a
- * separate share token, which is a product decision rather than a one-liner.
+ * Fetch by id with NO access check at all.
+ *
+ * Module-private on purpose. Every caller must already hold a credential that
+ * authorizes the read — a session's org, a vendor token, or a share token — and
+ * must have checked it. Exporting this is what produced the previous shape,
+ * where "the id is the capability" leaked into routes that had no business
+ * accepting it.
  */
-export async function getProject(id: string): Promise<Project | undefined> {
+async function getProjectById(id: string): Promise<Project | undefined> {
   const { data, error } = await db()
     .from('projects')
     .select(PROJECT_SELECT)
@@ -208,6 +219,90 @@ export async function getProject(id: string): Promise<Project | undefined> {
     .maybeSingle();
   if (error) throw new Error(`getProject: ${error.message}`);
   return data ? toProject(data) : undefined;
+}
+
+/**
+ * One project, for a member of the owning organization.
+ *
+ * Org-scoped as of the share-token change. It used to be deliberately open,
+ * because the proposal URL was the sharing mechanism — that is now
+ * `getProjectByShareToken`, so the owner path has no remaining reason to be
+ * readable by anyone holding an id.
+ *
+ * Returns undefined for "does not exist" and for "not yours" alike; the caller
+ * cannot tell them apart, which is the point.
+ */
+export async function getProject(orgId: string, id: string): Promise<Project | undefined> {
+  const { data, error } = await db()
+    .from('projects')
+    .select(PROJECT_SELECT)
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (error) throw new Error(`getProject: ${error.message}`);
+  return data ? toProject(data) : undefined;
+}
+
+/**
+ * One project, for whoever holds a live share link.
+ *
+ * The token is the entire credential, so the lookup is by token alone — same
+ * shape as `getProjectByToken` and for the same reason. A revoked token is null
+ * in the column, and `.eq('share_token', token)` cannot match null, so
+ * revocation takes effect on the next request with no extra check.
+ *
+ * Guards the empty token explicitly. PostgREST would happily filter on the
+ * empty string, and a route reached with a missing segment must not be one
+ * `where share_token = ''` away from matching a row someone forgot to clear.
+ */
+export async function getProjectByShareToken(token: string): Promise<Project | undefined> {
+  if (!token) return undefined;
+
+  const { data, error } = await db()
+    .from('projects')
+    .select(PROJECT_SELECT)
+    .eq('share_token', token)
+    .maybeSingle();
+  if (error) throw new Error(`getProjectByShareToken: ${error.message}`);
+  if (!data) return undefined;
+
+  // Strip the credential before it can reach a render. The holder already has
+  // it — it is in their URL — so nothing downstream needs it, and a value that
+  // is never in the object cannot be leaked by a future component that decides
+  // to serialize the project into a client boundary.
+  const { shareToken: _omit, ...project } = toProject(data);
+  return project;
+}
+
+/**
+ * Mint a share token, or revoke it.
+ *
+ * Minting always generates a NEW token rather than returning any existing one,
+ * so re-sharing after a revoke cannot resurrect a link someone already holds.
+ * 16 bytes, matching the vendor token and the project id.
+ *
+ * Returns the token on mint and null on revoke; returns null when the project
+ * is not the caller's, which is indistinguishable from a revoke by design.
+ */
+export async function setProjectShared(
+  orgId: string,
+  id: string,
+  shared: boolean,
+): Promise<{ ok: boolean; shareToken: string | null }> {
+  const shareToken = shared ? crypto.randomBytes(16).toString('hex') : null;
+
+  const updated = orThrow<{ id: string }[]>(
+    'setProjectShared',
+    await db()
+      .from('projects')
+      .update({ share_token: shareToken, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .select('id'),
+  );
+
+  if (updated.length === 0) return { ok: false, shareToken: null };
+  return { ok: true, shareToken };
 }
 
 /**
@@ -225,7 +320,8 @@ export async function getProjectByToken(
   if (error) throw new Error(`getProjectByToken: ${error.message}`);
   if (!data) return null;
 
-  const project = await getProject(data.project_id as string);
+  // Unscoped read, authorized by the vendor token checked immediately above.
+  const project = await getProjectById(data.project_id as string);
   if (!project) return null;
 
   const vendor = project.vendors.find((v) => v.token === token);
@@ -332,7 +428,7 @@ export async function createProject(orgId: string, input: CreateProjectInput): P
     throw e;
   }
 
-  const created = await getProject(id);
+  const created = await getProjectById(id);
   if (!created) throw new Error('createProject: row vanished immediately after insert');
   return created;
 }
@@ -380,7 +476,7 @@ export async function updateLineStatus(
   // Derived state stays in app code, as the migration intends: no triggers, one
   // source of truth. Re-read rather than compute from the patch, so the rollup
   // reflects what is actually stored.
-  const project = await getProject(vr.project_id as string);
+  const project = await getProjectById(vr.project_id as string);
   if (!project) return null;
 
   const vendor = project.vendors.find((v) => v.token === token);
@@ -426,7 +522,7 @@ export async function updateLineStatus(
     );
   }
 
-  const fresh = await getProject(project.id);
+  const fresh = await getProjectById(project.id);
   const freshVendor = fresh?.vendors.find((v) => v.token === token);
   return fresh && freshVendor ? { project: fresh, vendor: freshVendor } : null;
 }
@@ -474,7 +570,7 @@ export async function setCoiStatus(
       .select('id'),
   );
   if (updated.length === 0) return null;
-  return (await getProject(projectId)) ?? null;
+  return (await getProjectById(projectId)) ?? null;
 }
 
 /**
@@ -500,7 +596,7 @@ export async function setProjectArchived(
       .select('id'),
   );
   if (updated.length === 0) return null;
-  return (await getProject(id)) ?? null;
+  return (await getProjectById(id)) ?? null;
 }
 
 /**
@@ -508,9 +604,10 @@ export async function setProjectArchived(
  * into a commitment to spend.
  *
  * Scoped by org, like `setProjectArchived`. Approval is an owner action and only
- * an owner action: the proposal URL is meant to be shareable with a client, so
- * anyone holding the link must be able to read the numbers and not to accept
- * them on the production's behalf.
+ * an owner action: a client holding a share link must be able to read the
+ * numbers and not to accept them on the production's behalf. `/proposal/[token]`
+ * renders no approve control, but that is presentation — this filter is what
+ * actually enforces it.
  */
 export async function approveProject(orgId: string, id: string): Promise<Project | null> {
   const now = new Date().toISOString();
@@ -524,5 +621,5 @@ export async function approveProject(orgId: string, id: string): Promise<Project
       .select('id'),
   );
   if (updated.length === 0) return null;
-  return (await getProject(id)) ?? null;
+  return (await getProjectById(id)) ?? null;
 }

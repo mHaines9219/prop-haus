@@ -4,10 +4,12 @@ import {
   approveProject,
   createProject,
   getProject,
+  getProjectByShareToken,
   lineTotal,
   listProjects,
   setCoiStatus,
   setProjectArchived,
+  setProjectShared,
   suggestPeriods,
   type LineItem,
 } from './projects';
@@ -191,13 +193,13 @@ describe.skipIf(!HAS_DB)('organization scoping (integration)', () => {
 
     // The point is not just the null return: assert the row is untouched, since
     // "returned null but wrote anyway" is the failure that would matter.
-    const after = await getProject(p.id);
+    const after = await getProject(ORG_A, p.id);
     expect(after?.status).toBe(p.status);
     expect(after?.approvedAt).toBeUndefined();
 
     // ...and the real owner still can.
     expect(await approveProject(ORG_A, p.id)).not.toBeNull();
-    expect((await getProject(p.id))?.status).toBe('confirmed');
+    expect((await getProject(ORG_A, p.id))?.status).toBe('confirmed');
   });
 
   it('refuses to set COI status on another org’s vendor, and does not alter it', async () => {
@@ -207,17 +209,81 @@ describe.skipIf(!HAS_DB)('organization scoping (integration)', () => {
 
     expect(await setCoiStatus(ORG_B, p.id, vendorSource, 'approved', 'http://evil.example')).toBeNull();
 
-    const after = await getProject(p.id);
+    const after = await getProject(ORG_A, p.id);
     expect(after?.vendors[0].coi.status).toBe(before);
     // The cert URL is the part an outsider would most want to write.
     expect(after?.vendors[0].coi.certUrl).toBeUndefined();
 
     expect(await setCoiStatus(ORG_A, p.id, vendorSource, 'approved')).not.toBeNull();
-    expect((await getProject(p.id))?.vendors[0].coi.status).toBe('approved');
+    expect((await getProject(ORG_A, p.id))?.vendors[0].coi.status).toBe('approved');
   });
 
   it('returns null rather than throwing for an unknown project id', async () => {
     expect(await approveProject(ORG_A, 'nope')).toBeNull();
     expect(await setCoiStatus(ORG_A, 'nope', 'gilandroy', 'approved')).toBeNull();
+  });
+
+  it('hides another org’s project from getProject', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'scoped read' });
+    // This read used to be open by design; the share token replaced that.
+    expect(await getProject(ORG_B, p.id)).toBeUndefined();
+    expect(await getProject(ORG_A, p.id)).toBeDefined();
+  });
+
+  /**
+   * The share token is a bearer credential handed to someone outside the org, so
+   * these run against real rows: the unique constraint, the null semantics and
+   * the strip-before-return all live in the database or the mapper, and a mock
+   * would agree with a broken version of any of them.
+   */
+  it('mints a token that resolves, and is absent until asked for', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'shareable' });
+    expect(p.shareToken).toBeUndefined(); // lazy: never shared, no credential
+
+    const { ok, shareToken } = await setProjectShared(ORG_A, p.id, true);
+    expect(ok).toBe(true);
+    expect(shareToken).toHaveLength(32);
+
+    const viaToken = await getProjectByShareToken(shareToken!);
+    expect(viaToken?.id).toBe(p.id);
+    // The holder already has the token; it must not ride along into a render.
+    expect(viaToken?.shareToken).toBeUndefined();
+  });
+
+  it('stops resolving the moment it is revoked', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'revocable' });
+    const { shareToken } = await setProjectShared(ORG_A, p.id, true);
+    expect(await getProjectByShareToken(shareToken!)).toBeDefined();
+
+    await setProjectShared(ORG_A, p.id, false);
+    expect(await getProjectByShareToken(shareToken!)).toBeUndefined();
+  });
+
+  it('rotates on reissue, so a revoked link cannot come back', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'rotating' });
+    const first = (await setProjectShared(ORG_A, p.id, true)).shareToken;
+    await setProjectShared(ORG_A, p.id, false);
+    const second = (await setProjectShared(ORG_A, p.id, true)).shareToken;
+
+    expect(second).not.toBe(first);
+    expect(await getProjectByShareToken(first!)).toBeUndefined();
+    expect(await getProjectByShareToken(second!)).toBeDefined();
+  });
+
+  it('refuses to share another org’s project', async () => {
+    const p = await createProject(ORG_A, { ...base, productionName: 'not yours to share' });
+    expect(await setProjectShared(ORG_B, p.id, true)).toEqual({ ok: false, shareToken: null });
+    // And nothing was minted behind the failed call.
+    expect((await getProject(ORG_A, p.id))?.shareToken).toBeUndefined();
+  });
+
+  it('never resolves an empty or unknown token', async () => {
+    // Two unshared projects both hold null, so a filter on '' must not match
+    // either of them — the case where "many nulls" would become "many matches".
+    await createProject(ORG_A, { ...base, productionName: 'null token a' });
+    await createProject(ORG_A, { ...base, productionName: 'null token b' });
+
+    expect(await getProjectByShareToken('')).toBeUndefined();
+    expect(await getProjectByShareToken('deadbeef'.repeat(4))).toBeUndefined();
   });
 });
