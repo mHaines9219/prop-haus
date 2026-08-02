@@ -19,6 +19,8 @@ tsconfig.tsbuildinfo
 data/*.json
 data/embeddings.f32
 data/embeddings.ids.json
+# local pre-prune backups (prune-data.ts / manual) — 500MB+, never committable
+data/*.before
 
 # keep projects.json (app state) and a .gitkeep placeholder
 !data/projects.json
