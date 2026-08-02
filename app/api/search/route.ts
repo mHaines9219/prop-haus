@@ -86,6 +86,17 @@ export async function POST(req: Request) {
   // here narrows the type without an assertion, and an unlimited plan can never
   // reach this branch.
   if (!allowance.allowed && allowance.limit !== null) {
+    // The ceiling is the one request in this handler that carries real intent and
+    // would otherwise leave no trace at all — it returns before the instrumentation
+    // below. `paywall_hit` has been in EVENT_TYPES since the initial schema with
+    // zero callers; this is the caller. It is also the only data that can answer
+    // whether the limit is set right, since a limit nobody reaches and a limit
+    // everybody slams into look identical without it.
+    await recordEvents({
+      type: 'paywall_hit',
+      payload: { feature: 'ai_search', metric, query: query ?? '', mode },
+    });
+
     // 402 rather than 429: this is a plan ceiling, not rate limiting. Retrying
     // later does not help within the period, and the client renders an upgrade
     // prompt rather than a "try again" one.
@@ -117,6 +128,22 @@ export async function POST(req: Request) {
       result.matches.length > 0
         ? await recordUsage(orgId, plan, metric)
         : await getAllowance(orgId, plan, metric);
+
+    // Recorded after the charge — every `bad()` return above and the 502 below
+    // produced nothing, and charging demand signal for a failed request would
+    // corrupt the one dataset the brief leans on.
+    //
+    // `vision_search` keys off `metric` rather than re-deriving from
+    // `attachments.length`. Same fact, one source: two variables reading it is
+    // how the billed metric and the logged event eventually disagree about what
+    // a request was.
+    await recordEvents(
+      { type: 'search', payload: { mode, query: query ?? '', resultCount: result.matches.length } },
+      ...(metric === 'visionSearches' ? [{ type: 'vision_search' as const, payload: { mode } }] : []),
+      ...(result.matches.length === 0
+        ? [{ type: 'zero_result_search' as const, payload: { query: query ?? '', mode } }]
+        : []),
+    );
 
     return NextResponse.json({ ...result, usage });
   } catch (e) {
