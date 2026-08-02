@@ -72,8 +72,21 @@ async function main() {
   // rather than on the id. Without this, `pnpm enrich` on one vendor forced a
   // full 90k re-embed — and skipping the re-embed instead left the enriched
   // items retrievable only by their old, pre-enrichment text.
+  //
+  // MODEL is in the hash, not just the text. A vector is only reusable if the
+  // *same model* produced it: change OPENROUTER_EMBED_MODEL and every unchanged
+  // item would otherwise keep its old-model vector, leaving one index holding
+  // two embedding spaces. Cosine similarity across that boundary is meaningless
+  // and nothing errors — the same silent-wrong-answer shape this resume logic
+  // exists to prevent. Switching models now invalidates everything, which is
+  // the correct and expensive direction.
+  //
+  // \x00 as the separator because it cannot occur in canonicalText, so no
+  // (model, text) pair can collide with a different one.
   const texts = items.map(canonicalText);
-  const hashes = texts.map((t) => crypto.createHash('sha1').update(t).digest('hex'));
+  const hashes = texts.map((t) =>
+    crypto.createHash('sha1').update(`${MODEL}\x00${t}`).digest('hex'),
+  );
   const prevMeta = all ? {} : await readMeta();
   const prevIndex = all ? null : await loadIndex();
   const prevSlot = new Map(prevIndex?.ids.map((id, i) => [id, i]) ?? []);
