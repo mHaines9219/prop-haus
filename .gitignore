@@ -23,5 +23,4 @@ data/embeddings.ids.json
 data/*.before
 
 # keep projects.json (app state) and a .gitkeep placeholder
-!data/projects.json
 !data/.gitkeep

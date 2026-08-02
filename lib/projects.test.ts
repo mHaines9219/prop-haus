@@ -1,8 +1,13 @@
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { lineTotal, suggestPeriods, type LineItem } from './projects';
+import crypto from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  createProject,
+  lineTotal,
+  listProjects,
+  setProjectArchived,
+  suggestPeriods,
+  type LineItem,
+} from './projects';
 
 /**
  * Two things are covered here and they fail in different ways.
@@ -12,9 +17,14 @@ import { lineTotal, suggestPeriods, type LineItem } from './projects';
  *   - ORG SCOPING is an access boundary. A missing filter leaks another
  *     organization's jobs, which types cannot catch.
  *
- * The scoping block writes real files. `lib/projects.ts` resolves its store path
- * from `process.cwd()` at module load, so each test chdirs into a fresh temp dir
- * and re-imports the module — importing first would bind the path to the repo.
+ * The scoping block is an INTEGRATION test against the real database, because
+ * that is where the boundary now lives. `lib/projects.ts` uses the service-role
+ * client, which bypasses RLS — so the `org_id` filters in its queries are the
+ * access control, and a mock would happily agree with a broken one.
+ *
+ * It creates two throwaway organizations and deletes them afterwards; every
+ * child table cascades. It skips when Supabase credentials are absent, so the
+ * suite stays green without them rather than failing for the wrong reason.
  */
 
 const line = (quote: LineItem['quote'], qty = 1): LineItem => ({
@@ -79,81 +89,88 @@ describe('lineTotal', () => {
   });
 });
 
-describe('organization scoping', () => {
-  const ORG_A = 'org-aaaa';
-  const ORG_B = 'org-bbbb';
+const HAS_DB = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+);
 
-  let dir: string;
-  let cwd: string;
-  let P: typeof import('./projects');
+describe.skipIf(!HAS_DB)('organization scoping (integration)', () => {
+  const ORG_A = crypto.randomUUID();
+  const ORG_B = crypto.randomUUID();
 
   const base = {
-    productionName: 'x',
+    productionName: 'scoping test',
     productionType: 'commercial',
     startDate: '2026-09-01',
     endDate: '2026-09-05',
     deliveryAddress: 'a',
     contactName: 'n',
-    contactEmail: 'e',
+    contactEmail: 'e@example.com',
     contactPhone: 'p',
     lines: [{ itemId: 'i1', sourceId: 's1', source: 'gilandroy' as const, name: 'Chair', qty: 1 }],
   };
 
-  beforeEach(async () => {
-    cwd = process.cwd();
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ph-projects-'));
-    await fs.mkdir(path.join(dir, 'data'));
-    await fs.writeFile(path.join(dir, 'data', 'projects.json'), '[]');
-    process.chdir(dir);
-    vi.resetModules();
-    P = await import('./projects');
+  // Imported lazily so the module is not loaded when this suite is skipped.
+  async function admin() {
+    const { createAdminClient } = await import('./supabase/admin');
+    return createAdminClient();
+  }
+
+  beforeAll(async () => {
+    const c = await admin();
+    const { error } = await c.from('organizations').insert([
+      { id: ORG_A, type: 'company', name: 'test org A', plan: 'free' },
+      { id: ORG_B, type: 'company', name: 'test org B', plan: 'free' },
+    ]);
+    if (error) throw new Error(`seed orgs: ${error.message}`);
   });
 
-  afterEach(async () => {
-    process.chdir(cwd);
-    await fs.rm(dir, { recursive: true, force: true });
+  afterAll(async () => {
+    // Cascades through projects -> vendor_requests -> line_items.
+    const c = await admin();
+    await c.from('organizations').delete().in('id', [ORG_A, ORG_B]);
   });
 
   it('stamps the owning org and a 16-byte id', async () => {
-    const p = await P.createProject(ORG_A, base);
+    const p = await createProject(ORG_A, { ...base, productionName: 'stamp' });
     expect(p.orgId).toBe(ORG_A);
     expect(p.id).toHaveLength(32);
+    // The aggregate comes back whole, not just the parent row.
+    expect(p.vendors).toHaveLength(1);
+    expect(p.vendors[0].items).toHaveLength(1);
+    expect(p.vendors[0].token).toHaveLength(32);
   });
 
   it('never returns another org’s jobs', async () => {
-    await P.createProject(ORG_A, base);
-    await P.createProject(ORG_A, base);
-    await P.createProject(ORG_B, base);
+    await createProject(ORG_A, base);
+    await createProject(ORG_B, base);
 
-    const a = await P.listProjects(ORG_A);
-    expect(a).toHaveLength(2);
-    expect(a.some((p) => p.orgId === ORG_B)).toBe(false);
-    expect(await P.listProjects(ORG_B)).toHaveLength(1);
-    expect(await P.listProjects('org-nobody')).toHaveLength(0);
+    const a = await listProjects(ORG_A);
+    expect(a.length).toBeGreaterThan(0);
+    expect(a.every((p) => p.orgId === ORG_A)).toBe(true);
+    expect(await listProjects(crypto.randomUUID())).toHaveLength(0);
   });
 
   it('hides archived jobs unless asked for them', async () => {
-    const p = await P.createProject(ORG_A, base);
-    await P.createProject(ORG_A, base);
+    const p = await createProject(ORG_A, { ...base, productionName: 'archivable' });
+    const before = (await listProjects(ORG_A)).length;
 
-    expect(await P.setProjectArchived(ORG_A, p.id, true)).not.toBeNull();
-    expect(await P.listProjects(ORG_A)).toHaveLength(1);
-    expect(await P.listProjects(ORG_A, { includeArchived: true })).toHaveLength(2);
+    expect(await setProjectArchived(ORG_A, p.id, true)).not.toBeNull();
+    expect((await listProjects(ORG_A)).length).toBe(before - 1);
+    expect((await listProjects(ORG_A, { includeArchived: true })).length).toBe(before);
 
-    expect(await P.setProjectArchived(ORG_A, p.id, false)).not.toBeNull();
-    expect(await P.listProjects(ORG_A)).toHaveLength(2);
+    expect(await setProjectArchived(ORG_A, p.id, false)).not.toBeNull();
+    expect((await listProjects(ORG_A)).length).toBe(before);
   });
 
   it('refuses to archive a job belonging to another org', async () => {
-    const p = await P.createProject(ORG_A, base);
-
-    // Reported as not-found rather than forbidden, so the endpoint cannot be
-    // used to probe which project ids exist.
-    expect(await P.setProjectArchived(ORG_B, p.id, true)).toBeNull();
-    expect(await P.listProjects(ORG_A)).toHaveLength(1);
+    const p = await createProject(ORG_A, { ...base, productionName: 'not yours' });
+    // Reported as not-found rather than forbidden, so this cannot be used to
+    // probe which project ids exist.
+    expect(await setProjectArchived(ORG_B, p.id, true)).toBeNull();
+    expect((await listProjects(ORG_A)).some((x) => x.id === p.id)).toBe(true);
   });
 
   it('returns null for an unknown id', async () => {
-    expect(await P.setProjectArchived(ORG_A, 'nope', true)).toBeNull();
+    expect(await setProjectArchived(ORG_A, 'nope', true)).toBeNull();
   });
 });
