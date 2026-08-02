@@ -8,7 +8,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import pLimit from 'p-limit';
-import { Catalog } from '../lib/types';
+import { parseCatalogItemsStrict } from '../lib/catalog-parse';
 import { canonicalText, loadIndex, writeIndex, EMBED_DIM } from '../lib/embeddings';
 
 const DATA = path.join(process.cwd(), 'data');
@@ -65,7 +65,7 @@ async function main() {
   }
   const all = process.argv.includes('--all');
   const raw = await fs.readFile(path.join(DATA, 'catalog.json'), 'utf8');
-  const items = Catalog.parse(JSON.parse(raw));
+  const items = parseCatalogItemsStrict(JSON.parse(raw), 'embed');
 
   // Incremental resume. A vector is reusable only if the text it was built from
   // is the text we'd send today, so reuse is keyed on a hash of canonicalText

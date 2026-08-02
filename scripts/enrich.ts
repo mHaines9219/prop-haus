@@ -11,7 +11,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import pLimit from 'p-limit';
-import { Catalog, SOURCES, type PropItem, type Source } from '../lib/types';
+import { parseCatalogItemsStrict } from '../lib/catalog-parse';
+import { SOURCES, type PropItem, type Source } from '../lib/types';
 import { ENUM_LIST } from '../lib/enrichment-enums';
 
 const MODEL = process.env.OPENROUTER_ENRICH_MODEL || 'anthropic/claude-haiku-4.5';
@@ -226,7 +227,7 @@ async function main() {
       : path.join(DATA, 'catalog.json');
   console.log(`Reading ${file}`);
   const raw = await fs.readFile(file, 'utf8');
-  const items = Catalog.parse(JSON.parse(raw));
+  const items = parseCatalogItemsStrict(JSON.parse(raw), 'enrich');
 
   // Scope to one source when asked and the file we loaded holds more than that
   // source. Without this, `--source omega --limit 500` silently enriches the

@@ -18,7 +18,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { Client } from 'pg';
-import { Catalog, type PropItem } from '../lib/types';
+import { parseCatalogItemsStrict } from '../lib/catalog-parse';
+import type { PropItem } from '../lib/types';
 import { loadIndex, EMBED_DIM } from '../lib/embeddings';
 
 const BATCH = 200; // rows per multi-row INSERT (×25 cols ≈ 5k params, well under 65535)
@@ -61,7 +62,7 @@ const COLS: Col[] = [
 async function loadCatalogFile(): Promise<PropItem[]> {
   const file = path.join(process.cwd(), 'data', 'catalog.json');
   const raw = await fs.readFile(file, 'utf8');
-  return Catalog.parse(JSON.parse(raw));
+  return parseCatalogItemsStrict(JSON.parse(raw), 'db:load');
 }
 
 // Build an id → "[f1,f2,…]" pgvector literal map from the embeddings index.
