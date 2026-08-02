@@ -3,7 +3,7 @@ import { recordEvents } from '@/lib/analytics';
 import { parseAttachments } from '@/lib/upload';
 import { runSearch } from '@/lib/search-modes';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
-import { currentOrgId, currentPlan } from '@/lib/session';
+import { currentSession } from '@/lib/session';
 import { getAllowance, recordUsage } from '@/lib/usage';
 import type { MeteredMetric } from '@/lib/plans';
 
@@ -78,8 +78,18 @@ export async function POST(req: Request) {
   // mode with no image attached is just a text search and should be charged as one.
   const metric: MeteredMetric =
     attachments.length > 0 ? 'visionSearches' : 'aiSearchesPerMonth';
-  const orgId = await currentOrgId();
-  const plan = await currentPlan();
+  // The AI search is the only metered route — browse and keyword are local
+  // scoring and stay public. Metering an anonymous caller is meaningless: there
+  // is nobody to charge, so an unauthenticated AI search would be unlimited and
+  // free, which is precisely the hole the paywall exists to close.
+  const session = await currentSession();
+  if (!session) {
+    return NextResponse.json(
+      { error: 'Sign in to use AI search. Keyword search and browsing stay open.' },
+      { status: 401 },
+    );
+  }
+  const { orgId, plan } = session;
 
   const allowance = await getAllowance(orgId, plan, metric);
   // `limit !== null` is implied by `!allowed` (see the Allowance type); checking it

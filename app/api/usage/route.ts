@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { currentOrgId, currentPlan } from '@/lib/session';
+import { currentSession } from '@/lib/session';
 import { usageSnapshot } from '@/lib/usage';
 
 export const runtime = 'nodejs';
@@ -13,6 +13,11 @@ export const dynamic = 'force-dynamic';
  * usage.
  */
 export async function GET() {
-  const [orgId, plan] = await Promise.all([currentOrgId(), currentPlan()]);
+  // 401, not a redirect: this is fetched by client code, which needs a status it
+  // can branch on rather than the HTML of a sign-in page.
+  const session = await currentSession();
+  if (!session) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
+
+  const { orgId, plan } = session;
   return NextResponse.json({ plan, metrics: await usageSnapshot(orgId, plan) });
 }
