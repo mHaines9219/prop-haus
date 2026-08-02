@@ -1,7 +1,19 @@
 -- ============================================================================
--- MEASUREMENT ONLY — creates nothing, drops nothing, changes no stored value.
--- Second of two; see 20260802170200 for the first and for why a measurement
+-- MEASUREMENT — creates nothing, drops nothing. WRITES UP TO 250 ROWS.
+-- Second of three; see 20260802170200 for the first and for why a measurement
 -- arrives here as a migration.
+--
+-- WHAT IT WRITES, corrected. The original header said "changes no stored value"
+-- and that was false in the same way 20260802170200's was. Both statements below
+-- select rows where keyword_tsv IS NULL and assign the column to itself; the
+-- BEFORE UPDATE trigger then computes a real tsvector. So up to 250 rows go
+-- null -> populated, permanently.
+--
+-- Those writes are forward progress — byte-identical to what the backfill would
+-- have written — so this is harmless. It is corrected anyway because the same
+-- untrue sentence appeared in three measurement files, which makes it a template
+-- rather than a slip, and the reader it misleads is whoever greps for "which
+-- migrations write to prop_items".
 --
 -- WHAT 170200 ESTABLISHED, AND WHAT IT LEFT OPEN
 --
@@ -43,14 +55,28 @@
 -- BLAST RADIUS
 --
 -- 250 rows total, 0.27% of the table, in two bounded statements. The incident
--- was a full-table rewrite of 90,953 rows held open for fifteen minutes. The
--- local timeout below is sized so that the pessimistic case (no amortisation at
--- all: 250 rows x 189ms = 47s) still completes and REPORTS rather than being
--- cancelled with nothing to show — an aborted measurement is the one outcome
--- that teaches nothing.
+-- was a full-table rewrite of 90,953 rows held open for fifteen minutes.
+--
+-- THE GUARD BELOW DOES NOTHING, and this is the correction that matters most in
+-- this file. When it ran it emitted:
+--
+--   WARNING (25P01): SET LOCAL can only be used in transaction blocks
+--
+-- Migrations here do NOT run inside a transaction, so SET LOCAL is a no-op —
+-- every one in this repo's history has been, including the '15min' in #46 that
+-- was described in channel as bounding the backfill. It bounded nothing.
+--
+-- The original paragraph here argued the timeout was "sized so the pessimistic
+-- case still completes and REPORTS". That protection was never present. The run
+-- finished in 20.2s so no harm landed, but the paragraph read as a safeguard and
+-- the next person sizing a bounded operation would have copied it.
+--
+-- The statement is kept rather than deleted, because the WARNING it produces is
+-- the evidence for the finding.
 -- ============================================================================
 
--- Reverts with this migration's transaction, so nothing else inherits it.
+-- NO-OP. Kept as the evidence for the WARNING described above; migrations here
+-- are not transactional, so this sets nothing. Do not copy it as a guard.
 set local statement_timeout = '90s';
 
 do $$

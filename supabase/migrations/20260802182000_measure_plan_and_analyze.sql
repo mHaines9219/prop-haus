@@ -1,6 +1,16 @@
 -- ============================================================================
--- MEASUREMENT — reads plans, runs ANALYZE, changes no stored value.
+-- MEASUREMENT — reads plans and runs ANALYZE. WRITES UP TO 400 ROWS.
 -- Third and last of the diagnostics; see 20260802170200 and 20260802181000.
+--
+-- WHAT IT WRITES, corrected. The original header said "changes no stored value",
+-- the third file in a row to say it and the third time it was false. EXPLAIN
+-- ANALYZE does not simulate a statement, it EXECUTES it — and there are two
+-- runs of 200 rows here, so up to 400 rows go null -> populated, permanently.
+--
+-- An inline comment below also called the update "value-preserving", which is
+-- wrong in the way that matters: `set keyword_tsv = p.keyword_tsv where
+-- keyword_tsv is null` fires the trigger and populates nulls. That IS the
+-- mechanism, not an incidental side effect. Forward progress, but not a no-op.
 --
 -- WHERE THE PREVIOUS TWO LEFT IT
 --
@@ -80,8 +90,16 @@ begin
   end if;
 
   -- --------------------------------------------------------------------------
-  -- 1. The plan BEFORE ANALYZE. EXPLAIN ANALYZE executes the statement, which
-  --    is fine: it is the same value-preserving no-op as the backfill itself.
+  -- 1. The plan BEFORE ANALYZE. EXPLAIN ANALYZE EXECUTES the statement -- these
+  --    200 rows are populated for real, exactly as the backfill would.
+  --
+  --    CONFOUND, stated because the output does not distinguish it: step 3 runs
+  --    on the NEXT 200 rows, not these ones, because these are no longer null
+  --    afterwards. Different pages, different cache state. So a before/after
+  --    difference in Execution Time is NOT attributable to ANALYZE on its own,
+  --    and must not be read that way. What the two steps DO compare validly is
+  --    the plan SHAPE and the `Buffers: shared hit` vs `read` split, which
+  --    separate plan choice from cold I/O.
   -- --------------------------------------------------------------------------
   raise notice '=== BEFORE ANALYZE ===';
   for rec in
