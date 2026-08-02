@@ -54,7 +54,44 @@ comment on column public.projects.share_token is
 -- "all except" form, so a column added later is NOT granted until someone adds
 -- it here. That fails closed — a new column is invisible rather than a new token
 -- being readable.
+--
+-- WHY THE EXPLICIT TRANSACTION, AND WHY IT IS NOT DECORATION
+--
+-- Migrations here do NOT arrive as one multi-statement string. Fizz observed
+-- `WARNING 25P01: SET LOCAL can only be used in transaction blocks` from a live
+-- `db push`, and on a scratch cluster `SET LOCAL` inside an implicit
+-- multi-statement block does not warn at all — it silently takes effect. So that
+-- warning is positive evidence the statements arrive one at a time, each
+-- autocommitting. There is no implicit block wrapping this file.
+--
+-- That makes the two statements below a live failure window rather than a
+-- theoretical one. Reproduced on a scratch cluster: abort the run between them
+-- and `authenticated` is left holding NOTHING —
+--
+--   after abort:  has_table_privilege(...,'select') = false
+--                 id / org_id / notes  ->  all false
+--                 select from projects ->  ERROR: permission denied
+--
+-- No rollback, no partial state to read, just a table the app cannot see until
+-- someone runs the grant by hand. `begin`/`commit` makes the pair atomic: the
+-- same aborted run leaves the original grant intact and untouched.
+--
+-- Already applied, so this changes nothing live. It matters for `supabase db
+-- reset` and for any fresh environment, which replay this file from scratch.
+--
+-- DO NOT "simplify" THIS TO A COLUMN-SCOPED REVOKE. The obvious one-liner —
+--
+--   revoke select (share_token) on public.projects from authenticated;
+--
+-- reports `REVOKE`, raises nothing, and DOES NOT WORK. A column-level revoke
+-- cannot subtract from a table-level grant, so `share_token` stays readable.
+-- Verified on a scratch cluster: `has_column_privilege(...,'share_token',
+-- 'select')` is still true afterwards. It is a silent no-op that looks exactly
+-- like a successful fix, which is the worst failure shape available for a
+-- statement whose whole job is hiding a credential.
 -- ---------------------------------------------------------------------------
+begin;
+
 revoke select on public.projects from authenticated, anon;
 
 grant select (
@@ -65,14 +102,25 @@ grant select (
   created_at, updated_at, metadata
 ) on public.projects to authenticated;
 
+commit;
+
 -- ---------------------------------------------------------------------------
--- ROLLBACK, if this ever needs reverting:
+-- ROLLBACK, if this ever needs reverting. Run it as written, transaction and
+-- all — the revoke/grant pair has the same window on the way out as on the way
+-- in, and a revert is exactly when nobody is watching the app:
 --
---   revoke select on public.projects from authenticated;
---   grant  select on public.projects to authenticated;   -- restores all columns
---   alter table public.projects drop column share_token;
+--   begin;
+--     revoke select on public.projects from authenticated;
+--     grant  select on public.projects to authenticated;   -- restores all columns
+--     alter table public.projects drop column share_token;
+--   commit;
 --
 -- Order matters: dropping the column first leaves the explicit column grant
 -- referencing a column that no longer exists. Same class of hazard as the
 -- keyword_tsv trigger — revert the dependent object before the thing it names.
+--
+-- Note what the middle line does: it restores blanket select on every column.
+-- That is correct HERE only because the third line removes the credential in the
+-- same transaction. Running the first two without the third re-exposes
+-- share_token to every org member through the Data API.
 -- ---------------------------------------------------------------------------
