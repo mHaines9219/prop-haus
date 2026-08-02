@@ -277,6 +277,76 @@ describe.skipIf(!HAS_DB)('organization scoping (integration)', () => {
     expect((await getProject(ORG_A, p.id))?.shareToken).toBeUndefined();
   });
 
+  /**
+   * The share token must not be readable through the Data API.
+   *
+   * This is the one property in the feature that application code cannot
+   * enforce: `lib/projects.ts` runs as service_role, which ignores column
+   * grants, so every other test here would pass just as happily with the column
+   * fully exposed to `authenticated`.
+   *
+   * The regression it guards is specific and plausible. Revoking blanket select
+   * means a browser-side `select *` on projects now returns
+   * `403 42501 permission denied`, because `*` expands to include the ungranted
+   * column. The obvious fix for that error is
+   * `grant select on public.projects to authenticated` — which silently hands
+   * every org member a live client-facing credential. This test is what makes
+   * that shortcut fail loudly instead.
+   *
+   * Runs as a REAL authenticated user, because the grant is on that role
+   * specifically. An admin- or anon-key check would prove something else.
+   */
+  it('never exposes share_token to an authenticated Data API caller', async () => {
+    const { createProbeUser, deleteProbeUser } = await import('./auth-probe');
+    const { createClient } = await import('@supabase/supabase-js');
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const probe = await createProbeUser('grant');
+
+    try {
+      const admin = (await import('./supabase/admin')).createAdminClient();
+      const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: probe.email,
+      });
+      if (linkError || !link?.properties?.email_otp) {
+        throw new Error(`probe link failed: ${linkError?.message ?? 'no otp'}`);
+      }
+
+      const anon = createClient(url, anonKey, { auth: { persistSession: false } });
+      const { data: session, error: otpError } = await anon.auth.verifyOtp({
+        email: probe.email,
+        token: link.properties.email_otp,
+        type: 'magiclink',
+      });
+      // Assert rather than `!`: if sign-in failed, the 403s below would pass for
+      // the wrong reason — an unauthenticated caller is denied everything.
+      if (otpError || !session?.session) {
+        throw new Error(`probe sign-in failed: ${otpError?.message ?? 'no session'}`);
+      }
+      const jwt = session.session.access_token;
+
+      const ask = (select: string) =>
+        fetch(`${url}/rest/v1/projects?select=${select}&limit=1`, {
+          headers: { apikey: anonKey, Authorization: `Bearer ${jwt}` },
+        });
+
+      // The column itself: denied.
+      expect((await ask('share_token')).status).toBe(403);
+
+      // And `select *`, which is how it would leak without anyone naming it.
+      expect((await ask('*')).status).toBe(403);
+
+      // Not a blanket denial — a named safe column still reads, so the two
+      // assertions above fail for the right reason rather than because the
+      // table became unreadable.
+      expect((await ask('id,production_name')).status).toBe(200);
+    } finally {
+      await deleteProbeUser(probe);
+    }
+  }, 30_000);
+
   it('never resolves an empty or unknown token', async () => {
     // Two unshared projects both hold null, so a filter on '' must not match
     // either of them — the case where "many nulls" would become "many matches".

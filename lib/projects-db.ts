@@ -178,7 +178,28 @@ export function toProject(r: ProjectRow): Project {
 
 export type Db = SupabaseClient;
 
-/** Service-role client. See the header for why this path cannot use RLS. */
+/**
+ * Service-role client. See the header for why this path cannot use RLS.
+ *
+ * ONE CONSEQUENCE WORTH KNOWING BEFORE YOU QUERY `projects` FROM A BROWSER.
+ * `20260802180000` revoked blanket select on the table and re-granted every
+ * column except `share_token`, which is a bearer credential. Because `select *`
+ * expands to *all* columns, a browser-side read as `authenticated` gets:
+ *
+ *   403 42501 "permission denied ... GRANT SELECT ON"
+ *
+ * even though the "members read org projects" RLS policy would allow the row.
+ * Name the columns you want and it works. Verified against live, not inferred.
+ *
+ * Nothing in the app hits this today — every projects query runs through this
+ * service-role client, which ignores column grants — so this is a note for the
+ * first person to add a client-side read, who would otherwise read the error as
+ * an RLS problem and go looking in the wrong place.
+ *
+ * DO NOT "fix" it with `grant select on public.projects to authenticated`. That
+ * restores blanket access and hands every org member a live client-facing
+ * credential through the Data API. `lib/projects.test.ts` fails if you do.
+ */
 export function db(): Db {
   return createAdminClient();
 }
