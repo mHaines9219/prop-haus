@@ -49,9 +49,18 @@ export async function loadIndex(): Promise<VectorIndex | null> {
   }
 }
 
+// Temp file + rename. The vector file is ~550 MB and a crash partway through a
+// direct write leaves a truncated index that still loads — loadIndex derives the
+// vector count from byteLength, so the result is a silently wrong index rather
+// than an error. Rebuilding it costs a full `pnpm embed` run.
 export async function writeIndex(ids: string[], vectors: Float32Array) {
-  await fs.writeFile(IDS_FILE, JSON.stringify(ids), 'utf8');
-  await fs.writeFile(VECTORS_FILE, Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength));
+  await fs.writeFile(`${IDS_FILE}.tmp`, JSON.stringify(ids), 'utf8');
+  await fs.writeFile(
+    `${VECTORS_FILE}.tmp`,
+    Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength),
+  );
+  await fs.rename(`${IDS_FILE}.tmp`, IDS_FILE);
+  await fs.rename(`${VECTORS_FILE}.tmp`, VECTORS_FILE);
   cached = null;
 }
 

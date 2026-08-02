@@ -14,7 +14,7 @@
     "scrape:merge": "tsx scrapers/merge.ts",
     "enrich": "tsx scripts/enrich.ts",
     "embed": "tsx scripts/embed.ts",
-    "prune:index": "tsx scripts/prune-index.ts",
+    "data:prune": "tsx scripts/prune-data.ts",
     "db:load": "tsx scripts/load-catalog.ts",
     "db:dump": "tsx scripts/dump-catalog.ts",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
