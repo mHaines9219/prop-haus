@@ -44,6 +44,11 @@ export function lineTotal(item: LineItem): number {
   return item.quote.amount * item.qty * item.quote.periods;
 }
 
+/** A line counts toward a total only once the vendor has said they can supply it. */
+export function isBillable(item: LineItem): boolean {
+  return item.status === 'available' || item.status === 'sub';
+}
+
 /**
  * A starting number for the vendor to correct, derived from the booking window.
  * Flat-fee units are always 1. Never treat the result as authoritative.
@@ -128,6 +133,28 @@ export type CreateProjectInput = Omit<
     qty: number;
   }>;
 };
+
+export type ProposalTotals = {
+  vendors: Array<{ vendor: VendorRequest; subtotal: number }>;
+  grandTotal: number;
+};
+
+/**
+ * The money on a proposal, in one place.
+ *
+ * The rendered page and the CSV export both call this rather than each summing
+ * the lines themselves. Two implementations of the same arithmetic is how a
+ * client ends up holding a spreadsheet whose total disagrees with the page it
+ * was exported from — and this is the same code path that once priced a
+ * thirty-day rental identically to a one-day one.
+ */
+export function proposalTotals(project: Project): ProposalTotals {
+  const vendors = project.vendors.map((vendor) => ({
+    vendor,
+    subtotal: vendor.items.reduce((n, i) => (isBillable(i) ? n + lineTotal(i) : n), 0),
+  }));
+  return { vendors, grandTotal: vendors.reduce((n, v) => n + v.subtotal, 0) };
+}
 
 /**
  * Backed by Postgres (public.projects / vendor_requests / line_items).

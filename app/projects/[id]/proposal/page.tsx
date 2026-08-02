@@ -5,7 +5,7 @@ import { Badge } from '@astryxdesign/core/Badge';
 import { Card } from '@astryxdesign/core/Card';
 import { List } from '@astryxdesign/core/List';
 import { Item } from '@astryxdesign/core/Item';
-import { getProject, lineTotal } from '@/lib/projects';
+import { getProject, lineTotal, proposalTotals } from '@/lib/projects';
 import { FLAT_FEE_UNITS, SOURCE_META } from '@/lib/types';
 import { ApproveButton } from './approve';
 
@@ -23,14 +23,9 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   const project = await getProject(id);
   if (!project) notFound();
 
-  const vendorTotals = project.vendors.map((v) => {
-    const subtotal = v.items.reduce((n, i) => {
-      if (i.status === 'available' || i.status === 'sub') return n + lineTotal(i);
-      return n;
-    }, 0);
-    return { vendor: v, subtotal };
-  });
-  const grandTotal = vendorTotals.reduce((n, v) => n + v.subtotal, 0);
+  // Shared with the CSV export, so the exported grand total cannot drift from
+  // the one rendered here.
+  const { vendors: vendorTotals, grandTotal } = proposalTotals(project);
 
   return (
     <div className="max-w-4xl space-y-10">
@@ -111,13 +106,30 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
           </Text>
           <Heading level={2}>${grandTotal.toFixed(2)}</Heading>
         </div>
-        {project.status === 'confirmed' ? (
-          <Link href={`/projects/${project.id}`} isStandalone>
-            Approved — view project
-          </Link>
-        ) : (
-          <ApproveButton id={project.id} />
-        )}
+        <div className="flex items-center gap-4">
+          {/*
+            A raw anchor rather than the Astryx <Link>, and this is the one place
+            in the file that is deliberate: app/providers.tsx routes every Astryx
+            Link through next/link, so this would become a client-side navigation
+            to a route that returns a CSV. `download` needs a real anchor and a
+            full page request. Styled with the same tokens Link uses so it does
+            not read as a different control.
+          */}
+          <a
+            href={`/api/projects/${project.id}/proposal.csv`}
+            download
+            className="text-sm font-medium text-ink underline underline-offset-4 hover:opacity-70"
+          >
+            Download spreadsheet
+          </a>
+          {project.status === 'confirmed' ? (
+            <Link href={`/projects/${project.id}`} isStandalone>
+              Approved — view project
+            </Link>
+          ) : (
+            <ApproveButton id={project.id} />
+          )}
+        </div>
       </div>
     </div>
   );
