@@ -18,12 +18,19 @@
 import type { PlanTier } from './accounts';
 
 /**
- * Stand-in owner for every project until sessions exist.
+ * Stand-in owner for every request until sessions exist.
  *
- * A fixed uuid rather than a random one so projects created across restarts stay
- * visible to each other in the jobs list. It does NOT correspond to a real row in
- * `public.organizations` — the file-backed store has no foreign keys, and by the
- * time the Postgres port lands this function will be reading a real session.
+ * A fixed uuid rather than a random one so work created across restarts stays
+ * visible to itself in the jobs list.
+ *
+ * IT MUST CORRESPOND TO A REAL ROW in `public.organizations`, seeded by
+ * `supabase/migrations/20260802013000_seed_placeholder_org.sql`. Six tables carry
+ * `org_id ... references organizations(id)`, and `public.events` is written on
+ * every search through `lib/analytics.ts` — which catches its own errors so
+ * analytics can never 502 a search. A dangling id there fails the foreign key,
+ * gets swallowed, and leaves the events table empty while everything looks fine.
+ *
+ * If you change this value, change the migration in the same commit.
  */
 export const PLACEHOLDER_ORG_ID = '00000000-0000-0000-0000-0000000000aa';
 
