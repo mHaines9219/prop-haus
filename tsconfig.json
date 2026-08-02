@@ -5,6 +5,11 @@
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
+    // A dangling import is otherwise legal TypeScript. That is exactly how the #14 x #22
+    // merge landed `recordEvents` imported and never called, leaving logEvent with zero
+    // working callers and the events table silently at zero rows. There is no lint
+    // baseline on this repo yet, so this is the cheapest guard against that class.
+    "noUnusedLocals": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",

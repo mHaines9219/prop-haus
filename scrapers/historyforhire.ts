@@ -1,4 +1,4 @@
-import { writeSource, type RawItem } from './common/run';
+import { writeSource } from './common/run';
 
 const SOURCE = 'historyforhire' as const;
 
@@ -16,7 +16,5 @@ async function main() {
   const items: ReturnType<typeof import('./common/run').normalize>[] = [];
   await writeSource(SOURCE, items);
 }
-
-type _Raw = RawItem;
 
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -1,4 +1,4 @@
-import { writeSource, type RawItem } from './common/run';
+import { writeSource } from './common/run';
 
 const SOURCE = 'warnerbros' as const;
 
@@ -18,6 +18,4 @@ async function main() {
 }
 
 // Reference for typing; not invoked.
-type _Raw = RawItem;
-
 main().catch((e) => { console.error(e); process.exit(1); });
