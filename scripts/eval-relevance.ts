@@ -37,90 +37,19 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { shortlistByEmbedding } from '../lib/search-index';
 import { runSearch } from '../lib/search-modes';
-import { ndcg, percentile } from '../lib/eval/metrics';
+import { percentile } from '../lib/eval/metrics';
+import { judgePool, poolUnion, scoreOrdering } from '../lib/eval/pooled-relevance';
 import type { PropItem } from '../lib/types';
 
-const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const SCENES_FILE = path.join(process.cwd(), 'eval', 'scene-queries.json');
 
-const JUDGE_SYSTEM = `You grade how well a rental prop matches a production designer's scene brief.
-
-For each candidate, output a relevance grade:
-
-3 = hero fit. Would plausibly be chosen for this scene without hesitation.
-2 = plausible. Fits the era/style/mood; a designer would consider it.
-1 = marginal. Same broad category or vaguely compatible, but wrong period, wrong
-    register, or generic filler.
-0 = irrelevant. Wrong object, wrong world, or nothing to do with the brief.
-
-Judge the OBJECT against the SCENE, not the wording. A 1970s rattan chair for
-"70s apartment" is a 3 even if no word overlaps. A "vintage lamp" with no era or
-style signal is a 1, not a 2 — absence of evidence is not a match.
-
-Be strict. Most catalog items are a 0 or 1 for any given scene. Do not spread
-grades to look balanced.
-
-Respond with ONLY a JSON object: { "grades": { "<id>": <0-3>, ... } }
-Every id you were given must appear exactly once.`;
-
-type Judged = Map<string, number>;
-
-async function callOpenRouter(body: Record<string, unknown>): Promise<{ text: string; cost: number }> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
-  const res = await fetch(OR_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ ...body, usage: { include: true } }),
-  });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    usage?: { cost?: number };
-  };
-  return { text: data.choices?.[0]?.message?.content ?? '', cost: data.usage?.cost ?? 0 };
-}
-
-/** One line per candidate — the same facets the retriever saw, nothing more. */
-function describe(item: PropItem): string {
-  const facets = [
-    item.style?.join(','),
-    item.era,
-    item.materials?.join(','),
-    item.colors?.join(','),
-    item.vibes?.join(','),
-    item.settingType?.join(','),
-  ]
-    .filter(Boolean)
-    .join(' | ');
-  const desc = item.description ? ' — ' + item.description.slice(0, 120) : '';
-  return `${item.id} | ${item.category}${item.subcategory ? '/' + item.subcategory : ''} | ${item.name}${facets ? ' [' + facets + ']' : ''}${desc}`;
-}
-
-async function judgePool(query: string, pool: PropItem[], model: string): Promise<{ judged: Judged; cost: number }> {
-  const { text, cost } = await callOpenRouter({
-    model,
-    temperature: 0,
-    max_tokens: 2000,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: JUDGE_SYSTEM },
-      { role: 'user', content: `SCENE BRIEF: ${query}\n\nCANDIDATES (${pool.length}):\n${pool.map(describe).join('\n')}` },
-    ],
-  });
-  const judged: Judged = new Map();
-  try {
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-    const parsed = JSON.parse(cleaned) as { grades?: Record<string, unknown> };
-    for (const [id, g] of Object.entries(parsed.grades ?? {})) {
-      const n = Number(g);
-      if (Number.isFinite(n)) judged.set(id, Math.max(0, Math.min(3, Math.round(n))));
-    }
-  } catch {
-    /* leave empty; caller reports coverage */
-  }
-  return { judged, cost };
-}
+/**
+ * The rubric, the judge call and the scoring all live in
+ * `lib/eval/pooled-relevance.ts` so this harness and `eval-keyword-ranking.ts`
+ * cannot drift apart. Two rankers graded by two copies of a rubric produce
+ * numbers that cannot be compared with each other, which defeats the point of
+ * having them.
+ */
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -149,16 +78,21 @@ async function main() {
     const rerankOrder = result.matches.slice(0, k).map((m) => m.item);
 
     // Pool the union so one judgment set scores both orderings.
-    const pool = new Map<string, PropItem>();
-    for (const it of [...embedOrder, ...rerankOrder]) pool.set(it.id, it);
-    const poolArr = [...pool.values()];
+    const byId = new Map<string, PropItem>();
+    for (const it of [...embedOrder, ...rerankOrder]) byId.set(it.id, it);
+    const poolArr = poolUnion(
+      embedOrder.map((i) => i.id),
+      rerankOrder.map((i) => i.id),
+      k,
+    )
+      .map((id) => byId.get(id))
+      .filter((i): i is PropItem => Boolean(i));
 
     const { judged, cost } = await judgePool(query, poolArr, judgeModel);
     spend += cost;
 
-    const grade = (it: PropItem) => judged.get(it.id) ?? 0;
-    const e = ndcg(embedOrder.map(grade), k);
-    const r = ndcg(rerankOrder.map(grade), k);
+    const e = scoreOrdering(embedOrder.map((i) => i.id), judged, k);
+    const r = scoreOrdering(rerankOrder.map((i) => i.id), judged, k);
     embedNdcg.push(e);
     rerankNdcg.push(r);
     rows.push({ q: query, e, r, pool: poolArr.length, covered: judged.size });
