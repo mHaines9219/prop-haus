@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import pLimit from 'p-limit';
-import { Catalog, type PropItem, type Source } from '../lib/types';
+import { Catalog, SOURCES, type PropItem, type Source } from '../lib/types';
 import { ENUM_LIST } from '../lib/enrichment-enums';
 
 const MODEL = process.env.OPENROUTER_ENRICH_MODEL || 'anthropic/claude-haiku-4.5';
@@ -178,6 +178,15 @@ async function enrichOne(item: PropItem, system: string, apiKey: string): Promis
   return enrichment;
 }
 
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function parseArgs() {
   const argv = process.argv.slice(2);
   const get = (flag: string) => {
@@ -199,20 +208,39 @@ async function main() {
     process.exit(1);
   }
   const args = parseArgs();
+  if (args.source && !SOURCES.includes(args.source)) {
+    console.error(`Unknown --source ${args.source}. Known sources: ${SOURCES.join(', ')}`);
+    process.exit(1);
+  }
+
+  // `--source X` originally only read data/X.json, the per-source scrape output.
+  // Those files exist right after a scrape and are gone once merged, so on a
+  // merged checkout the flag failed with ENOENT. Fall back to filtering the
+  // catalog, which is the same set of items by a different route.
+  const sourceFile = args.source ? path.join(DATA, `${args.source}.json`) : undefined;
+  const hasSourceFile = sourceFile ? await fileExists(sourceFile) : false;
   const file = args.file
     ? path.resolve(args.file)
-    : args.source
-      ? path.join(DATA, `${args.source}.json`)
+    : hasSourceFile && sourceFile
+      ? sourceFile
       : path.join(DATA, 'catalog.json');
   console.log(`Reading ${file}`);
   const raw = await fs.readFile(file, 'utf8');
   const items = Catalog.parse(JSON.parse(raw));
+
+  // Scope to one source when asked and the file we loaded holds more than that
+  // source. Without this, `--source omega --limit 500` silently enriches the
+  // first 500 unenriched items in catalog order — which is a different vendor.
+  const scope =
+    args.source && !hasSourceFile ? items.filter((i) => i.source === args.source) : items;
+  if (args.source) console.log(`Scoped to source ${args.source}: ${scope.length} items`);
+
   // Incremental resume: skip items already enriched (have any AI-tag field).
   // Pass --all to force re-enrichment of everything.
   const isEnriched = (i: PropItem) =>
     !!(i.style?.length || i.vibes?.length || i.tags?.length || i.materials?.length ||
        i.colors?.length || i.settingType?.length || i.genreFit?.length || i.era);
-  const pending = args.all ? items : items.filter((i) => !isEnriched(i));
+  const pending = args.all ? scope : scope.filter((i) => !isEnriched(i));
   const targets = args.limit ? pending.slice(0, args.limit) : pending;
   console.log(`Enriching ${targets.length} of ${items.length} items with ${MODEL} (concurrency ${CONCURRENCY})`);
 
