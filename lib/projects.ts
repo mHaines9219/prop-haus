@@ -88,6 +88,8 @@ export type VendorRequest = {
 
 export type Project = {
   id: string;
+  /** Owning organization. Server-assigned from the session — never accepted from a client. */
+  orgId: string;
   createdAt: string;
   status: ProjectStatus;
   productionName: string;
@@ -102,12 +104,21 @@ export type Project = {
   notes?: string;
   vendors: VendorRequest[];
   approvedAt?: string;
+  /**
+   * Soft-hidden from the jobs list. Orthogonal to `status` on purpose: a confirmed
+   * job and a cancelled one can both be archived, and archiving should not erase
+   * which one it was.
+   */
+  archivedAt?: string;
   insured?: BusinessProfile;
 };
 
 export type CreateProjectInput = Omit<
   Project,
-  'id' | 'createdAt' | 'status' | 'vendors' | 'approvedAt'
+  // `orgId` is omitted deliberately: ownership is an authorization decision the
+  // server makes from the session, so accepting it in a request body would let a
+  // caller file a project against someone else's organization.
+  'id' | 'orgId' | 'createdAt' | 'status' | 'vendors' | 'approvedAt' | 'archivedAt'
 > & {
   lines: Array<{
     itemId: string;
@@ -133,8 +144,20 @@ async function writeAll(ps: Project[]) {
   await fs.writeFile(FILE, JSON.stringify(ps, null, 2));
 }
 
-export async function listProjects(): Promise<Project[]> {
-  return (await readAll()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+/**
+ * One organization's jobs, newest first. Archived jobs are hidden unless asked for.
+ *
+ * Scoped by org rather than filtered by the caller, so a missing `where` clause
+ * cannot leak another org's jobs into a list view.
+ */
+export async function listProjects(
+  orgId: string,
+  opts: { includeArchived?: boolean } = {},
+): Promise<Project[]> {
+  return (await readAll())
+    .filter((p) => p.orgId === orgId)
+    .filter((p) => opts.includeArchived || !p.archivedAt)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
@@ -151,7 +174,8 @@ export async function getProjectByToken(
   return null;
 }
 
-export async function createProject(input: CreateProjectInput): Promise<Project> {
+/** `orgId` comes from the session (lib/session.ts), never from the request body. */
+export async function createProject(orgId: string, input: CreateProjectInput): Promise<Project> {
   const ps = await readAll();
   const byVendor = new Map<Source, LineItem[]>();
   for (const l of input.lines) {
@@ -169,6 +193,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
 
   const project: Project = {
     id: crypto.randomBytes(16).toString('hex'),
+    orgId,
     createdAt: new Date().toISOString(),
     status: 'submitted',
     productionName: input.productionName,
@@ -253,6 +278,25 @@ export async function setCoiStatus(
   if (status === 'received') v.coi.receivedAt = new Date().toISOString();
   if (status === 'approved') v.coi.approvedAt = new Date().toISOString();
   if (certUrl !== undefined) v.coi.certUrl = certUrl;
+  await writeAll(ps);
+  return p;
+}
+
+/**
+ * Archive or restore a job. Scoped by org so one org cannot archive another's work.
+ * Returns null when the project does not exist OR is not theirs — the caller cannot
+ * tell those apart, which is the point.
+ */
+export async function setProjectArchived(
+  orgId: string,
+  id: string,
+  archived: boolean,
+): Promise<Project | null> {
+  const ps = await readAll();
+  const p = ps.find((p) => p.id === id && p.orgId === orgId);
+  if (!p) return null;
+  if (archived) p.archivedAt = new Date().toISOString();
+  else delete p.archivedAt;
   await writeAll(ps);
   return p;
 }

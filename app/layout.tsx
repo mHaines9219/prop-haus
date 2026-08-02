@@ -14,14 +14,15 @@ import { SearchBar } from '@/components/search-bar';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Prop Haus — NYC Production Rentals',
-  description: 'Aggregated rental props from NYC prop houses. Browse by category and build a quote request.',
+  title: 'Prop Haus — LA Production Rentals',
+  description: 'Aggregated rental props from LA prop houses. Browse by category and build a quote request.',
 };
 
 const NAV = [
   { label: 'Seating', href: '/category/seating' },
   { label: 'Lighting', href: '/category/lighting' },
   { label: 'Themed', href: '/category/themed-event' },
+  { label: 'Jobs', href: '/projects' },
   { label: 'Insurance', href: '/onboarding/insurance' },
 ];
 
