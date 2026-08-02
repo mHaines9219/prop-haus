@@ -7,7 +7,7 @@ import { VendorResponseForm } from './form';
 
 export default async function VendorPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const result = getProjectByToken(token);
+  const result = await getProjectByToken(token);
   if (!result) notFound();
   const { project, vendor } = result;
   const meta = SOURCE_META[vendor.vendor];

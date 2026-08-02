@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import type { Source } from './types';
@@ -81,36 +81,38 @@ export type CreateProjectInput = Omit<
 
 const FILE = path.join(process.cwd(), 'data', 'projects.json');
 
-function readAll(): Project[] {
+async function readAll(): Promise<Project[]> {
   try {
-    return JSON.parse(fs.readFileSync(FILE, 'utf8')) as Project[];
+    return JSON.parse(await fs.readFile(FILE, 'utf8')) as Project[];
   } catch {
     return [];
   }
 }
 
-function writeAll(ps: Project[]) {
-  fs.writeFileSync(FILE, JSON.stringify(ps, null, 2));
+async function writeAll(ps: Project[]) {
+  await fs.writeFile(FILE, JSON.stringify(ps, null, 2));
 }
 
-export function listProjects(): Project[] {
-  return readAll().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export async function listProjects(): Promise<Project[]> {
+  return (await readAll()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export function getProject(id: string): Project | undefined {
-  return readAll().find((p) => p.id === id);
+export async function getProject(id: string): Promise<Project | undefined> {
+  return (await readAll()).find((p) => p.id === id);
 }
 
-export function getProjectByToken(token: string): { project: Project; vendor: VendorRequest } | null {
-  for (const p of readAll()) {
+export async function getProjectByToken(
+  token: string,
+): Promise<{ project: Project; vendor: VendorRequest } | null> {
+  for (const p of await readAll()) {
     const v = p.vendors.find((vr) => vr.token === token);
     if (v) return { project: p, vendor: v };
   }
   return null;
 }
 
-export function createProject(input: CreateProjectInput): Project {
-  const ps = readAll();
+export async function createProject(input: CreateProjectInput): Promise<Project> {
+  const ps = await readAll();
   const byVendor = new Map<Source, LineItem[]>();
   for (const l of input.lines) {
     const arr = byVendor.get(l.source) ?? [];
@@ -126,7 +128,7 @@ export function createProject(input: CreateProjectInput): Project {
   }
 
   const project: Project = {
-    id: crypto.randomBytes(4).toString('hex'),
+    id: crypto.randomBytes(16).toString('hex'),
     createdAt: new Date().toISOString(),
     status: 'submitted',
     productionName: input.productionName,
@@ -161,17 +163,17 @@ export function createProject(input: CreateProjectInput): Project {
   };
 
   ps.push(project);
-  writeAll(ps);
+  await writeAll(ps);
   return project;
 }
 
-export function updateLineStatus(
+export async function updateLineStatus(
   token: string,
   itemId: string,
   status: LineStatus,
   opts: { priceQuote?: number; subNote?: string } = {},
-): { project: Project; vendor: VendorRequest } | null {
-  const ps = readAll();
+): Promise<{ project: Project; vendor: VendorRequest } | null> {
+  const ps = await readAll();
   for (const p of ps) {
     const v = p.vendors.find((vr) => vr.token === token);
     if (!v) continue;
@@ -189,19 +191,19 @@ export function updateLineStatus(
     if (p.vendors.every((vr) => vr.status === 'responded')) p.status = 'proposed';
     else if (p.vendors.some((vr) => vr.status !== 'pending')) p.status = 'quoting';
 
-    writeAll(ps);
+    await writeAll(ps);
     return { project: p, vendor: v };
   }
   return null;
 }
 
-export function setCoiStatus(
+export async function setCoiStatus(
   projectId: string,
   vendor: Source,
   status: CoiStatus,
   certUrl?: string,
-): Project | null {
-  const ps = readAll();
+): Promise<Project | null> {
+  const ps = await readAll();
   const p = ps.find((p) => p.id === projectId);
   if (!p) return null;
   const v = p.vendors.find((vr) => vr.vendor === vendor);
@@ -211,16 +213,16 @@ export function setCoiStatus(
   if (status === 'received') v.coi.receivedAt = new Date().toISOString();
   if (status === 'approved') v.coi.approvedAt = new Date().toISOString();
   if (certUrl !== undefined) v.coi.certUrl = certUrl;
-  writeAll(ps);
+  await writeAll(ps);
   return p;
 }
 
-export function approveProject(id: string): Project | null {
-  const ps = readAll();
+export async function approveProject(id: string): Promise<Project | null> {
+  const ps = await readAll();
   const p = ps.find((p) => p.id === id);
   if (!p) return null;
   p.status = 'confirmed';
   p.approvedAt = new Date().toISOString();
-  writeAll(ps);
+  await writeAll(ps);
   return p;
 }

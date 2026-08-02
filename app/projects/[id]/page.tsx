@@ -27,7 +27,7 @@ const VENDOR_STATUS: Record<string, BadgeVariant> = {
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = getProject(id);
+  const project = await getProject(id);
   if (!project) notFound();
 
   const totalItems = project.vendors.reduce((n, v) => n + v.items.length, 0);

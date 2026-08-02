@@ -9,7 +9,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     priceQuote?: number;
     subNote?: string;
   };
-  const result = updateLineStatus(token, body.itemId, body.status, {
+  const result = await updateLineStatus(token, body.itemId, body.status, {
     priceQuote: body.priceQuote,
     subNote: body.subNote,
   });
