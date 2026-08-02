@@ -86,6 +86,16 @@ export async function POST(req: Request) {
   // here narrows the type without an assertion, and an unlimited plan can never
   // reach this branch.
   if (!allowance.allowed && allowance.limit !== null) {
+    // Recorded here because this request returns before every other write below
+    // it. Without this the one request that proves someone wants more than their
+    // plan allows produces no row at all — not the paywall, not even the query.
+    // It is also the only evidence that can answer what the limit should be.
+    await recordEvents({
+      orgId,
+      type: 'paywall_hit',
+      payload: { feature: 'ai_search', metric, query: query ?? '', mode },
+    });
+
     // 402 rather than 429: this is a plan ceiling, not rate limiting. Retrying
     // later does not help within the period, and the client renders an upgrade
     // prompt rather than a "try again" one.
@@ -117,6 +127,19 @@ export async function POST(req: Request) {
       result.matches.length > 0
         ? await recordUsage(orgId, plan, metric)
         : await getAllowance(orgId, plan, metric);
+
+    // Demand signal, recorded only after the search succeeded — a 400 or a 502
+    // produced nothing and charging the dataset for it would corrupt the one
+    // measurement the brief leans on. `vision_search` reads `metric` rather than
+    // re-deriving `attachments.length`: two variables tracking the same fact is
+    // how the billed metric and the logged event eventually disagree.
+    await recordEvents(
+      { orgId, type: 'search', payload: { mode, query: query ?? '', resultCount: result.matches.length } },
+      ...(metric === 'visionSearches' ? [{ orgId, type: 'vision_search' as const, payload: { mode } }] : []),
+      ...(result.matches.length === 0
+        ? [{ orgId, type: 'zero_result_search' as const, payload: { query: query ?? '', mode } }]
+        : []),
+    );
 
     return NextResponse.json({ ...result, usage });
   } catch (e) {
