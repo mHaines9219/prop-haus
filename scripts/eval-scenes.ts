@@ -32,28 +32,16 @@ import path from 'node:path';
 import { loadCatalog } from '../lib/catalog';
 import { loadIndex, canonicalText, topK } from '../lib/embeddings';
 import { percentile } from '../lib/eval/metrics';
+import { isEnriched } from '../lib/eval/strata';
 import type { PropItem } from '../lib/types';
 
 const SCENES_FILE = path.join(process.cwd(), 'eval', 'scene-queries.json');
 const EMBED_URL = 'https://openrouter.ai/api/v1/embeddings';
 const EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL || 'openai/text-embedding-3-small';
 
-/**
- * An item is "enriched" if the pipeline gave it any semantic facet beyond name
- * and category. These are exactly the fields a mood query can match on.
- */
-export function isEnriched(item: PropItem): boolean {
-  return Boolean(
-    item.style?.length ||
-      item.era ||
-      item.materials?.length ||
-      item.colors?.length ||
-      item.vibes?.length ||
-      item.settingType?.length ||
-      item.genreFit?.length ||
-      item.tags?.length,
-  );
-}
+// Deep enough that k resolvable items always exist after dropping orphans —
+// the worst observed query loses 78% of its slots.
+const OVERFETCH = 4000;
 
 async function embedQuery(query: string): Promise<Float32Array> {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -171,6 +159,34 @@ async function main() {
 
   console.log('\n=== canonicalText length of retrieved items ===');
   console.log(`  p50 ${percentile(lens, 50)}  p90 ${percentile(lens, 90)} chars`);
+
+  // What the same queries return once the index no longer holds vectors the
+  // catalog can't resolve. Ranking over resolvable vectors and taking k is
+  // exactly what a filtered index produces, so this predicts the fix before it
+  // lands and re-runs as the after-measurement once it has.
+  console.log('\n=== projected: index filtered to catalog ===');
+  let fSlots = 0;
+  let fEnriched = 0;
+  const fVendor = new Map<string, number>();
+  for (const scene of scenes) {
+    const vec = await embedQuery(scene);
+    const items = topK(index, vec, OVERFETCH)
+      .map((h) => byId.get(h.id))
+      .filter((x): x is PropItem => Boolean(x))
+      .slice(0, k);
+    fSlots += items.length;
+    fEnriched += items.filter(isEnriched).length;
+    for (const it of items) fVendor.set(it.source, (fVendor.get(it.source) ?? 0) + 1);
+  }
+  console.log(`  usable slots     ${slotsTotal}/${slotsRequested} -> ${fSlots}/${slotsRequested}   (+${fSlots - slotsTotal})`);
+  console.log(`  enriched share   ${pct(slotsEnriched, slotsTotal)} -> ${pct(fEnriched, fSlots)}`);
+  console.log('  recovered slots by vendor:');
+  for (const [vendor] of [...fVendor.entries()].sort((a, b) => b[1] - a[1])) {
+    const before = vendorHits.get(vendor) ?? 0;
+    const after = fVendor.get(vendor) ?? 0;
+    if (after - before === 0) continue;
+    console.log(`    ${vendor.padEnd(20)} ${String(before).padStart(4)} -> ${String(after).padStart(4)}   +${after - before}`);
+  }
 }
 
 main().catch((e) => {
