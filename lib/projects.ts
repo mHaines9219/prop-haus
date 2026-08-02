@@ -431,12 +431,31 @@ export async function updateLineStatus(
   return fresh && freshVendor ? { project: fresh, vendor: freshVendor } : null;
 }
 
+/**
+ * Record where a vendor's certificate of insurance has got to.
+ *
+ * Scoped by org, and the scoping costs an extra round trip: the row being
+ * updated lives in `vendor_requests`, which carries no `org_id` — ownership is
+ * only reachable through its parent project. PostgREST cannot filter an UPDATE
+ * by a joined column, so ownership is established first and the update follows.
+ *
+ * Not a meaningful TOCTOU: a project's owning organization is set at creation
+ * and never reassigned, so the fact this checks cannot go stale between the two
+ * statements.
+ */
 export async function setCoiStatus(
+  orgId: string,
   projectId: string,
   vendor: Source,
   status: CoiStatus,
   certUrl?: string,
 ): Promise<Project | null> {
+  const owned = orThrow<{ id: string }[]>(
+    'setCoiStatus.owner',
+    await db().from('projects').select('id').eq('id', projectId).eq('org_id', orgId),
+  );
+  if (owned.length === 0) return null;
+
   const now = new Date().toISOString();
   const updated = orThrow<{ id: string }[]>(
     'setCoiStatus',
@@ -484,7 +503,16 @@ export async function setProjectArchived(
   return (await getProject(id)) ?? null;
 }
 
-export async function approveProject(id: string): Promise<Project | null> {
+/**
+ * Approve the consolidated proposal, which is what turns a set of vendor quotes
+ * into a commitment to spend.
+ *
+ * Scoped by org, like `setProjectArchived`. Approval is an owner action and only
+ * an owner action: the proposal URL is meant to be shareable with a client, so
+ * anyone holding the link must be able to read the numbers and not to accept
+ * them on the production's behalf.
+ */
+export async function approveProject(orgId: string, id: string): Promise<Project | null> {
   const now = new Date().toISOString();
   const updated = orThrow<{ id: string }[]>(
     'approveProject',
@@ -492,6 +520,7 @@ export async function approveProject(id: string): Promise<Project | null> {
       .from('projects')
       .update({ status: 'confirmed', approved_at: now, updated_at: now })
       .eq('id', id)
+      .eq('org_id', orgId)
       .select('id'),
   );
   if (updated.length === 0) return null;
