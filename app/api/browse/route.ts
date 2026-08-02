@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { loadCatalog, toCardItem } from '@/lib/catalog';
+import { browseCards } from '@/lib/catalog-db';
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 60;
@@ -14,15 +14,12 @@ export async function GET(req: Request) {
     Math.max(1, Number.parseInt(searchParams.get('limit') ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT),
   );
 
-  const all = await loadCatalog();
-  let filtered = all.filter((i) => i.images.length > 0);
-  if (category) filtered = filtered.filter((i) => i.category === category);
-  if (vendor) filtered = filtered.filter((i) => i.source === vendor);
+  // Filtering, paging and counting all happen in Postgres now. The has-images
+  // filter in particular has to: it is a boolean column with a matching index,
+  // and comparing the underlying array instead sequential-scans 890 MB.
+  const { items, total } = await browseCards({ category, vendor, offset, limit });
 
-  const total = filtered.length;
-  const items = filtered.slice(offset, offset + limit).map(toCardItem);
-
-  // The catalog only changes on redeploy, so let the CDN serve repeat
+  // The catalog only changes on a pipeline load, so let the CDN serve repeat
   // filter/page requests. Each unique URL (category/vendor/offset) caches
   // independently; stale-while-revalidate keeps responses instant after a bump.
   return NextResponse.json(
