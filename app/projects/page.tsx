@@ -1,12 +1,11 @@
 import { Heading, Text } from '@astryxdesign/core/Text';
 import { Link } from '@astryxdesign/core/Link';
 import { Badge } from '@astryxdesign/core/Badge';
-import { Banner } from '@astryxdesign/core/Banner';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { List } from '@astryxdesign/core/List';
 import { Item } from '@astryxdesign/core/Item';
 import { listProjects, type Project } from '@/lib/projects';
-import { currentOrgId, IS_PLACEHOLDER_SESSION } from '@/lib/session';
+import { requireOrgId } from '@/lib/session';
 import { ArchiveButton } from './archive-button';
 
 type BadgeVariant = React.ComponentProps<typeof Badge>['variant'];
@@ -47,7 +46,9 @@ export default async function JobsPage({
 }) {
   const { archived } = await searchParams;
   const showArchived = archived === '1';
-  const orgId = await currentOrgId();
+  // Redirects to sign-in when signed out, carrying the destination so the
+  // visitor lands back here rather than on the default.
+  const orgId = await requireOrgId('/projects');
   const projects = await listProjects(orgId, { includeArchived: showArchived });
 
   return (
@@ -64,13 +65,6 @@ export default async function JobsPage({
         </Text>
       </div>
 
-      {IS_PLACEHOLDER_SESSION && (
-        <Banner
-          status="warning"
-          title="Sign-in is not wired up yet"
-          description="Every job here belongs to one shared placeholder account. Once accounts land, you will only see your own."
-        />
-      )}
 
       {projects.length === 0 ? (
         <EmptyState

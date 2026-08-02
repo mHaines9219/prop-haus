@@ -8,7 +8,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // Scoped to the caller's org inside setProjectArchived — a project belonging to
   // another org returns null here and is reported as 404, not 403, so this endpoint
   // cannot be used to probe which project ids exist.
-  const p = await setProjectArchived(await currentOrgId(), id, body.archived === true);
+  const orgId = await currentOrgId();
+  if (!orgId) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
+
+  const p = await setProjectArchived(orgId, id, body.archived === true);
   if (!p) return NextResponse.json({ error: 'not found' }, { status: 404 });
   return NextResponse.json({ ok: true, archivedAt: p.archivedAt ?? null });
 }
