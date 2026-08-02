@@ -95,11 +95,25 @@
 --     seconds, and nothing in production reads pgvector today, so that index buys
 --     nothing during the window it would cost the most.
 --
--- MIGRATIONS HERE ARE NOT TRANSACTIONAL
+-- MIGRATIONS HERE ARE NOT TRANSACTIONAL — SO THIS ONE WRAPS ITSELF
 --
--- 20260802181000 proved it: `WARNING 25P01: SET LOCAL can only be used in
--- transaction blocks`. So every statement below commits on its own and the file
--- is ordered so that no intermediate state breaks a reader or a writer:
+-- 20260802181000 emitted `WARNING 25P01: SET LOCAL can only be used in
+-- transaction blocks`, and Honey then proved the mechanism on a scratch cluster:
+-- inside a real implicit block Postgres stays SILENT, so that warning is positive
+-- evidence of statement-at-a-time execution rather than merely consistent with
+-- it. Each statement here would otherwise commit on its own.
+--
+-- An earlier version of this header argued that careful STATEMENT ORDERING was
+-- what kept intermediate states safe. That was the best available before the
+-- mechanism was proven and it is now second-best, because this is the file doing
+-- DESTRUCTIVE DDL — reverting a trigger, dropping two indexes, dropping a
+-- column. It is the worst abort window in the series and the one file where
+-- "well-ordered" and "atomic" genuinely differ. Honey reproduced the unwrapped
+-- failure on 20260802180000: an abort between two statements left every owner
+-- surface unreadable, from a migration that reported failure and moved on.
+--
+-- So: explicit `begin` / `commit`. Ordering is kept as defence in depth rather
+-- than as the guarantee, and the order still matters if the wrap is ever removed:
 --
 --   1. Revert the trigger so nothing references prop_items.keyword_tsv.
 --   2. Only then drop its indexes and the column. (Reverse that order and every
@@ -110,6 +124,8 @@
 -- Catalog reads never touch any of this: public.catalog_items has never exposed
 -- keyword_tsv, and the RPC that would read it is not applied.
 -- ============================================================================
+
+begin;
 
 -- ---------------------------------------------------------------------------
 -- 1. Put the trigger back to exactly what 20260627190000 defined. It must stop
@@ -363,3 +379,5 @@ revoke all on function catalog.backfill_keyword_tsv_chunk(int) from public;
 revoke all on function public.backfill_keyword_tsv_chunk(int)  from public;
 grant execute on function catalog.backfill_keyword_tsv_chunk(int) to service_role, catalog_writer;
 grant execute on function public.backfill_keyword_tsv_chunk(int)  to service_role;
+
+commit;
