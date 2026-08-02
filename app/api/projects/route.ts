@@ -6,6 +6,6 @@ export async function POST(req: Request) {
   if (!body.lines?.length) {
     return NextResponse.json({ error: 'no lines' }, { status: 400 });
   }
-  const project = createProject(body);
+  const project = await createProject(body);
   return NextResponse.json({ id: project.id });
 }
