@@ -1,13 +1,32 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import type { Source } from './types';
+import { FLAT_FEE_UNITS, type PriceUnit, type Source } from './types';
 import type { BusinessProfile, CompatibilityResult } from './insurance';
 import { checkCompatibility } from './insurance';
 
 export type LineStatus = 'pending' | 'available' | 'sub' | 'unavailable';
 export type VendorRequestStatus = 'pending' | 'partial' | 'responded';
 export type ProjectStatus = 'submitted' | 'quoting' | 'proposed' | 'confirmed' | 'cancelled';
+
+/**
+ * What a vendor actually quoted for a line — never inferred.
+ *
+ * `periods` is the count of billable periods at `amount`, as the VENDOR states it.
+ * We prefill it from the booking window (see suggestPeriods) but the vendor owns
+ * the final number, because prop houses do not bill off calendar days: a "week" is
+ * commonly five working days, prep and strike are often free or half rate, and a
+ * "3-day week" is a normal quote. Deriving the count ourselves would put a wrong
+ * number on the document a production budgets against.
+ *
+ * Line total = amount x qty x periods.
+ */
+export type Quote = {
+  amount: number;
+  unit: PriceUnit;
+  periods: number;
+  currency: string;
+};
 
 export type LineItem = {
   itemId: string;
@@ -16,9 +35,30 @@ export type LineItem = {
   image?: string;
   qty: number;
   status: LineStatus;
-  priceQuote?: number;
+  quote?: Quote;
   subNote?: string;
 };
+
+/** Line total for a quoted item. The one place this arithmetic lives. */
+export function lineTotal(item: LineItem): number {
+  if (!item.quote) return 0;
+  return item.quote.amount * item.qty * item.quote.periods;
+}
+
+/**
+ * A starting number for the vendor to correct, derived from the booking window.
+ * Flat-fee units are always 1. Never treat the result as authoritative.
+ */
+export function suggestPeriods(unit: PriceUnit, startDate: string, endDate: string): number {
+  if (FLAT_FEE_UNITS.includes(unit)) return 1;
+  const start = Date.parse(startDate);
+  const end = Date.parse(endDate);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 1;
+  const days = Math.floor((end - start) / 86_400_000) + 1; // inclusive of both ends
+  if (unit === 'day') return Math.max(1, days);
+  if (unit === 'week') return Math.max(1, Math.ceil(days / 7));
+  return Math.max(1, Math.ceil(days / 30));
+}
 
 export type CoiStatus =
   | 'not-required'
@@ -171,7 +211,7 @@ export async function updateLineStatus(
   token: string,
   itemId: string,
   status: LineStatus,
-  opts: { priceQuote?: number; subNote?: string } = {},
+  opts: { quote?: Quote; subNote?: string } = {},
 ): Promise<{ project: Project; vendor: VendorRequest } | null> {
   const ps = await readAll();
   for (const p of ps) {
@@ -180,7 +220,7 @@ export async function updateLineStatus(
     const line = v.items.find((i) => i.itemId === itemId);
     if (!line) return null;
     line.status = status;
-    if (opts.priceQuote !== undefined) line.priceQuote = opts.priceQuote;
+    if (opts.quote !== undefined) line.quote = opts.quote;
     if (opts.subNote !== undefined) line.subNote = opts.subNote;
 
     const anyAnswered = v.items.some((i) => i.status !== 'pending');

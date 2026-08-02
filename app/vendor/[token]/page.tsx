@@ -39,7 +39,12 @@ export default async function VendorPage({ params }: { params: Promise<{ token: 
         </MetadataList>
       </section>
 
-      <VendorResponseForm token={vendor.token} items={vendor.items} />
+      <VendorResponseForm
+        token={vendor.token}
+        items={vendor.items}
+        startDate={project.startDate}
+        endDate={project.endDate}
+      />
     </div>
   );
 }
