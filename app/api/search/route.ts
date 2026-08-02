@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { recordEvents } from '@/lib/analytics';
 import { parseAttachments } from '@/lib/upload';
 import { runSearch } from '@/lib/search-modes';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
