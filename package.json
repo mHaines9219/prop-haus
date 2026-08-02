@@ -16,6 +16,8 @@
     "embed": "tsx scripts/embed.ts",
     "db:load": "tsx scripts/load-catalog.ts",
     "db:dump": "tsx scripts/dump-catalog.ts",
+    "eval:search": "tsx --env-file=.env.local scripts/eval-search.ts",
+    "test": "vitest run",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
   },
   "dependencies": {
@@ -46,6 +48,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
   }
 }
