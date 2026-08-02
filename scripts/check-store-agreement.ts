@@ -1,0 +1,293 @@
+/**
+ * Do the three stores that must agree about which items exist actually agree?
+ *
+ *   pnpm check:stores            # local files only — no credentials needed
+ *   pnpm check:stores -- --db    # also compare against live catalog_items
+ *
+ * WHY THIS EXISTS
+ *
+ * Three stores have to hold the same set of ids:
+ *
+ *   data/catalog.json          what the pipeline produced
+ *   data/embeddings.ids.json   what AI search can retrieve
+ *   public.catalog_items       what the browse and item pages render
+ *
+ * Every disagreement between them has been a real, user-visible bug, found by
+ * hand three separate times:
+ *
+ *   - Two vendors present in the catalog file but absent from the `SOURCES`
+ *     enum failed the whole parse, and the app served an empty catalog.
+ *   - After that was pruned, the index still held 5,047 vectors for dropped
+ *     items. `shortlistByEmbedding` filters them after `topK`, so 23% of every
+ *     mood-search shortlist was dead slots that consumed a slot and returned
+ *     nothing.
+ *   - The read path moved to Postgres while AI search stayed on the local
+ *     index, so search could return an id the item page cannot resolve.
+ *
+ * Each time the check was an ad-hoc script that was then deleted. This is that
+ * check, kept.
+ *
+ * WHY IT REPORTS TWO NUMBERS AND NOT ONE
+ *
+ * A local id missing from Postgres has two possible causes with two different
+ * fixes, and they are easy to confuse:
+ *
+ *   ID CHANGED — the same physical item is present under a different id.
+ *                Fixed by deriving ids from content instead of from whatever
+ *                token the source hands out.
+ *   ABSENT     — the item is not in that snapshot at all. Fixed by scraper
+ *                coverage; a deterministic id changes nothing about it.
+ *
+ * Collapsing them into one number is exactly the mistake this file is meant to
+ * prevent. I diagnosed `iss` as id churn from a name match; Fizz scraped the
+ * vendor twice and found zero ids changed and the items simply absent, because
+ * `iss` has 9,966 rows over 2,816 names, so a name match cannot tell "same item,
+ * new id" from "different item, same name". The distinguishing key is
+ * `name + first image`, which IS unique for that vendor.
+ *
+ * And because that key is only trustworthy where it is unique, the check
+ * measures its uniqueness per vendor first and REFUSES to classify where it is
+ * not. An instrument that cannot tell two causes apart should say so rather
+ * than print a number.
+ */
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { createClient } from '@supabase/supabase-js';
+import { parseCatalogItems } from '../lib/catalog-parse';
+import type { PropItem } from '../lib/types';
+
+const DATA = path.join(process.cwd(), 'data');
+const PAGE = 1000;
+
+type Key = string;
+/**
+ * `name + first image` — the identity that survives a re-scrape.
+ *
+ * Joined on NUL rather than a space, because spaces occur in names: with a
+ * space separator `("A B", "C")` and `("A", "B C")` produce the same key, and
+ * this key's whole job is to say whether two rows are the same item. NUL cannot
+ * appear in either field, so the concatenation is unambiguous.
+ *
+ * Written as an escape sequence, not as a literal NUL byte. A raw control byte
+ * makes git classify the file as binary — my first push of this file was
+ * unreviewable in the diff for exactly that reason, and an unreviewable diff on
+ * a file whose value is its reasoning is worse than the collision it prevents.
+ */
+function contentKey(name: string, firstImage: string | undefined): Key {
+  return `${name}\u0000${firstImage ?? ''}`;
+}
+
+type VendorReport = {
+  source: string;
+  local: number;
+  /**
+   * Rows sharing a content key with another row. Reported as a COUNT, not a
+   * percentage, deliberately: `gilandroy` has 2 collisions in 18,626 rows, which
+   * a one-decimal percentage renders as "100.0% unique" while the classifier
+   * correctly treats the vendor as ambiguous. A reader then sees a contradiction
+   * with no explanation. Zero means the key is exact and the split below is
+   * trustworthy; anything else means it is not.
+   */
+  keyCollisions: number;
+  missingFromDb: number;
+  idChanged: number;
+  absent: number;
+  unclassified: number;
+};
+
+async function readLocalCatalog(): Promise<PropItem[] | null> {
+  const file = path.join(DATA, 'catalog.json');
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(file, 'utf8'));
+  } catch {
+    // `data/` is gitignored, so a fresh checkout has no catalog. That is not a
+    // failure of the thing being checked — say so rather than surfacing ENOENT.
+    return null;
+  }
+  const report = parseCatalogItems(raw);
+  if (report.dropped > 0) {
+    console.warn(`  note: ${report.dropped} of ${report.total} catalog records did not validate`);
+  }
+  return report.items;
+}
+
+async function readIndexIds(): Promise<string[] | null> {
+  try {
+    return JSON.parse(await fs.readFile(path.join(DATA, 'embeddings.ids.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Every id + content key in `catalog_items`, paged so the request never times out. */
+async function readDbItems(): Promise<{ ids: Set<string>; keys: Map<Key, string[]> }> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required for --db');
+  }
+  const db = createClient(url, anon, { auth: { persistSession: false } });
+
+  const ids = new Set<string>();
+  const keys = new Map<Key, string[]>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from('catalog_items')
+      .select('id,name,images')
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`[check:stores] catalog_items read failed: ${error.message}`);
+    const rows = (data ?? []) as Array<{ id: string; name: string; images: string[] | null }>;
+    for (const r of rows) {
+      ids.add(r.id);
+      const k = contentKey(r.name, r.images?.[0]);
+      const at = keys.get(k);
+      if (at) at.push(r.id);
+      else keys.set(k, [r.id]);
+    }
+    if (rows.length < PAGE) break;
+    // Only when attached to a terminal: a \r progress line in captured output
+    // is 90 lines of noise in whatever log or paste someone reads later.
+    if (process.stdout.isTTY) process.stdout.write(`\r  reading catalog_items… ${ids.size}`);
+  }
+  if (process.stdout.isTTY) process.stdout.write('\r');
+  console.log(`  read ${ids.size} rows from catalog_items`);
+  return { ids, keys };
+}
+
+function pct(n: number, d: number): string {
+  return d === 0 ? '   n/a' : `${((100 * n) / d).toFixed(1).padStart(5)}%`;
+}
+
+async function main() {
+  const withDb = process.argv.includes('--db');
+  let failures = 0;
+
+  const catalog = await readLocalCatalog();
+  if (!catalog) {
+    console.log(
+      '\nNo data/catalog.json. That directory is gitignored, so a fresh checkout has\n' +
+        'nothing to compare — run the scrape/merge pipeline first. Nothing checked.',
+    );
+    process.exit(0);
+  }
+  const catalogIds = new Set(catalog.map((i) => i.id));
+  console.log(`\ncatalog.json           ${catalog.length} items`);
+
+  // ---- catalog.json vs the vector index ----------------------------------
+  const indexIds = await readIndexIds();
+  if (!indexIds) {
+    console.log('embeddings.ids.json    absent — skipping the index comparison');
+  } else {
+    const indexSet = new Set(indexIds);
+    const noVector = catalog.filter((i) => !indexSet.has(i.id));
+    const deadVectors = indexIds.filter((id) => !catalogIds.has(id));
+    console.log(`embeddings.ids.json    ${indexIds.length} vectors`);
+    console.log(`  items with no vector    ${String(noVector.length).padStart(6)}  (unreachable by AI search)`);
+    console.log(`  vectors with no item    ${String(deadVectors.length).padStart(6)}  (dead shortlist slots)`);
+    if (noVector.length || deadVectors.length) {
+      failures++;
+      console.log('  -> run `pnpm embed` to add vectors, `pnpm data:prune` to drop dead ones');
+    }
+  }
+
+  if (!withDb) {
+    console.log('\nPostgres comparison skipped (pass --db). Local stores checked only.');
+    process.exit(failures > 0 ? 1 : 0);
+  }
+
+  // ---- catalog.json vs public.catalog_items -------------------------------
+  console.log('');
+  const { ids: dbIds, keys: dbKeys } = await readDbItems();
+
+  const bySource = new Map<string, PropItem[]>();
+  for (const i of catalog) {
+    const a = bySource.get(i.source) ?? [];
+    a.push(i);
+    bySource.set(i.source, a);
+  }
+
+  const reports: VendorReport[] = [];
+  for (const [source, items] of [...bySource.entries()].sort()) {
+    const localKeys = new Set(items.map((i) => contentKey(i.name, i.images[0])));
+    const keyCollisions = items.length - localKeys.size;
+
+    let idChanged = 0;
+    let absent = 0;
+    let unclassified = 0;
+    const missing = items.filter((i) => !dbIds.has(i.id));
+
+    for (const item of missing) {
+      // Only classify where the key is unique enough to mean something. Below
+      // 1.0 the same key covers more than one local row, so "present under a
+      // different id" and "a different item shares this key" are the same
+      // observation — which is the confound that produced a wrong diagnosis.
+      if (keyCollisions > 0) {
+        unclassified++;
+        continue;
+      }
+      if (dbKeys.has(contentKey(item.name, item.images[0]))) idChanged++;
+      else absent++;
+    }
+
+    reports.push({
+      source,
+      local: items.length,
+      keyCollisions,
+      missingFromDb: missing.length,
+      idChanged,
+      absent,
+      unclassified,
+    });
+  }
+
+  console.log(
+    'vendor                local  missing from db     id changed      absent  unclassified  key collisions',
+  );
+  for (const r of reports) {
+    console.log(
+      r.source.padEnd(20) +
+        String(r.local).padStart(6) +
+        String(r.missingFromDb).padStart(9) +
+        pct(r.missingFromDb, r.local) +
+        String(r.idChanged).padStart(15) +
+        String(r.absent).padStart(12) +
+        String(r.unclassified).padStart(14) +
+        String(r.keyCollisions).padStart(16),
+    );
+  }
+
+  const totalMissing = reports.reduce((a, r) => a + r.missingFromDb, 0);
+  const totalChanged = reports.reduce((a, r) => a + r.idChanged, 0);
+  const totalAbsent = reports.reduce((a, r) => a + r.absent, 0);
+  const totalUnclassified = reports.reduce((a, r) => a + r.unclassified, 0);
+  const dbOnly = [...dbIds].filter((id) => !catalogIds.has(id)).length;
+
+  console.log(
+    `\nTOTAL local ${catalog.length} · missing from db ${totalMissing} (${pct(totalMissing, catalog.length).trim()})`,
+  );
+  console.log(`  id changed    ${totalChanged}   <- a content-derived id would fix these`);
+  console.log(`  absent        ${totalAbsent}   <- scraper coverage; an id change does nothing for these`);
+  if (totalUnclassified) {
+    console.log(`  unclassified  ${totalUnclassified}   <- content key is not unique for that vendor; cause undetermined`);
+  }
+  console.log(`  db rows with no local item  ${dbOnly}`);
+
+  if (totalMissing > 0 || dbOnly > 0) {
+    failures++;
+    console.log(
+      '\nStores disagree. AI search reads the local index; browse and item pages read\n' +
+        'Postgres — so a search hit for a missing id resolves to nothing on the item page.',
+    );
+  } else {
+    console.log('\nAll three stores agree.');
+  }
+
+  process.exit(failures > 0 ? 1 : 0);
+}
+
+main().catch((e) => {
+  console.error(e instanceof Error ? e.message : e);
+  process.exit(1);
+});
