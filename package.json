@@ -15,6 +15,7 @@
     "enrich": "tsx scripts/enrich.ts",
     "embed": "tsx scripts/embed.ts",
     "data:prune": "tsx scripts/prune-data.ts",
+    "check:stores": "tsx --env-file=.env.local scripts/check-store-agreement.ts",
     "db:load": "tsx scripts/load-catalog.ts",
     "db:dump": "tsx scripts/dump-catalog.ts",
     "eval:search": "tsx --env-file=.env.local scripts/eval-search.ts",
