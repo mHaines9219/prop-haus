@@ -96,11 +96,27 @@ export async function POST(req: Request) {
 
   try {
     const result = await runSearch({ query, attachments, mode });
-    // Charged only once the search actually produced a result. A 502 from the
-    // model provider leaves the count untouched — we would rather absorb the
-    // occasional over-run from concurrent requests (see lib/usage.ts) than bill
-    // someone for a request that returned nothing.
-    const usage = await recordUsage(orgId, plan, metric);
+
+    // Charged only once the search actually produced something. Two cases go free:
+    //
+    //   - a 502 from the model provider (the catch below never reaches here)
+    //   - a search that succeeded and matched NOTHING
+    //
+    // The second is the one worth defending. A zero-result search is usually our
+    // retrieval failing, not the user asking badly — Bumble measured 15% of
+    // known-item queries as unreachable by any reranker, because the item never
+    // enters the shortlist. Billing someone for our own miss is the wrong end of
+    // that trade, and on a small monthly allowance two dead searches would burn a
+    // large slice of the month on nothing. There is no abuse angle either: a
+    // result set of zero has nothing in it to extract.
+    //
+    // We still pay the provider for these. That is the cost of a bad search, and
+    // it belongs to us rather than the customer.
+    const usage =
+      result.matches.length > 0
+        ? await recordUsage(orgId, plan, metric)
+        : await getAllowance(orgId, plan, metric);
+
     return NextResponse.json({ ...result, usage });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
