@@ -58,6 +58,27 @@
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
+-- Lift the statement timeout for this migration only.
+--
+-- The first attempt at applying this to live failed on the backfill with
+-- 57014 -- the same statement timeout the RPC used to trip. On the scratch
+-- cluster the backfill took 4.1s and there was no timeout configured, so the
+-- sizing run could not surface this. That was the stated caveat (90 MB scratch
+-- table against 890 MB live) landing exactly where it was predicted to.
+--
+-- SET LOCAL rather than a plain SET: it reverts at the end of the transaction
+-- the migration runs in, so nothing else inherits an unbounded timeout.
+--
+-- This is preferable to batching. Batching would need transaction control
+-- inside a procedure, which means the backfill is no longer atomic with the
+-- trigger change that depends on it -- and a half-populated keyword_tsv behind
+-- a trigger that assumes it exists is a worse failure than a slow migration.
+-- The lock analysis still holds: the UPDATE takes RowExclusiveLock and reads
+-- are never blocked, so a long statement here costs nothing user-facing.
+-- ---------------------------------------------------------------------------
+set local statement_timeout = '15min';
+
+-- ---------------------------------------------------------------------------
 -- The column and its index.
 -- ---------------------------------------------------------------------------
 alter table catalog.prop_items add column if not exists keyword_tsv tsvector;
