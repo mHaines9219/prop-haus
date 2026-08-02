@@ -20,7 +20,7 @@ const LINE_STATUS: Record<string, BadgeVariant> = {
 
 export default async function ProposalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = getProject(id);
+  const project = await getProject(id);
   if (!project) notFound();
 
   const vendorTotals = project.vendors.map((v) => {
