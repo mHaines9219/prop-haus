@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Heading, Text } from '@astryxdesign/core/Text';
@@ -11,13 +11,42 @@ import { Grid } from '@astryxdesign/core/Grid';
 import { Token } from '@astryxdesign/core/Token';
 import { ItemCard } from '@/components/item-card';
 import { SearchBar } from '@/components/search-bar';
-import { getJson, postForm, postJson } from '@/lib/api';
+import { ApiError, getJson, postForm, postJson } from '@/lib/api';
+import type { PlanTier } from '@/lib/accounts';
+import type { MeteredMetric } from '@/lib/plans';
+import type { Allowance } from '@/lib/usage';
 import type { CardItem, SearchResponse } from '@/lib/types';
 
 // Both the keyword endpoint (card-projected items) and the AI endpoint (full
 // PropItems, which are assignable to CardItem) feed ResultGrid.
 type CardMatch = { item: CardItem; matchedVia: string[]; score: number };
 type KeywordResponse = { query: string; matches: CardMatch[]; total: number };
+type UsageResponse = { plan: PlanTier; metrics: Record<MeteredMetric, Allowance> };
+/** /api/search reports the allowance it charged alongside the results. */
+type SearchWithUsage = SearchResponse & { usage?: Allowance };
+
+/** Plan ceiling reached. lib/api.ts turns the 402 body's `error` into the message. */
+const isPaywall = (e: unknown) => e instanceof ApiError && e.status === 402;
+
+/**
+ * "12 of 20 AI searches left this month" — omitted entirely on unlimited plans,
+ * where a counter is noise rather than information.
+ */
+function AllowanceLine({ metrics }: { metrics: Record<MeteredMetric, Allowance> }) {
+  const parts = [
+    { a: metrics.aiSearchesPerMonth, noun: 'AI searches', suffix: ' this month' },
+    { a: metrics.visionSearches, noun: 'image searches', suffix: '' },
+  ]
+    .filter(({ a }) => a.limit !== null)
+    .map(({ a, noun, suffix }) => `${a.remaining} of ${a.limit} ${noun} left${suffix}`);
+
+  if (parts.length === 0) return null;
+  return (
+    <Text type="supporting" color="secondary">
+      {parts.join(' · ')}
+    </Text>
+  );
+}
 
 function ResultGrid({ matches }: { matches: CardMatch[] }) {
   return (
@@ -45,11 +74,29 @@ function SearchInner() {
     queryFn: () => getJson<KeywordResponse>(`/api/keyword?q=${encodeURIComponent(query)}`),
   });
 
+  const qc = useQueryClient();
+  const usage = useQuery({
+    queryKey: ['usage'],
+    queryFn: () => getJson<UsageResponse>('/api/usage'),
+  });
+
   const ai = useMutation({
     mutationFn: (input: string | FormData) =>
       typeof input === 'string'
-        ? postJson<SearchResponse>('/api/search', { query: input, mode: 'text' })
-        : postForm<SearchResponse>('/api/search', input),
+        ? postJson<SearchWithUsage>('/api/search', { query: input, mode: 'text' })
+        : postForm<SearchWithUsage>('/api/search', input),
+    // A successful search returns the standing it just charged against, so the
+    // counter updates from that same transaction rather than from a follow-up
+    // read that could race it.
+    onSuccess: ({ usage: charged }) => {
+      if (!charged) return;
+      qc.setQueryData<UsageResponse>(['usage'], (prev) =>
+        prev ? { ...prev, metrics: { ...prev.metrics, [charged.metric]: charged } } : prev,
+      );
+    },
+    // On failure there is no such payload — including the 402, where the count
+    // on screen is exactly what turned out to be wrong. Refetch instead.
+    onError: () => qc.invalidateQueries({ queryKey: ['usage'] }),
   });
 
   const runAI = (q: string) => {
@@ -88,6 +135,7 @@ function SearchInner() {
           initialEngine={wantsAI ? 'ai' : 'keyword'}
           onSubmitMultipart={runMultipart}
         />
+        {usage.data && <AllowanceLine metrics={usage.data.metrics} />}
       </div>
 
       {loading && (
@@ -95,16 +143,21 @@ function SearchInner() {
           {engine === 'ai' ? 'Thinking through the catalog…' : 'Searching…'}
         </Text>
       )}
-      {error && (
-        <Banner status="error" title="Search failed" description={error.message}>
-          {error.message.includes('OPENROUTER_API_KEY') && (
-            <Text type="supporting" color="secondary">
-              Copy .env.local.example → .env.local, paste your OpenRouter key, then restart the dev
-              server.
-            </Text>
-          )}
-        </Banner>
-      )}
+      {error &&
+        (isPaywall(error) ? (
+          // Title stays generic: the server's message already names which
+          // allowance ran out, and the client does not need to re-derive it.
+          <Banner status="warning" title="Search limit reached" description={error.message} />
+        ) : (
+          <Banner status="error" title="Search failed" description={error.message}>
+            {error.message.includes('OPENROUTER_API_KEY') && (
+              <Text type="supporting" color="secondary">
+                Copy .env.local.example → .env.local, paste your OpenRouter key, then restart the
+                dev server.
+              </Text>
+            )}
+          </Banner>
+        ))}
       {engine === 'keyword' && !loading && !error && keyword.data && (
         <KeywordResults data={keyword.data} onAskAI={() => runAI(query)} />
       )}

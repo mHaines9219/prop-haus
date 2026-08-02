@@ -5,8 +5,8 @@ import { Badge } from '@astryxdesign/core/Badge';
 import { Card } from '@astryxdesign/core/Card';
 import { List } from '@astryxdesign/core/List';
 import { Item } from '@astryxdesign/core/Item';
-import { getProject } from '@/lib/projects';
-import { SOURCE_META } from '@/lib/types';
+import { getProject, lineTotal } from '@/lib/projects';
+import { FLAT_FEE_UNITS, SOURCE_META } from '@/lib/types';
 import { ApproveButton } from './approve';
 
 type BadgeVariant = React.ComponentProps<typeof Badge>['variant'];
@@ -25,7 +25,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
 
   const vendorTotals = project.vendors.map((v) => {
     const subtotal = v.items.reduce((n, i) => {
-      if (i.status === 'available' || i.status === 'sub') return n + (i.priceQuote ?? 0) * i.qty;
+      if (i.status === 'available' || i.status === 'sub') return n + lineTotal(i);
       return n;
     }, 0);
     return { vendor: v, subtotal };
@@ -58,12 +58,18 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
               </div>
               <List hasDividers>
                 {v.items.map((i) => {
-                  const priced =
-                    i.priceQuote !== undefined && (i.status === 'available' || i.status === 'sub');
+                  const q =
+                    i.status === 'available' || i.status === 'sub' ? i.quote : undefined;
                   const detail = [
                     i.subNote ? `Sub: ${i.subNote}` : null,
-                    priced
-                      ? `$${i.priceQuote!.toFixed(2)} × ${i.qty} = $${(i.priceQuote! * i.qty).toFixed(2)}`
+                    // Show every factor, so a production can audit the number rather
+                    // than trust it: rate/unit × periods × qty = total.
+                    q
+                      ? `$${q.amount.toFixed(2)}/${q.unit}${
+                          FLAT_FEE_UNITS.includes(q.unit)
+                            ? ''
+                            : ` × ${q.periods} ${q.unit}${q.periods === 1 ? '' : 's'}`
+                        } × qty ${i.qty} = $${lineTotal(i).toFixed(2)}`
                       : null,
                   ]
                     .filter(Boolean)

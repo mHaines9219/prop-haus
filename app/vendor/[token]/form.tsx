@@ -6,13 +6,30 @@ import { useState } from 'react';
 import { Heading, Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
 import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { Selector } from '@astryxdesign/core/Selector';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { postJson } from '@/lib/api';
-import type { LineItem, LineStatus } from '@/lib/projects';
+import { suggestPeriods, type LineItem, type LineStatus, type Quote } from '@/lib/projects';
+import { FLAT_FEE_UNITS, PRICE_UNITS, type PriceUnit } from '@/lib/types';
 
-type UpdateVars = { itemId: string; status: LineStatus; priceQuote?: number; subNote?: string };
+type UpdateVars = { itemId: string; status: LineStatus; quote?: Quote; subNote?: string };
 
-export function VendorResponseForm({ token, items }: { token: string; items: LineItem[] }) {
+const UNIT_OPTIONS = PRICE_UNITS.map((u) => ({
+  value: u,
+  label: u === 'purchase' ? 'purchase (sale)' : u === 'event' ? 'event (flat)' : `per ${u}`,
+}));
+
+export function VendorResponseForm({
+  token,
+  items,
+  startDate,
+  endDate,
+}: {
+  token: string;
+  items: LineItem[];
+  startDate: string;
+  endDate: string;
+}) {
   const router = useRouter();
   const mutation = useMutation({
     mutationFn: (vars: UpdateVars) => postJson(`/api/vendor/${token}`, vars),
@@ -22,7 +39,7 @@ export function VendorResponseForm({ token, items }: { token: string; items: Lin
   const update = (
     item: LineItem,
     status: LineStatus,
-    extra: { priceQuote?: number; subNote?: string } = {},
+    extra: { quote?: Quote; subNote?: string } = {},
   ) => mutation.mutate({ itemId: item.itemId, status, ...extra });
 
   return (
@@ -33,13 +50,17 @@ export function VendorResponseForm({ token, items }: { token: string; items: Lin
           <ItemRow
             key={item.itemId}
             item={item}
+            startDate={startDate}
+            endDate={endDate}
             pending={mutation.isPending && mutation.variables?.itemId === item.itemId}
             onUpdate={update}
           />
         ))}
       </ul>
       <Text type="supporting" color="secondary">
-        Click a status to record your response. Updates are saved immediately.
+        Click a status to record your response. Quote your own rate and billable periods — we
+        prefill the period count from the booking dates, but your number is the one we use. Updates
+        are saved immediately.
       </Text>
     </section>
   );
@@ -47,20 +68,49 @@ export function VendorResponseForm({ token, items }: { token: string; items: Lin
 
 function ItemRow({
   item,
+  startDate,
+  endDate,
   pending,
   onUpdate,
 }: {
   item: LineItem;
+  startDate: string;
+  endDate: string;
   pending: boolean;
   onUpdate: (
     item: LineItem,
     status: LineStatus,
-    extra?: { priceQuote?: number; subNote?: string },
+    extra?: { quote?: Quote; subNote?: string },
   ) => void;
 }) {
-  const [price, setPrice] = useState<string>(item.priceQuote?.toString() ?? '');
+  const [amount, setAmount] = useState<string>(item.quote?.amount.toString() ?? '');
+  const [unit, setUnit] = useState<PriceUnit>(item.quote?.unit ?? 'day');
+  // Prefilled from the booking window as a starting point; the vendor owns the final count.
+  const [periods, setPeriods] = useState<string>(
+    (
+      item.quote?.periods ?? suggestPeriods(item.quote?.unit ?? 'day', startDate, endDate)
+    ).toString(),
+  );
   const [subNote, setSubNote] = useState<string>(item.subNote ?? '');
-  const priceNum = price ? Number(price) : undefined;
+
+  const isFlatFee = FLAT_FEE_UNITS.includes(unit);
+  const amountNum = amount ? Number(amount) : undefined;
+  const periodsNum = isFlatFee ? 1 : periods ? Number(periods) : 1;
+
+  // Re-suggest the count when the vendor switches unit — a "3" that meant days
+  // should not silently come to mean weeks.
+  const onUnitChange = (next: string) => {
+    const u = next as PriceUnit;
+    setUnit(u);
+    setPeriods(suggestPeriods(u, startDate, endDate).toString());
+  };
+
+  const quote: Quote | undefined =
+    amountNum && amountNum > 0
+      ? { amount: amountNum, unit, periods: periodsNum, currency: 'USD' }
+      : undefined;
+
+  const runningTotal = quote ? quote.amount * item.qty * quote.periods : undefined;
 
   return (
     <li className="flex gap-4 py-4">
@@ -84,14 +134,14 @@ function ItemRow({
             size="sm"
             variant={item.status === 'available' ? 'primary' : 'secondary'}
             isDisabled={pending}
-            onClick={() => onUpdate(item, 'available', { priceQuote: priceNum })}
+            onClick={() => onUpdate(item, 'available', { quote })}
           />
           <Button
             label="Substitution"
             size="sm"
             variant={item.status === 'sub' ? 'primary' : 'secondary'}
             isDisabled={pending}
-            onClick={() => onUpdate(item, 'sub', { subNote: subNote || undefined, priceQuote: priceNum })}
+            onClick={() => onUpdate(item, 'sub', { subNote: subNote || undefined, quote })}
           />
           <Button
             label="Unavailable"
@@ -100,16 +150,38 @@ function ItemRow({
             isDisabled={pending}
             onClick={() => onUpdate(item, 'unavailable')}
           />
-          <div className="w-32">
+          <div className="w-28">
             <NumberInput
-              label="Price quote"
+              label="Rate"
               isLabelHidden
               size="sm"
-              placeholder="Price quote"
-              value={priceNum}
-              onChange={(v) => setPrice(v ? String(v) : '')}
+              placeholder="Rate"
+              value={amountNum}
+              onChange={(v) => setAmount(v ? String(v) : '')}
             />
           </div>
+          <div className="w-36">
+            <Selector
+              label="Rate unit"
+              isLabelHidden
+              size="sm"
+              options={UNIT_OPTIONS}
+              value={unit}
+              onChange={onUnitChange}
+            />
+          </div>
+          {!isFlatFee && (
+            <div className="w-28">
+              <NumberInput
+                label={`Billable ${unit}s`}
+                isLabelHidden
+                size="sm"
+                placeholder={`# of ${unit}s`}
+                value={periods ? Number(periods) : undefined}
+                onChange={(v) => setPeriods(v ? String(v) : '')}
+              />
+            </div>
+          )}
           {item.status === 'sub' && (
             <div className="min-w-[10rem] flex-1">
               <TextInput
@@ -124,9 +196,22 @@ function ItemRow({
           )}
         </div>
 
-        {item.priceQuote !== undefined && (
+        {quote && runningTotal !== undefined && (
           <Text type="supporting" color="secondary">
-            Quoted: ${item.priceQuote.toFixed(2)} {item.subNote && `· ${item.subNote}`}
+            {isFlatFee
+              ? `$${quote.amount.toFixed(2)} flat × qty ${item.qty}`
+              : `$${quote.amount.toFixed(2)}/${unit} × ${quote.periods} ${unit}${
+                  quote.periods === 1 ? '' : 's'
+                } × qty ${item.qty}`}{' '}
+            = ${runningTotal.toFixed(2)}
+          </Text>
+        )}
+
+        {item.quote && (
+          <Text type="supporting" color="secondary">
+            Recorded: ${item.quote.amount.toFixed(2)}/{item.quote.unit}
+            {!FLAT_FEE_UNITS.includes(item.quote.unit) && ` × ${item.quote.periods}`}
+            {item.subNote && ` · ${item.subNote}`}
           </Text>
         )}
       </div>
