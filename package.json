@@ -22,6 +22,7 @@
     "eval:scenes": "tsx --env-file=.env.local scripts/eval-scenes.ts",
     "eval:enrichment": "tsx --env-file=.env.local scripts/eval-enrichment-lift.ts",
     "eval:relevance": "tsx --env-file=.env.local scripts/eval-relevance.ts",
+    "eval:keyword": "tsx --env-file=.env.local scripts/eval-keyword-ranking.ts",
     "test": "vitest run",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
   },
