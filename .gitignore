@@ -24,3 +24,8 @@ data/*.before
 
 # keep projects.json (app state) and a .gitkeep placeholder
 !data/.gitkeep
+
+# pnpm writes this placeholder file when a script triggers its build-approval
+# prompt ("set this to true or false"). It is not our config and has been one
+# commit away from being committed twice.
+pnpm-workspace.yaml
