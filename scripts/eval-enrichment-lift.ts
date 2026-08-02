@@ -97,6 +97,10 @@ function sanitize(raw: unknown): Enrichment {
   return out;
 }
 
+/** Actual USD spend reported by OpenRouter, summed across enrichment calls. */
+let spendUsd = 0;
+let costedCalls = 0;
+
 async function enrichOne(item: PropItem, system: string, apiKey: string): Promise<Enrichment> {
   const text = [
     `NAME: ${item.name}`,
@@ -117,6 +121,9 @@ async function enrichOne(item: PropItem, system: string, apiKey: string): Promis
       max_tokens: 600,
       temperature: 0.2,
       response_format: { type: 'json_object' },
+      // Per-call cost, so the spend figure is exact and attributable to this
+      // run rather than inferred from a team-wide daily total.
+      usage: { include: true },
       messages: [
         { role: 'system', content: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] },
         { role: 'user', content },
@@ -124,7 +131,14 @@ async function enrichOne(item: PropItem, system: string, apiKey: string): Promis
     }),
   });
   if (!res.ok) throw new Error(`enrich ${res.status}: ${(await res.text()).slice(0, 160)}`);
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { cost?: number };
+  };
+  if (typeof data.usage?.cost === 'number') {
+    spendUsd += data.usage.cost;
+    costedCalls++;
+  }
   try {
     const cleaned = (data.choices?.[0]?.message?.content ?? '')
       .replace(/^```(?:json)?\s*/i, '')
@@ -216,7 +230,16 @@ async function main() {
   );
 
   const filled = enrichments.filter((e) => Object.keys(e).length > 0).length;
-  console.log(`enrichment returned fields for ${filled}/${items.length} items\n`);
+  console.log(`enrichment returned fields for ${filled}/${items.length} items`);
+  if (costedCalls > 0) {
+    const per = spendUsd / costedCalls;
+    console.log(`\n=== measured spend (OpenRouter-reported, ${costedCalls} calls) ===`);
+    console.log(`  this run          $${spendUsd.toFixed(4)}`);
+    console.log(`  per item          $${per.toFixed(6)}`);
+    console.log(`  omega   24,565    $${(per * 24565).toFixed(2)}`);
+    console.log(`  all     77,133    $${(per * 77133).toFixed(2)}`);
+  }
+  console.log('');
 
   const beforeText = items.map((it) => canonicalText(it));
   const afterText = items.map((it, i) => canonicalText({ ...it, ...enrichments[i] } as PropItem));
