@@ -67,10 +67,21 @@ export const VendorRef = z.object({
 // publish rates (e.g. WooCommerce rental shops); quote-only houses leave this
 // undefined, which the app treats as "request a quote". `unit` is the rental
 // period when the site states it — often unspecified, so it stays optional.
+/**
+ * Rental period vocabulary, shared by the catalog's published `Price` and the
+ * vendor's negotiated `Quote` (lib/projects.ts) so both speak one language.
+ * 'event' and 'purchase' are flat fees rather than recurring periods.
+ */
+export const PRICE_UNITS = ['day', 'week', 'month', 'event', 'purchase'] as const;
+export type PriceUnit = (typeof PRICE_UNITS)[number];
+
+/** Units billed once, not per period — periods is always 1. */
+export const FLAT_FEE_UNITS: readonly PriceUnit[] = ['event', 'purchase'];
+
 export const Price = z.object({
   amount: z.number().positive(),
   currency: z.string().default('USD'),
-  unit: z.enum(['day', 'week', 'month', 'event', 'purchase']).optional(),
+  unit: z.enum(PRICE_UNITS).optional(),
 });
 export type Price = z.infer<typeof Price>;
 
