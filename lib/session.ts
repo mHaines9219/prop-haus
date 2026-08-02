@@ -15,6 +15,7 @@
  * caller's membership, return their org id, and throw/redirect when absent. The
  * call sites do not change.
  */
+import type { PlanTier } from './accounts';
 
 /**
  * Stand-in owner for every project until sessions exist.
@@ -38,4 +39,16 @@ export const IS_PLACEHOLDER_SESSION = true;
  */
 export async function currentOrgId(): Promise<string> {
   return PLACEHOLDER_ORG_ID;
+}
+
+/**
+ * The plan the current request is entitled to.
+ *
+ * Defaults to 'free' so the paywall is EXERCISED in development rather than
+ * silently bypassed — an unwired gate that always says yes is the same bug as no
+ * gate at all. Replacing this reads `organizations.plan` for the session's org;
+ * the column already exists and defaults to 'free' too.
+ */
+export async function currentPlan(): Promise<PlanTier> {
+  return 'free';
 }

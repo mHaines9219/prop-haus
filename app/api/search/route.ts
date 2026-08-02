@@ -2,11 +2,22 @@ import { NextResponse } from 'next/server';
 import { parseAttachments } from '@/lib/upload';
 import { runSearch } from '@/lib/search-modes';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
+import { currentOrgId, currentPlan } from '@/lib/session';
+import { getAllowance, recordUsage } from '@/lib/usage';
+import type { MeteredMetric } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_QUERY = 400;
+
+/** Copy for a spent allowance. Named per metric because they reset differently. */
+const EXHAUSTED: Record<MeteredMetric, (limit: number) => string> = {
+  aiSearchesPerMonth: (limit) =>
+    `You have used all ${limit} AI searches on your plan this month. Keyword search stays available, and the count resets at the start of next month.`,
+  visionSearches: (limit) =>
+    `You have used all ${limit} image searches included with your plan. Text-based AI search still works.`,
+};
 
 function bad(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
@@ -57,9 +68,56 @@ export async function POST(req: Request) {
   // Auto-promote mode if files are attached but mode is 'text'.
   if (mode === 'text' && attachments.length > 0) mode = 'haiku';
 
+  // --- metering -------------------------------------------------------------
+  // Everything above this line rejects the request without spending anything, so
+  // the gate sits here rather than at the top of the handler: a 400 for bad
+  // multipart or a 500 for a missing API key must not cost the caller a search.
+  //
+  // The metric is keyed off `attachments.length`, not `mode`. A vision-capable
+  // mode with no image attached is just a text search and should be charged as one.
+  const metric: MeteredMetric =
+    attachments.length > 0 ? 'visionSearches' : 'aiSearchesPerMonth';
+  const orgId = await currentOrgId();
+  const plan = await currentPlan();
+
+  const allowance = await getAllowance(orgId, plan, metric);
+  // `limit !== null` is implied by `!allowed` (see the Allowance type); checking it
+  // here narrows the type without an assertion, and an unlimited plan can never
+  // reach this branch.
+  if (!allowance.allowed && allowance.limit !== null) {
+    // 402 rather than 429: this is a plan ceiling, not rate limiting. Retrying
+    // later does not help within the period, and the client renders an upgrade
+    // prompt rather than a "try again" one.
+    return NextResponse.json(
+      { error: EXHAUSTED[metric](allowance.limit), metric, usage: allowance },
+      { status: 402 },
+    );
+  }
+
   try {
     const result = await runSearch({ query, attachments, mode });
-    return NextResponse.json(result);
+
+    // Charged only once the search actually produced something. Two cases go free:
+    //
+    //   - a 502 from the model provider (the catch below never reaches here)
+    //   - a search that succeeded and matched NOTHING
+    //
+    // The second is the one worth defending. A zero-result search is usually our
+    // retrieval failing, not the user asking badly — Bumble measured 15% of
+    // known-item queries as unreachable by any reranker, because the item never
+    // enters the shortlist. Billing someone for our own miss is the wrong end of
+    // that trade, and on a small monthly allowance two dead searches would burn a
+    // large slice of the month on nothing. There is no abuse angle either: a
+    // result set of zero has nothing in it to extract.
+    //
+    // We still pay the provider for these. That is the cost of a bad search, and
+    // it belongs to us rather than the customer.
+    const usage =
+      result.matches.length > 0
+        ? await recordUsage(orgId, plan, metric)
+        : await getAllowance(orgId, plan, metric);
+
+    return NextResponse.json({ ...result, usage });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg, mode }, { status: 502 });
