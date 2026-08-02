@@ -1,24 +1,29 @@
 import { getProject } from '@/lib/projects';
+import { currentOrgId } from '@/lib/session';
 import { proposalFilename, proposalToCsv } from '@/lib/proposal-csv';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * The consolidated proposal as a spreadsheet.
+ * The owner's download of the consolidated proposal.
  *
- * NOT org-scoped, matching `/projects/[id]/proposal` itself: the proposal URL is
- * deliberately shareable outside the owning organization so a production can
- * hand it to a client. Scoping the export while the page it exports stays open
- * would be security theatre — the same rows are already readable one click away.
+ * Org-scoped now. The comment this replaces said the route was deliberately
+ * open to match the page, and that when the share token landed both would move
+ * behind it together — which is what happened: the client-facing download is
+ * `/api/proposal/[token]/proposal.csv`, and this one is for the production that
+ * owns the job.
  *
- * That sharing model is being replaced with a revocable share token (BOSS's
- * call, after this). When it lands, this route moves behind the same token as
- * the page, in one change rather than two.
+ * 401 signed out, 404 when it is not theirs — matching the other project routes
+ * so this cannot be used to probe which ids exist.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = await getProject(id);
+
+  const orgId = await currentOrgId();
+  if (!orgId) return new Response('Not signed in', { status: 401 });
+
+  const project = await getProject(orgId, id);
   if (!project) return new Response('Not found', { status: 404 });
 
   return new Response(proposalToCsv(project), {

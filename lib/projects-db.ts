@@ -81,6 +81,9 @@ type ProjectRow = {
   approved_at: string | null;
   archived_at: string | null;
   insured: Project['insured'] | null;
+  // Optional on the row type, not just nullable: this column does not exist
+  // until 20260802180000 is applied, and `select *` simply omits it before then.
+  share_token?: string | null;
   vendor_requests: VendorRequestRow[] | null;
 };
 
@@ -166,6 +169,10 @@ export function toProject(r: ProjectRow): Project {
     ...(r.approved_at ? { approvedAt: r.approved_at } : {}),
     ...(r.archived_at ? { archivedAt: r.archived_at } : {}),
     ...(r.insured ? { insured: r.insured } : {}),
+    // Present only for owner reads. `getProjectByShareToken` strips it before
+    // returning, so a client-facing render can never carry the credential that
+    // got them there. See lib/projects.ts.
+    ...(r.share_token ? { shareToken: r.share_token } : {}),
   };
 }
 

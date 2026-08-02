@@ -6,6 +6,7 @@ import { Card } from '@astryxdesign/core/Card';
 import { Banner } from '@astryxdesign/core/Banner';
 import { MetadataList, MetadataListItem } from '@astryxdesign/core/MetadataList';
 import { getProject, type VendorRequest } from '@/lib/projects';
+import { requireOrgId } from '@/lib/session';
 import { SOURCE_META } from '@/lib/types';
 import { CoiVendorPanel } from './coi-panel';
 
@@ -27,7 +28,10 @@ const VENDOR_STATUS: Record<string, BadgeVariant> = {
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = await getProject(id);
+  // Owner surface: sign-in required, then scoped to the caller's org. A project
+  // belonging to another org is notFound(), not forbidden.
+  const orgId = await requireOrgId(`/projects/${id}`);
+  const project = await getProject(orgId, id);
   if (!project) notFound();
 
   const totalItems = project.vendors.reduce((n, v) => n + v.items.length, 0);

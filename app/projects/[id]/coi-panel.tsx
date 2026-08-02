@@ -11,6 +11,7 @@ import { Card } from '@astryxdesign/core/Card';
 import { Banner } from '@astryxdesign/core/Banner';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { postJson } from '@/lib/api';
+import { safeExternalUrl } from '@/lib/safe-url';
 import type { CoiStatus, VendorRequest } from '@/lib/projects';
 import type { BusinessProfile } from '@/lib/insurance';
 import { buildBrokerCertEmail } from '@/lib/insurance';
@@ -175,11 +176,22 @@ export function CoiVendorPanel({
             />
           )}
 
-          {vendor.coi.certUrl && (
-            <Link href={vendor.coi.certUrl} isExternalLink target="_blank" rel="noreferrer">
-              view cert
-            </Link>
-          )}
+          {/*
+            Scheme-checked before it becomes an href. This value is free text
+            from the COI form; `javascript:` in an anchor executes on click.
+            An unsafe value renders as plain text rather than vanishing, so the
+            person who pasted it can see what is stored and fix it.
+          */}
+          {vendor.coi.certUrl &&
+            (safeExternalUrl(vendor.coi.certUrl) ? (
+              <Link href={vendor.coi.certUrl} isExternalLink target="_blank" rel="noreferrer">
+                view cert
+              </Link>
+            ) : (
+              <Text type="supporting" color="secondary">
+                cert URL not linkable: {vendor.coi.certUrl}
+              </Text>
+            ))}
         </div>
 
         <Text type="supporting" color="secondary">
