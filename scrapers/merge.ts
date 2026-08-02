@@ -3,18 +3,33 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { Catalog, SOURCES, type PropItem } from '../lib/types';
+import { parseCatalogItemsStrict } from '../lib/catalog-parse';
+import { SOURCES, type PropItem } from '../lib/types';
 
 const DATA = path.join(process.cwd(), 'data');
 
+/**
+ * Read one source's scrape output.
+ *
+ * A MISSING file is normal — not every source has been scraped in a given run,
+ * and nine of them have no snapshot at all. A file that exists but does not
+ * validate is a scraper regression, and it fails the merge.
+ *
+ * The previous `catch { return [] }` could not tell those two apart, so one bad
+ * record dropped an entire vendor out of `data/catalog.json` with no output
+ * beyond a smaller number in the per-source line. That is the same silent-total
+ * failure `loadCatalog` had, one stage earlier and harder to notice, because
+ * here the evidence is destroyed rather than merely hidden.
+ */
 async function readSource(name: string): Promise<PropItem[]> {
   const file = path.join(DATA, `${name}.json`);
+  let raw: string;
   try {
-    const raw = await fs.readFile(file, 'utf8');
-    return Catalog.parse(JSON.parse(raw));
+    raw = await fs.readFile(file, 'utf8');
   } catch {
     return [];
   }
+  return parseCatalogItemsStrict(JSON.parse(raw), `merge:${name}`);
 }
 
 async function main() {
