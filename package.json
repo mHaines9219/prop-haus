@@ -17,6 +17,7 @@
     "db:load": "tsx scripts/load-catalog.ts",
     "db:dump": "tsx scripts/dump-catalog.ts",
     "eval:search": "tsx --env-file=.env.local scripts/eval-search.ts",
+    "eval:scenes": "tsx --env-file=.env.local scripts/eval-scenes.ts",
     "test": "vitest run",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
   },
