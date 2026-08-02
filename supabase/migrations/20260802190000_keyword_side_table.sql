@@ -31,12 +31,25 @@
 --
 -- REJECTED, with numbers rather than instinct
 --
---   * Chunked UPDATEs on prop_items. Bounded, and 4,500 chunks x ~8s is ~4 hours
---     of grinding I/O. Chunking limits blast radius; it cannot make the total
---     work affordable.
---   * ANALYZE. Tried it. The plan was already an Index Scan; ANALYZE changed only
---     the row estimate, cost 58.8 seconds, and made the next identical statement
---     SLOWER (33.4s vs 21.7s) by evicting the buffer cache.
+--   * Chunked UPDATEs on prop_items. Rejected on BUFFERS, not on a projected
+--     wall clock: ~777 buffer accesses per row is paid whatever the chunk size,
+--     so 90,953 rows is ~71 million page accesses however it is sliced. Chunking
+--     limits blast radius; it cannot make the total work affordable.
+--
+--     Every wall-clock projection made today for this path -- ~4 hours, 85
+--     minutes, ~26 minutes -- is WITHDRAWN. All of them descend from a fixed
+--     per-statement cost fitted to two timing samples, and three measurements of
+--     the identical 200-row statement span 3.0x (11.2s / 21.7s / 33.4s). Refit
+--     against each in turn and the fitted "fixed cost" moves 8,223 -> 4,723 ->
+--     829 ms, which reverses the conclusion. See 20260802183000.
+--   * ANALYZE. Tried it. The plan was already an Index Scan BOTH BEFORE AND
+--     AFTER, so stale statistics were never the problem -- that is the finding,
+--     and it rests on the plan shape, not on any duration. ANALYZE changed only
+--     the row estimate, and cost 58.8 seconds. (An earlier version of this file
+--     also claimed it made the next statement "SLOWER, 33.4s vs 21.7s". That is
+--     withdrawn: step 3 ran on the NEXT 200 rows, so different pages and a
+--     different cache state are equally available as explanations and nothing in
+--     the output separates them.)
 --   * Drop prop_items_embedding_idx, backfill, rebuild. Would work, and
 --     load-catalog.ts does exactly this around a bulk load. Still no: the rebuild
 --     is one unbounded statement on a table where ANALYZE alone takes 59
