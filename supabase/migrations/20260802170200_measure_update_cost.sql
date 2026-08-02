@@ -1,12 +1,25 @@
 -- ============================================================================
--- MEASUREMENT ONLY — creates nothing, drops nothing, changes no value.
+-- MEASUREMENT ONLY — creates nothing, drops nothing. Writes exactly 10 rows.
 --
 -- Why a migration: `db push` is the only channel this project has for running
 -- SQL against the live database, so a measurement has to arrive as one. This
--- file leaves no object behind and every UPDATE it runs assigns a column to
--- itself, so no stored value changes. It exists so the number it produces is
+-- file leaves no object behind. It exists so the number it produces is
 -- recorded in the repo next to the decision it drove, rather than in a
 -- transcript.
+--
+-- WHAT IT WRITES, stated because an earlier version of this header claimed it
+-- wrote nothing. Every UPDATE assigns keyword_tsv to itself, but the BEFORE
+-- UPDATE trigger then recomputes it — which is the entire mechanism under test:
+--
+--   * Arm A, 5 already-populated rows: the trigger writes back the identical
+--     value. Genuinely no stored value changes.
+--   * Arm B, 5 rows where keyword_tsv IS NULL: the trigger writes null -> a
+--     real tsvector. Those 5 rows ARE modified, permanently.
+--
+-- Arm B's writes are forward progress — the values are exactly what the backfill
+-- would have written — so this is harmless. It is documented anyway, because a
+-- measurement file that claims it writes nothing while writing five rows is the
+-- kind of comment that gets trusted the next time someone reaches for it.
 --
 -- THE QUESTION
 --
