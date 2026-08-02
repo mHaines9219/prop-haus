@@ -604,9 +604,10 @@ export async function setProjectArchived(
  * into a commitment to spend.
  *
  * Scoped by org, like `setProjectArchived`. Approval is an owner action and only
- * an owner action: the proposal URL is meant to be shareable with a client, so
- * anyone holding the link must be able to read the numbers and not to accept
- * them on the production's behalf.
+ * an owner action: a client holding a share link must be able to read the
+ * numbers and not to accept them on the production's behalf. `/proposal/[token]`
+ * renders no approve control, but that is presentation — this filter is what
+ * actually enforces it.
  */
 export async function approveProject(orgId: string, id: string): Promise<Project | null> {
   const now = new Date().toISOString();

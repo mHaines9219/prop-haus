@@ -56,11 +56,21 @@ export const config = {
     /*
      * Everything except static assets and image files.
      *
-     * `/vendor/:token` is deliberately INCLUDED here but must never be gated when
-     * route protection lands: vendors are unauthenticated and their 16-byte URL
-     * token is the only credential they have. Refreshing a session they don't have
-     * is harmless; requiring one would break the vendor response loop, which is the
-     * single thing the MVP exists to validate.
+     * THREE ROUTES ARE TOKEN-AUTHENTICATED AND MUST NEVER BE SESSION-GATED:
+     *
+     *   /vendor/:token                     vendor reply page
+     *   /proposal/:token                   client-facing proposal
+     *   /api/proposal/:token/proposal.csv  its spreadsheet
+     *
+     * All three are reached by people who will never have an account — a vendor
+     * answering a request, a client reading a budget — and in every case the
+     * 16-byte URL token IS the credential. Refreshing a session they do not have
+     * is harmless; requiring one would break the vendor response loop and every
+     * share link a production has already sent.
+     *
+     * They are listed together because this comment is what the next person
+     * reads before adding route protection, and a list that named only the
+     * vendor route would send them to gate the other two.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
