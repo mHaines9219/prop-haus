@@ -11,7 +11,7 @@ export function CartButton() {
   const lines = useCart((s) => s.lines);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const count = mounted ? lines.reduce((n, l) => n + l.qty, 0) : 0;
+  const count = mounted ? lines.length : 0;
 
   return (
     <Button

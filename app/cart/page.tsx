@@ -2,36 +2,66 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Heading, Text } from '@astryxdesign/core/Text';
 import { Link } from '@astryxdesign/core/Link';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
-import { List, ListItem } from '@astryxdesign/core/List';
+import { List } from '@astryxdesign/core/List';
 import { Item } from '@astryxdesign/core/Item';
-import { DateInput } from '@astryxdesign/core/DateInput';
-import type { ISODateString } from '@astryxdesign/core/Calendar';
-import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { Selector } from '@astryxdesign/core/Selector';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { useCart } from '@/lib/cart-store';
-import { useProfile } from '@/lib/profile-store';
-import { checkCompatibility } from '@/lib/insurance';
+import { getJson, postJson } from '@/lib/api';
 import { SOURCE_META, type Source } from '@/lib/types';
-import { CoiBadge } from '@/components/coi-badge';
+
+type ProjectSummary = { id: string; name: string; itemCount: number };
 
 export default function CartPage() {
   const router = useRouter();
-  const { lines, remove, setQty, startDate, endDate, setDates, clear } = useCart();
-  const { profile } = useProfile();
+  const { lines, remove, clear } = useCart();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  const projects = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => getJson<{ projects: ProjectSummary[] }>('/api/projects'),
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const items = lines.map((l) => ({
+        itemId: l.item.id,
+        source: l.item.source,
+        sourceId: l.item.sourceId,
+        name: l.item.name,
+        image: l.item.images[0],
+        sourceUrl: l.item.sourceUrl,
+        category: l.item.category,
+      }));
+
+      if (projectId) {
+        await postJson(`/api/projects/${projectId}/items`, { items });
+        return projectId;
+      }
+      const { id } = await postJson<{ id: string }>('/api/projects', {
+        name: newFolderName.trim(),
+        items,
+      });
+      return id;
+    },
+    onSuccess: (id) => {
+      clear();
+      router.push(`/projects/${id}`);
+    },
+  });
+
   const vendorSources = Array.from(new Set(lines.map((l) => l.item.source))) as Source[];
-  const vendorCount = vendorSources.length;
-  const shootDates = startDate && endDate ? { start: startDate, end: endDate } : null;
-  const compat = vendorSources.map((src) => ({
-    source: src,
-    result: checkCompatibility(profile?.policy, src, shootDates),
-  }));
-  const hasGap = compat.some((c) => c.result.status === 'gap');
+  const canSave = Boolean(projectId || newFolderName.trim());
 
   if (!mounted) return <Text color="secondary">Loading…</Text>;
 
@@ -39,7 +69,7 @@ export default function CartPage() {
     return (
       <EmptyState
         title="Your cart is empty"
-        description="Browse the catalog and add pieces from any vendor to start a quote request."
+        description="Browse the catalog and add pieces from any vendor to save them into a folder."
         actions={<Button label="Browse catalog" variant="primary" onClick={() => router.push('/')} />}
       />
     );
@@ -47,20 +77,7 @@ export default function CartPage() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      <Heading level={1}>Quote Request</Heading>
-
-      <div className="grid grid-cols-2 gap-4">
-        <DateInput
-          label="Start date"
-          value={(startDate ?? undefined) as ISODateString | undefined}
-          onChange={(v) => setDates(v ?? null, endDate)}
-        />
-        <DateInput
-          label="End date"
-          value={(endDate ?? undefined) as ISODateString | undefined}
-          onChange={(v) => setDates(startDate, v ?? null)}
-        />
-      </div>
+      <Heading level={1}>Cart</Heading>
 
       <List hasDividers>
         {lines.map((line) => {
@@ -86,25 +103,12 @@ export default function CartPage() {
               label={<Link href={href}>{line.item.name}</Link>}
               description={SOURCE_META[line.item.source]?.name ?? line.item.source}
               endContent={
-                <div className="flex items-center gap-3">
-                  <div className="w-24">
-                    <NumberInput
-                      label="Quantity"
-                      isLabelHidden
-                      size="sm"
-                      min={1}
-                      isIntegerOnly
-                      value={line.qty}
-                      onChange={(v) => setQty(line.item.id, v)}
-                    />
-                  </div>
-                  <Button
-                    label="Remove"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => remove(line.item.id)}
-                  />
-                </div>
+                <Button
+                  label="Remove"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove(line.item.id)}
+                />
               }
             />
           );
@@ -112,40 +116,35 @@ export default function CartPage() {
       </List>
 
       <Card>
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <Heading level={2}>Insurance check</Heading>
-            <Link href="/onboarding/insurance?next=/cart">
-              {profile?.policy ? 'Edit' : 'Add insurance'}
-            </Link>
-          </div>
-          {!profile?.policy && (
-            <Text type="supporting" color="secondary">
-              Add your business policy once and we&rsquo;ll check every vendor against your coverage.
-            </Text>
-          )}
-          <List hasDividers>
-            {compat.map(({ source, result }) => (
-              <ListItem
-                key={source}
-                label={SOURCE_META[source]?.name ?? source}
-                endContent={
-                  <div className="flex items-center gap-3">
-                    {result.issues.length > 0 && (
-                      <Text type="supporting" color="secondary">
-                        {result.issues
-                          .slice(0, 2)
-                          .map((i) => i.field)
-                          .join(', ')}
-                        {result.issues.length > 2 && ` +${result.issues.length - 2}`}
-                      </Text>
-                    )}
-                    <CoiBadge result={result} />
-                  </div>
-                }
-              />
-            ))}
-          </List>
+        <div className="space-y-4">
+          <Heading level={2}>Save to a folder</Heading>
+          <Text type="supporting" color="secondary">
+            Pick an existing folder or start a new one — you can review everything you&rsquo;ve
+            saved and click through to each vendor from there.
+          </Text>
+          <Selector
+            label="Existing folder"
+            placeholder="Choose a folder"
+            hasClear
+            options={(projects.data?.projects ?? []).map((p) => ({
+              value: p.id,
+              label: `${p.name} (${p.itemCount})`,
+            }))}
+            value={projectId}
+            onChange={(v) => {
+              setProjectId(v);
+              if (v) setNewFolderName('');
+            }}
+          />
+          <TextInput
+            label="Or start a new folder"
+            placeholder="e.g. Fall commercial — living room"
+            value={newFolderName}
+            onChange={(v) => {
+              setNewFolderName(v);
+              if (v) setProjectId(null);
+            }}
+          />
         </div>
       </Card>
 
@@ -153,14 +152,14 @@ export default function CartPage() {
         <Button label="Clear cart" variant="ghost" size="sm" onClick={clear} />
         <div className="flex flex-col items-end gap-2">
           <Text type="supporting" color="secondary">
-            {lines.length} item{lines.length === 1 ? '' : 's'} · {vendorCount} vendor
-            {vendorCount === 1 ? '' : 's'}
-            {hasGap && ' · coverage gap'}
+            {lines.length} item{lines.length === 1 ? '' : 's'} · {vendorSources.length} vendor
+            {vendorSources.length === 1 ? '' : 's'}
           </Text>
           <Button
-            label="Continue to project request →"
+            label={save.isPending ? 'Saving…' : 'Save to folder'}
             variant="primary"
-            onClick={() => router.push('/request/new')}
+            isDisabled={!canSave || save.isPending}
+            onClick={() => save.mutate()}
           />
         </div>
       </div>

@@ -15,28 +15,28 @@
  * `has_images` is a boolean column with a matching expression index — filtering
  * on the underlying array instead sequential-scans 890 MB and times out.
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { parseCatalogItems, describeRejections } from './catalog-parse';
-import type { CardItem, PropItem } from './types';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { parseCatalogItems, describeRejections } from "./catalog-parse";
+import type { CardItem, PropItem } from "./types";
 
 /** Columns a full PropItem needs. Excludes embedding and search_tsv by omission. */
 const FULL_COLUMNS =
-  'id,source,source_id,name,description,category,subcategory,source_category_path,' +
-  'style,era,materials,colors,vibes,setting_type,genre_fit,tags,dimensions,vendor,' +
-  'images,source_url,scraped_at,price_amount,price_currency,price_unit';
+  "id,source,source_id,name,description,category,subcategory,source_category_path," +
+  "style,era,materials,colors,vibes,setting_type,genre_fit,tags,dimensions,vendor," +
+  "images,source_url,scraped_at,price_amount,price_currency,price_unit";
 
 /** What a card renders. #9 trimmed list payloads to this; keep it that way. */
-const CARD_COLUMNS = 'id,source,source_id,name,subcategory,images';
+const CARD_COLUMNS = "id,source,source_id,name,subcategory,images";
 
 let client: SupabaseClient | null = null;
 
 function db(): SupabaseClient {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
     throw new Error(
-      'NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required to read the catalog',
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are required to read the catalog",
     );
   }
   client = createClient(url, key, { auth: { persistSession: false } });
@@ -55,7 +55,7 @@ type CardRow = {
 function rowToCard(row: CardRow): CardItem {
   return {
     id: row.id,
-    source: row.source as CardItem['source'],
+    source: row.source as CardItem["source"],
     sourceId: row.source_id,
     name: row.name,
     subcategory: row.subcategory ?? undefined,
@@ -70,9 +70,10 @@ function rowToCard(row: CardRow): CardItem {
  * the same string-vs-number trap that hid in the rental-duration bug.
  */
 function rowToItemShape(row: Record<string, unknown>): unknown {
-  const amount = row.price_amount === null || row.price_amount === undefined
-    ? undefined
-    : Number(row.price_amount);
+  const amount =
+    row.price_amount === null || row.price_amount === undefined
+      ? undefined
+      : Number(row.price_amount);
   return {
     id: row.id,
     source: row.source,
@@ -95,9 +96,14 @@ function rowToItemShape(row: Record<string, unknown>): unknown {
     images: row.images ?? [],
     sourceUrl: row.source_url,
     scrapedAt: row.scraped_at,
-    price: amount === undefined
-      ? undefined
-      : { amount, currency: row.price_currency ?? 'USD', unit: row.price_unit ?? undefined },
+    price:
+      amount === undefined
+        ? undefined
+        : {
+            amount,
+            currency: row.price_currency ?? "USD",
+            unit: row.price_unit ?? undefined,
+          },
   };
 }
 
@@ -131,11 +137,11 @@ export async function browseCards(opts: {
   const limit = Math.min(200, Math.max(1, opts.limit ?? 24));
 
   let q = db()
-    .from('catalog_items')
-    .select(CARD_COLUMNS, { count: 'exact' })
-    .eq('has_images', true);
-  if (opts.category) q = q.eq('category', opts.category);
-  if (opts.vendor) q = q.eq('source', opts.vendor);
+    .from("catalog_items")
+    .select(CARD_COLUMNS, { count: "exact" })
+    .eq("has_images", true);
+  if (opts.category) q = q.eq("category", opts.category);
+  if (opts.vendor) q = q.eq("source", opts.vendor);
 
   const { data, error, count } = await q.range(offset, offset + limit - 1);
 
@@ -143,17 +149,26 @@ export async function browseCards(opts: {
   // for a paged grid it is simply the end of the list — the infinite-scroll
   // query can ask for it whenever the total shrinks between pages. Return an
   // empty page with the real total rather than surfacing a 500.
-  if (error?.code === 'PGRST103') {
+  if (error?.code === "PGRST103") {
     return { items: [], total: await countMatching(opts) };
   }
   if (error) throw new Error(`[catalog-db] browse failed: ${error.message}`);
-  return { items: (data ?? []).map((r) => rowToCard(r as unknown as CardRow)), total: count ?? 0 };
+  return {
+    items: (data ?? []).map((r) => rowToCard(r as unknown as CardRow)),
+    total: count ?? 0,
+  };
 }
 
-async function countMatching(opts: { category?: string | null; vendor?: string | null }): Promise<number> {
-  let q = db().from('catalog_items').select('id', { count: 'exact', head: true }).eq('has_images', true);
-  if (opts.category) q = q.eq('category', opts.category);
-  if (opts.vendor) q = q.eq('source', opts.vendor);
+async function countMatching(opts: {
+  category?: string | null;
+  vendor?: string | null;
+}): Promise<number> {
+  let q = db()
+    .from("catalog_items")
+    .select("id", { count: "exact", head: true })
+    .eq("has_images", true);
+  if (opts.category) q = q.eq("category", opts.category);
+  if (opts.vendor) q = q.eq("source", opts.vendor);
   const { count, error } = await q;
   if (error) throw new Error(`[catalog-db] count failed: ${error.message}`);
   return count ?? 0;
@@ -165,17 +180,23 @@ export async function getItemBySourceId(
   sourceId: string,
 ): Promise<PropItem | undefined> {
   const { data, error } = await db()
-    .from('catalog_items')
+    .from("catalog_items")
     .select(FULL_COLUMNS)
-    .eq('source', source)
-    .eq('source_id', sourceId)
+    .eq("source", source)
+    .eq("source_id", sourceId)
     .limit(1);
   if (error) throw new Error(`[catalog-db] getItem failed: ${error.message}`);
-  return toItems((data ?? []) as unknown as Record<string, unknown>[], 'item')[0];
+  return toItems(
+    (data ?? []) as unknown as Record<string, unknown>[],
+    "item",
+  )[0];
 }
 
 /** Cards for one category. Capped — see the note in app/category/[slug]/page.tsx. */
-export async function categoryCards(slug: string, limit = 120): Promise<BrowsePage> {
+export async function categoryCards(
+  slug: string,
+  limit = 120,
+): Promise<BrowsePage> {
   return browseCards({ category: slug, limit, offset: 0 });
 }
 
@@ -191,9 +212,13 @@ export type Facets = {
  * materialized view #35 added, refreshed on catalog load.
  */
 export async function catalogFacets(): Promise<Facets> {
-  const { data, error } = await db().rpc('catalog_facets').single();
+  const { data, error } = await db().rpc("catalog_facets").single();
   if (error) throw new Error(`[catalog-db] facets failed: ${error.message}`);
-  const row = data as { categories: Record<string, number>; vendors: Record<string, number>; total: number };
+  const row = data as {
+    categories: Record<string, number>;
+    vendors: Record<string, number>;
+    total: number;
+  };
   return {
     categories: row.categories ?? {},
     vendors: row.vendors ?? {},

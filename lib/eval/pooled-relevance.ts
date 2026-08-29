@@ -7,8 +7,7 @@
  * `eval-keyword-ranking.ts` (in-memory keyword ranker vs the Postgres RPC). If
  * each carried its own rubric, the two would drift, and then a number from one
  * could not be compared with a number from the other — which is the whole point
- * of having numbers. Same reason `proposalTotals()` lives in one place so the
- * CSV can never disagree with the page.
+ * of having numbers.
  *
  * THE METHOD
  *

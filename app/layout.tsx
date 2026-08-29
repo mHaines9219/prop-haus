@@ -15,15 +15,14 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'Prop Haus — LA Production Rentals',
-  description: 'Aggregated rental props from LA prop houses. Browse by category and build a quote request.',
+  description: 'Aggregated rental props from LA prop houses. Search and browse by category, and save pieces into project folders.',
 };
 
 const NAV = [
   { label: 'Seating', href: '/category/seating' },
   { label: 'Lighting', href: '/category/lighting' },
   { label: 'Themed', href: '/category/themed-event' },
-  { label: 'Jobs', href: '/projects' },
-  { label: 'Insurance', href: '/onboarding/insurance' },
+  { label: 'Folders', href: '/projects' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

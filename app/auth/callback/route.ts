@@ -6,8 +6,7 @@ import { safeNext } from '@/lib/safe-redirect';
  * Where a magic link lands. Exchanges the one-time code for a session cookie.
  *
  * MUST stay unauthenticated — this is the route that *creates* the session, so
- * gating it would make signing in impossible. Same category as
- * `/vendor/[token]`, for a different reason.
+ * gating it would make signing in impossible.
  *
  * On first sign-in the `handle_new_user()` trigger has already created the
  * organization, owner membership and profile stub by the time this returns, so
