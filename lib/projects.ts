@@ -1,181 +1,45 @@
 import crypto from 'node:crypto';
-import { FLAT_FEE_UNITS, type PriceUnit, type Source } from './types';
-import type { BusinessProfile, CompatibilityResult } from './insurance';
-import { checkCompatibility } from './insurance';
+import type { Source } from './types';
 import { PROJECT_SELECT, db, toProject } from './projects-db';
 
-export type LineStatus = 'pending' | 'available' | 'sub' | 'unavailable';
-export type VendorRequestStatus = 'pending' | 'partial' | 'responded';
-export type ProjectStatus = 'submitted' | 'quoting' | 'proposed' | 'confirmed' | 'cancelled';
-
 /**
- * What a vendor actually quoted for a line — never inferred.
+ * A folder: a named collection of catalog items an org has saved while
+ * browsing, so they have one place to review what they've found and click
+ * through to the vendor.
  *
- * `periods` is the count of billable periods at `amount`, as the VENDOR states it.
- * We prefill it from the booking window (see suggestPeriods) but the vendor owns
- * the final number, because prop houses do not bill off calendar days: a "week" is
- * commonly five working days, prep and strike are often free or half rate, and a
- * "3-day week" is a normal quote. Deriving the count ourselves would put a wrong
- * number on the document a production budgets against.
- *
- * Line total = amount x qty x periods.
+ * This used to be a submit-to-vendors / quote / approve workflow (see git
+ * history if you need it). None of that ships in this version of the app —
+ * a "project" is just a folder now.
  */
-export type Quote = {
-  amount: number;
-  unit: PriceUnit;
-  periods: number;
-  currency: string;
-};
-
-export type LineItem = {
-  itemId: string;
-  sourceId: string;
-  name: string;
-  image?: string;
-  qty: number;
-  status: LineStatus;
-  quote?: Quote;
-  subNote?: string;
-};
-
-/** Line total for a quoted item. The one place this arithmetic lives. */
-export function lineTotal(item: LineItem): number {
-  if (!item.quote) return 0;
-  return item.quote.amount * item.qty * item.quote.periods;
-}
-
-/** A line counts toward a total only once the vendor has said they can supply it. */
-export function isBillable(item: LineItem): boolean {
-  return item.status === 'available' || item.status === 'sub';
-}
-
-/**
- * A starting number for the vendor to correct, derived from the booking window.
- * Flat-fee units are always 1. Never treat the result as authoritative.
- */
-export function suggestPeriods(unit: PriceUnit, startDate: string, endDate: string): number {
-  if (FLAT_FEE_UNITS.includes(unit)) return 1;
-  const start = Date.parse(startDate);
-  const end = Date.parse(endDate);
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 1;
-  const days = Math.floor((end - start) / 86_400_000) + 1; // inclusive of both ends
-  if (unit === 'day') return Math.max(1, days);
-  if (unit === 'week') return Math.max(1, Math.ceil(days / 7));
-  return Math.max(1, Math.ceil(days / 30));
-}
-
-export type CoiStatus =
-  | 'not-required'
-  | 'gap'
-  | 'needed'
-  | 'requested'
-  | 'received'
-  | 'approved';
-
-export type VendorCoi = {
-  status: CoiStatus;
-  compatibility: CompatibilityResult;
-  requestedAt?: string;
-  receivedAt?: string;
-  approvedAt?: string;
-  certUrl?: string;
-};
-
-export type VendorRequest = {
-  vendor: Source;
-  status: VendorRequestStatus;
-  token: string;
-  items: LineItem[];
-  respondedAt?: string;
-  coi: VendorCoi;
-};
-
 export type Project = {
   id: string;
   /** Owning organization. Server-assigned from the session — never accepted from a client. */
   orgId: string;
+  name: string;
   createdAt: string;
-  status: ProjectStatus;
-  productionName: string;
-  productionType: string;
-  startDate: string;
-  endDate: string;
-  deliveryAddress: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
-  budget?: string;
-  notes?: string;
-  vendors: VendorRequest[];
-  approvedAt?: string;
-  /**
-   * Soft-hidden from the jobs list. Orthogonal to `status` on purpose: a confirmed
-   * job and a cancelled one can both be archived, and archiving should not erase
-   * which one it was.
-   */
+  updatedAt: string;
+  /** Soft-hidden from the folder list when set. */
   archivedAt?: string;
-  insured?: BusinessProfile;
-  /**
-   * Live share credential for /proposal/<token>, or absent when not shared.
-   *
-   * OWNER READS ONLY. `getProjectByShareToken` deletes this before returning, so
-   * a client-facing render cannot carry it. Absent here means "not shared" only
-   * on an owner read — on a share read it means nothing, because it was removed.
-   */
-  shareToken?: string;
+  items: ProjectItem[];
 };
 
-export type CreateProjectInput = Omit<
-  Project,
-  // `orgId` is omitted deliberately: ownership is an authorization decision the
-  // server makes from the session, so accepting it in a request body would let a
-  // caller file a project against someone else's organization.
-  'id' | 'orgId' | 'createdAt' | 'status' | 'vendors' | 'approvedAt' | 'archivedAt'
-> & {
-  lines: Array<{
-    itemId: string;
-    sourceId: string;
-    source: Source;
-    name: string;
-    image?: string;
-    qty: number;
-  }>;
+/** A catalog item saved into a folder. Snapshotted so a folder survives the item being de-listed. */
+export type ProjectItem = {
+  itemId: string;
+  source: Source;
+  sourceId: string;
+  name: string;
+  image?: string;
+  sourceUrl: string;
+  category?: string;
+  addedAt: string;
 };
 
-export type ProposalTotals = {
-  vendors: Array<{ vendor: VendorRequest; subtotal: number }>;
-  grandTotal: number;
-};
+export type ProjectItemInput = Omit<ProjectItem, 'addedAt'>;
 
-/**
- * The money on a proposal, in one place.
- *
- * The rendered page and the CSV export both call this rather than each summing
- * the lines themselves. Two implementations of the same arithmetic is how a
- * client ends up holding a spreadsheet whose total disagrees with the page it
- * was exported from — and this is the same code path that once priced a
- * thirty-day rental identically to a one-day one.
- */
-export function proposalTotals(project: Project): ProposalTotals {
-  const vendors = project.vendors.map((vendor) => ({
-    vendor,
-    subtotal: vendor.items.reduce((n, i) => (isBillable(i) ? n + lineTotal(i) : n), 0),
-  }));
-  return { vendors, grandTotal: vendors.reduce((n, v) => n + v.subtotal, 0) };
-}
+/** Backed by Postgres (public.projects / public.project_items). Row mapping lives in lib/projects-db.ts. */
 
-/**
- * Backed by Postgres (public.projects / vendor_requests / line_items).
- *
- * Was a JSON file until this change. That could not survive a deploy: serverless
- * filesystems are ephemeral and unshared, so every project, quote, COI state and
- * approval vanished between invocations. The async interface was converted first
- * precisely so this swap would touch no call site — and it did not.
- *
- * Row mapping and the service-role rationale live in lib/projects-db.ts.
- */
-
-/** Throw rather than return empty: a read failure is not an absence of jobs. */
+/** Throw rather than return empty: a read failure is not an absence of folders. */
 function orThrow<T>(what: string, res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw new Error(`${what}: ${res.error.message}`);
   if (res.data === null) throw new Error(`${what}: no data`);
@@ -183,18 +47,15 @@ function orThrow<T>(what: string, res: { data: T | null; error: { message: strin
 }
 
 /**
- * One organization's jobs, newest first. Archived jobs are hidden unless asked for.
+ * One organization's folders, newest first. Archived folders are hidden unless asked for.
  *
  * Scoped by org rather than filtered by the caller, so a missing `where` clause
- * cannot leak another org's jobs into a list view.
+ * cannot leak another org's folders into a list view.
  */
 export async function listProjects(
   orgId: string,
   opts: { includeArchived?: boolean } = {},
 ): Promise<Project[]> {
-  // `.eq('org_id', ...)` IS the access control here — RLS is bypassed on the
-  // service-role client. Removing it returns every organization's jobs and
-  // nothing errors.
   let q = db().from('projects').select(PROJECT_SELECT).eq('org_id', orgId);
   if (!opts.includeArchived) q = q.is('archived_at', null);
 
@@ -203,34 +64,8 @@ export async function listProjects(
 }
 
 /**
- * Fetch by id with NO access check at all.
- *
- * Module-private on purpose. Every caller must already hold a credential that
- * authorizes the read — a session's org, a vendor token, or a share token — and
- * must have checked it. Exporting this is what produced the previous shape,
- * where "the id is the capability" leaked into routes that had no business
- * accepting it.
- */
-async function getProjectById(id: string): Promise<Project | undefined> {
-  const { data, error } = await db()
-    .from('projects')
-    .select(PROJECT_SELECT)
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw new Error(`getProject: ${error.message}`);
-  return data ? toProject(data) : undefined;
-}
-
-/**
- * One project, for a member of the owning organization.
- *
- * Org-scoped as of the share-token change. It used to be deliberately open,
- * because the proposal URL was the sharing mechanism — that is now
- * `getProjectByShareToken`, so the owner path has no remaining reason to be
- * readable by anyone holding an id.
- *
- * Returns undefined for "does not exist" and for "not yours" alike; the caller
- * cannot tell them apart, which is the point.
+ * One folder, for a member of the owning organization. Returns undefined for
+ * "does not exist" and for "not yours" alike; the caller cannot tell them apart.
  */
 export async function getProject(orgId: string, id: string): Promise<Project | undefined> {
   const { data, error } = await db()
@@ -244,339 +79,90 @@ export async function getProject(orgId: string, id: string): Promise<Project | u
 }
 
 /**
- * One project, for whoever holds a live share link.
+ * Create a folder, optionally seeded with items.
  *
- * The token is the entire credential, so the lookup is by token alone — same
- * shape as `getProjectByToken` and for the same reason. A revoked token is null
- * in the column, and `.eq('share_token', token)` cannot match null, so
- * revocation takes effect on the next request with no extra check.
- *
- * Guards the empty token explicitly. PostgREST would happily filter on the
- * empty string, and a route reached with a missing segment must not be one
- * `where share_token = ''` away from matching a row someone forgot to clear.
- */
-export async function getProjectByShareToken(token: string): Promise<Project | undefined> {
-  if (!token) return undefined;
-
-  const { data, error } = await db()
-    .from('projects')
-    .select(PROJECT_SELECT)
-    .eq('share_token', token)
-    .maybeSingle();
-  if (error) throw new Error(`getProjectByShareToken: ${error.message}`);
-  if (!data) return undefined;
-
-  // Strip the credential before it can reach a render. The holder already has
-  // it — it is in their URL — so nothing downstream needs it, and a value that
-  // is never in the object cannot be leaked by a future component that decides
-  // to serialize the project into a client boundary.
-  const { shareToken: _omit, ...project } = toProject(data);
-  return project;
-}
-
-/**
- * Mint a share token, or revoke it.
- *
- * Minting always generates a NEW token rather than returning any existing one,
- * so re-sharing after a revoke cannot resurrect a link someone already holds.
- * 16 bytes, matching the vendor token and the project id.
- *
- * Returns the token on mint and null on revoke; returns null when the project
- * is not the caller's, which is indistinguishable from a revoke by design.
- */
-export async function setProjectShared(
-  orgId: string,
-  id: string,
-  shared: boolean,
-): Promise<{ ok: boolean; shareToken: string | null }> {
-  const shareToken = shared ? crypto.randomBytes(16).toString('hex') : null;
-
-  const updated = orThrow<{ id: string }[]>(
-    'setProjectShared',
-    await db()
-      .from('projects')
-      .update({ share_token: shareToken, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .select('id'),
-  );
-
-  if (updated.length === 0) return { ok: false, shareToken: null };
-  return { ok: true, shareToken };
-}
-
-/**
- * The vendor's entire credential is this token, so the lookup is by token alone
- * — there is no session to scope against. `vendor_requests.token` is unique.
- */
-export async function getProjectByToken(
-  token: string,
-): Promise<{ project: Project; vendor: VendorRequest } | null> {
-  const { data, error } = await db()
-    .from('vendor_requests')
-    .select('project_id')
-    .eq('token', token)
-    .maybeSingle();
-  if (error) throw new Error(`getProjectByToken: ${error.message}`);
-  if (!data) return null;
-
-  // Unscoped read, authorized by the vendor token checked immediately above.
-  const project = await getProjectById(data.project_id as string);
-  if (!project) return null;
-
-  const vendor = project.vendors.find((v) => v.token === token);
-  return vendor ? { project, vendor } : null;
-}
-
-/**
  * `orgId` comes from the session (lib/session.ts), never from the request body.
- *
- * NOT ATOMIC, and that is worth knowing rather than discovering. PostgREST
- * cannot insert a nested resource, so this is three round trips: project, then
- * its vendor requests, then their line items. If a later one fails, the project
- * is deleted — every child cascades — and the error is rethrown, so the caller
- * sees a 500 and no half-built project is ever visible.
- *
- * The compensating delete is not a transaction: if the cleanup itself fails we
- * are left with an orphan, which is logged loudly. A stored procedure would make
- * this genuinely atomic and is the right eventual answer; it is a migration
- * rather than a query, so it is not bundled into this port.
  */
-export async function createProject(orgId: string, input: CreateProjectInput): Promise<Project> {
-  const byVendor = new Map<Source, CreateProjectInput['lines']>();
-  for (const l of input.lines) {
-    const arr = byVendor.get(l.source) ?? [];
-    arr.push(l);
-    byVendor.set(l.source, arr);
-  }
-
+export async function createProject(
+  orgId: string,
+  name: string,
+  items: ProjectItemInput[] = [],
+): Promise<Project> {
   const id = crypto.randomBytes(16).toString('hex');
   const client = db();
 
   orThrow(
     'createProject',
-    await client
-      .from('projects')
-      .insert({
-        id,
-        org_id: orgId,
-        status: 'submitted',
-        production_name: input.productionName,
-        production_type: input.productionType,
-        start_date: input.startDate,
-        end_date: input.endDate,
-        delivery_address: input.deliveryAddress,
-        contact_name: input.contactName,
-        contact_email: input.contactEmail,
-        contact_phone: input.contactPhone,
-        budget: input.budget ?? null,
-        notes: input.notes ?? null,
-        insured: input.insured ?? null,
-      })
-      .select('id'),
+    await client.from('projects').insert({ id, org_id: orgId, name }).select('id'),
   );
 
-  try {
-    const vendorRows = Array.from(byVendor.keys()).map((vendor) => {
-      const compatibility = checkCompatibility(input.insured?.policy, vendor, {
-        start: input.startDate,
-        end: input.endDate,
-      });
-      const coiStatus: CoiStatus =
-        compatibility.status === 'not-required'
-          ? 'not-required'
-          : compatibility.status === 'gap' || compatibility.status === 'no-policy'
-            ? 'gap'
-            : 'needed';
-      return {
-        project_id: id,
-        vendor,
-        status: 'pending' as VendorRequestStatus,
-        token: crypto.randomBytes(16).toString('hex'),
-        coi_status: coiStatus,
-        coi_compatibility: compatibility,
-      };
-    });
-
-    const inserted = orThrow<{ id: string; vendor: Source }[]>(
-      'createProject vendors',
-      await client.from('vendor_requests').insert(vendorRows).select('id, vendor'),
-    );
-
-    const byVendorId = new Map(inserted.map((v) => [v.vendor, v.id]));
-    const lineRows = Array.from(byVendor.entries()).flatMap(([vendor, lines]) =>
-      lines.map((l) => ({
-        vendor_request_id: byVendorId.get(vendor)!,
-        item_id: l.itemId,
-        source_id: l.sourceId,
-        name: l.name,
-        image: l.image ?? null,
-        qty: l.qty,
-        status: 'pending' as LineStatus,
-      })),
-    );
-    orThrow('createProject lines', await client.from('line_items').insert(lineRows).select('id'));
-  } catch (e) {
-    // Roll forward to "never existed" rather than leave a project with no
-    // vendors, which would render as an empty request nobody can act on.
-    const { error: cleanupError } = await client.from('projects').delete().eq('id', id);
-    if (cleanupError) {
-      console.error(
-        `[projects] ORPHANED project ${id}: children failed and cleanup also failed — ${cleanupError.message}`,
-      );
-    }
-    throw e;
-  }
-
-  const created = await getProjectById(id);
-  if (!created) throw new Error('createProject: row vanished immediately after insert');
-  return created;
-}
-
-export async function updateLineStatus(
-  token: string,
-  itemId: string,
-  status: LineStatus,
-  opts: { quote?: Quote; subNote?: string } = {},
-): Promise<{ project: Project; vendor: VendorRequest } | null> {
-  const client = db();
-
-  const { data: vr, error: vrError } = await client
-    .from('vendor_requests')
-    .select('id, project_id')
-    .eq('token', token)
-    .maybeSingle();
-  if (vrError) throw new Error(`updateLineStatus: ${vrError.message}`);
-  if (!vr) return null;
-
-  // Only overwrite what the vendor actually sent. `undefined` means "not part of
-  // this response", which is different from clearing a previous answer.
-  const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-  if (opts.quote !== undefined) {
-    patch.quote_amount = opts.quote.amount;
-    patch.quote_unit = opts.quote.unit;
-    patch.quote_periods = opts.quote.periods;
-    patch.quote_currency = opts.quote.currency;
-  }
-  if (opts.subNote !== undefined) patch.sub_note = opts.subNote;
-
-  const updated = orThrow<{ id: string }[]>(
-    'updateLineStatus',
-    await client
-      .from('line_items')
-      .update(patch)
-      .eq('vendor_request_id', vr.id as string)
-      .eq('item_id', itemId)
-      .select('id'),
-  );
-  // Unknown item on a real token — the vendor form only ever sends its own ids,
-  // so this means a stale page or a hand-made request.
-  if (updated.length === 0) return null;
-
-  // Derived state stays in app code, as the migration intends: no triggers, one
-  // source of truth. Re-read rather than compute from the patch, so the rollup
-  // reflects what is actually stored.
-  const project = await getProjectById(vr.project_id as string);
-  if (!project) return null;
-
-  const vendor = project.vendors.find((v) => v.token === token);
-  if (!vendor) return null;
-
-  const anyAnswered = vendor.items.some((i) => i.status !== 'pending');
-  const allAnswered = vendor.items.every((i) => i.status !== 'pending');
-  const vendorStatus: VendorRequestStatus = allAnswered
-    ? 'responded'
-    : anyAnswered
-      ? 'partial'
-      : 'pending';
-
-  orThrow(
-    'updateLineStatus vendor rollup',
-    await client
-      .from('vendor_requests')
-      .update({
-        status: vendorStatus,
-        ...(allAnswered ? { responded_at: new Date().toISOString() } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', vr.id as string)
-      .select('id'),
-  );
-
-  const others = project.vendors.filter((v) => v.token !== token);
-  const statuses = [...others.map((v) => v.status), vendorStatus];
-  const projectStatus: ProjectStatus | null = statuses.every((st) => st === 'responded')
-    ? 'proposed'
-    : statuses.some((st) => st !== 'pending')
-      ? 'quoting'
-      : null;
-
-  if (projectStatus && projectStatus !== project.status) {
+  if (items.length > 0) {
     orThrow(
-      'updateLineStatus project rollup',
+      'createProject items',
       await client
-        .from('projects')
-        .update({ status: projectStatus, updated_at: new Date().toISOString() })
-        .eq('id', project.id)
+        .from('project_items')
+        .insert(items.map((item) => toItemRow(id, item)))
         .select('id'),
     );
   }
 
-  const fresh = await getProjectById(project.id);
-  const freshVendor = fresh?.vendors.find((v) => v.token === token);
-  return fresh && freshVendor ? { project: fresh, vendor: freshVendor } : null;
+  const created = await getProject(orgId, id);
+  if (!created) throw new Error('createProject: row vanished immediately after insert');
+  return created;
 }
 
 /**
- * Record where a vendor's certificate of insurance has got to.
- *
- * Scoped by org, and the scoping costs an extra round trip: the row being
- * updated lives in `vendor_requests`, which carries no `org_id` — ownership is
- * only reachable through its parent project. PostgREST cannot filter an UPDATE
- * by a joined column, so ownership is established first and the update follows.
- *
- * Not a meaningful TOCTOU: a project's owning organization is set at creation
- * and never reassigned, so the fact this checks cannot go stale between the two
- * statements.
+ * Save items into an existing folder. Re-saving an item already in the folder
+ * is a no-op for that item (unique (project_id, item_id) — upsert ignores it).
+ * Returns null when the folder does not exist or is not the caller's.
  */
-export async function setCoiStatus(
+export async function addItemsToProject(
   orgId: string,
   projectId: string,
-  vendor: Source,
-  status: CoiStatus,
-  certUrl?: string,
+  items: ProjectItemInput[],
 ): Promise<Project | null> {
   const owned = orThrow<{ id: string }[]>(
-    'setCoiStatus.owner',
+    'addItemsToProject.owner',
     await db().from('projects').select('id').eq('id', projectId).eq('org_id', orgId),
   );
   if (owned.length === 0) return null;
 
-  const now = new Date().toISOString();
-  const updated = orThrow<{ id: string }[]>(
-    'setCoiStatus',
-    await db()
-      .from('vendor_requests')
-      .update({
-        coi_status: status,
-        ...(status === 'requested' ? { coi_requested_at: now } : {}),
-        ...(status === 'received' ? { coi_received_at: now } : {}),
-        ...(status === 'approved' ? { coi_approved_at: now } : {}),
-        ...(certUrl !== undefined ? { coi_cert_url: certUrl } : {}),
-        updated_at: now,
-      })
-      .eq('project_id', projectId)
-      .eq('vendor', vendor)
-      .select('id'),
+  if (items.length > 0) {
+    orThrow(
+      'addItemsToProject',
+      await db()
+        .from('project_items')
+        .upsert(
+          items.map((item) => toItemRow(projectId, item)),
+          { onConflict: 'project_id,item_id', ignoreDuplicates: true },
+        )
+        .select('id'),
+    );
+  }
+
+  return (await getProject(orgId, projectId)) ?? null;
+}
+
+/** Remove one saved item from a folder. Returns null when the folder isn't the caller's. */
+export async function removeItemFromProject(
+  orgId: string,
+  projectId: string,
+  itemId: string,
+): Promise<Project | null> {
+  const owned = orThrow<{ id: string }[]>(
+    'removeItemFromProject.owner',
+    await db().from('projects').select('id').eq('id', projectId).eq('org_id', orgId),
   );
-  if (updated.length === 0) return null;
-  return (await getProjectById(projectId)) ?? null;
+  if (owned.length === 0) return null;
+
+  await db().from('project_items').delete().eq('project_id', projectId).eq('item_id', itemId);
+
+  return (await getProject(orgId, projectId)) ?? null;
 }
 
 /**
- * Archive or restore a job. Scoped by org so one org cannot archive another's
- * work. Returns null when the project does not exist OR is not theirs — the
- * caller cannot tell those apart, which is the point.
+ * Archive or restore a folder. Scoped by org so one org cannot archive another's.
+ * Returns null when the folder does not exist OR is not theirs.
  */
 export async function setProjectArchived(
   orgId: string,
@@ -596,30 +182,18 @@ export async function setProjectArchived(
       .select('id'),
   );
   if (updated.length === 0) return null;
-  return (await getProjectById(id)) ?? null;
+  return (await getProject(orgId, id)) ?? null;
 }
 
-/**
- * Approve the consolidated proposal, which is what turns a set of vendor quotes
- * into a commitment to spend.
- *
- * Scoped by org, like `setProjectArchived`. Approval is an owner action and only
- * an owner action: a client holding a share link must be able to read the
- * numbers and not to accept them on the production's behalf. `/proposal/[token]`
- * renders no approve control, but that is presentation — this filter is what
- * actually enforces it.
- */
-export async function approveProject(orgId: string, id: string): Promise<Project | null> {
-  const now = new Date().toISOString();
-  const updated = orThrow<{ id: string }[]>(
-    'approveProject',
-    await db()
-      .from('projects')
-      .update({ status: 'confirmed', approved_at: now, updated_at: now })
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .select('id'),
-  );
-  if (updated.length === 0) return null;
-  return (await getProjectById(id)) ?? null;
+function toItemRow(projectId: string, item: ProjectItemInput) {
+  return {
+    project_id: projectId,
+    item_id: item.itemId,
+    source: item.source,
+    source_id: item.sourceId,
+    name: item.name,
+    image: item.image ?? null,
+    source_url: item.sourceUrl,
+    category: item.category ?? null,
+  };
 }

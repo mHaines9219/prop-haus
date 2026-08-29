@@ -44,3 +44,8 @@ export function postJson<T>(url: string, body: unknown, init?: RequestInit): Pro
 export function postForm<T>(url: string, form: FormData, init?: RequestInit): Promise<T> {
   return fetch(url, { method: 'POST', body: form, ...init }).then((r) => parse<T>(r));
 }
+
+/** DELETE a JSON endpoint. */
+export function deleteJson<T>(url: string, init?: RequestInit): Promise<T> {
+  return fetch(url, { method: 'DELETE', ...init }).then((r) => parse<T>(r));
+}

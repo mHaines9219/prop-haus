@@ -1,146 +1,51 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
 import type { Source } from './types';
-import type { CompatibilityResult } from './insurance';
-import type {
-  CoiStatus,
-  LineItem,
-  LineStatus,
-  Project,
-  ProjectStatus,
-  Quote,
-  VendorRequest,
-  VendorRequestStatus,
-} from './projects';
+import type { Project, ProjectItem } from './projects';
 
 /**
- * Row <-> object mapping for the workflow tables, kept apart from the behaviour
- * in lib/projects.ts so the query shapes are reviewable on their own.
+ * Row <-> object mapping for the folders schema, kept apart from the
+ * behaviour in lib/projects.ts so the query shapes are reviewable on their own.
  *
- * WHY THE SERVICE ROLE, EVERYWHERE
- *
- * The migration is explicit that all writes here are server-only
- * (20260802003000_workflow_projects.sql:17). The vendor path cannot be expressed
- * as an RLS policy at all: a vendor is UNAUTHENTICATED and their only credential
- * is the 16-byte URL token, which RLS cannot see. `getProjectByToken` reads on
- * that same basis.
- *
- * So RLS is bypassed on this path, which means **the `org_id` filters in these
- * queries are the access control**, not a convenience. Dropping one does not
- * fail a policy — it silently returns another organization's jobs. That is why
- * every org-scoped call takes `orgId` as an argument rather than reading it
- * here: the boundary stays visible at the call site.
+ * All writes are server-only (service role) — see
+ * 20260829130000_strip_workflow_to_folders.sql. `org_id` filters in
+ * lib/projects.ts are the access control on this path, not a convenience.
  */
 
-// snake_case shapes as they come back from PostgREST. Declared rather than
-// generated, since no generated types exist in this repo yet.
-type LineItemRow = {
+type ProjectItemRow = {
   item_id: string;
+  source: Source;
   source_id: string;
   name: string;
   image: string | null;
-  qty: number;
-  status: LineStatus;
-  quote_amount: string | number | null;
-  quote_unit: Quote['unit'] | null;
-  quote_periods: string | number | null;
-  quote_currency: string;
-  sub_note: string | null;
-};
-
-type VendorRequestRow = {
-  id: string;
-  vendor: Source;
-  status: VendorRequestStatus;
-  token: string;
-  responded_at: string | null;
-  coi_status: CoiStatus;
-  coi_compatibility: CompatibilityResult;
-  coi_requested_at: string | null;
-  coi_received_at: string | null;
-  coi_approved_at: string | null;
-  coi_cert_url: string | null;
-  line_items: LineItemRow[] | null;
+  source_url: string;
+  category: string | null;
+  added_at: string;
 };
 
 type ProjectRow = {
   id: string;
   org_id: string;
+  name: string;
   created_at: string;
-  status: ProjectStatus;
-  production_name: string;
-  production_type: string;
-  start_date: string;
-  end_date: string;
-  delivery_address: string;
-  contact_name: string;
-  contact_email: string;
-  contact_phone: string;
-  budget: string | null;
-  notes: string | null;
-  approved_at: string | null;
+  updated_at: string;
   archived_at: string | null;
-  insured: Project['insured'] | null;
-  // Optional on the row type, not just nullable: this column does not exist
-  // until 20260802180000 is applied, and `select *` simply omits it before then.
-  share_token?: string | null;
-  vendor_requests: VendorRequestRow[] | null;
+  project_items: ProjectItemRow[] | null;
 };
 
 /** The whole aggregate in one round trip. */
-export const PROJECT_SELECT =
-  '*, vendor_requests(*, line_items(*))';
+export const PROJECT_SELECT = '*, project_items(*)';
 
-/**
- * `numeric` arrives as a string from PostgREST — it preserves precision that a
- * JS number cannot. Every one of these is money or a multiplier, so parse
- * explicitly rather than letting `+row.x` coerce a null into 0.
- */
-function num(v: string | number | null): number | undefined {
-  if (v === null || v === '') return undefined;
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function toLineItem(r: LineItemRow): LineItem {
-  const amount = num(r.quote_amount);
-  const periods = num(r.quote_periods);
-
-  // The DB constraint makes a quote all-or-nothing, so a partial one should be
-  // impossible. Treating it as absent rather than half-rendering is the safe
-  // direction: a line with an amount and no unit would price wrongly.
-  const quote: Quote | undefined =
-    amount !== undefined && r.quote_unit && periods !== undefined
-      ? { amount, unit: r.quote_unit, periods, currency: r.quote_currency }
-      : undefined;
-
+function toProjectItem(r: ProjectItemRow): ProjectItem {
   return {
     itemId: r.item_id,
+    source: r.source,
     sourceId: r.source_id,
     name: r.name,
     ...(r.image ? { image: r.image } : {}),
-    qty: r.qty,
-    status: r.status,
-    ...(quote ? { quote } : {}),
-    ...(r.sub_note ? { subNote: r.sub_note } : {}),
-  };
-}
-
-function toVendorRequest(r: VendorRequestRow): VendorRequest {
-  return {
-    vendor: r.vendor,
-    status: r.status,
-    token: r.token,
-    items: (r.line_items ?? []).map(toLineItem),
-    ...(r.responded_at ? { respondedAt: r.responded_at } : {}),
-    coi: {
-      status: r.coi_status,
-      compatibility: r.coi_compatibility,
-      ...(r.coi_requested_at ? { requestedAt: r.coi_requested_at } : {}),
-      ...(r.coi_received_at ? { receivedAt: r.coi_received_at } : {}),
-      ...(r.coi_approved_at ? { approvedAt: r.coi_approved_at } : {}),
-      ...(r.coi_cert_url ? { certUrl: r.coi_cert_url } : {}),
-    },
+    sourceUrl: r.source_url,
+    ...(r.category ? { category: r.category } : {}),
+    addedAt: r.added_at,
   };
 }
 
@@ -148,60 +53,22 @@ export function toProject(r: ProjectRow): Project {
   return {
     id: r.id,
     orgId: r.org_id,
+    name: r.name,
     createdAt: r.created_at,
-    status: r.status,
-    productionName: r.production_name,
-    productionType: r.production_type,
-    startDate: r.start_date,
-    endDate: r.end_date,
-    deliveryAddress: r.delivery_address,
-    contactName: r.contact_name,
-    contactEmail: r.contact_email,
-    contactPhone: r.contact_phone,
-    ...(r.budget ? { budget: r.budget } : {}),
-    ...(r.notes ? { notes: r.notes } : {}),
-    // Ordered here rather than in the query: PostgREST cannot order an embedded
-    // resource by a parent-relative key, and the UI shows vendors in a stable
-    // order regardless of insert timing.
-    vendors: (r.vendor_requests ?? [])
-      .map(toVendorRequest)
-      .sort((a, b) => a.vendor.localeCompare(b.vendor)),
-    ...(r.approved_at ? { approvedAt: r.approved_at } : {}),
+    updatedAt: r.updated_at,
     ...(r.archived_at ? { archivedAt: r.archived_at } : {}),
-    ...(r.insured ? { insured: r.insured } : {}),
-    // Present only for owner reads. `getProjectByShareToken` strips it before
-    // returning, so a client-facing render can never carry the credential that
-    // got them there. See lib/projects.ts.
-    ...(r.share_token ? { shareToken: r.share_token } : {}),
+    // Newest-saved first — the order a folder's contents are most useful to review in.
+    items: (r.project_items ?? [])
+      .map(toProjectItem)
+      .sort((a, b) => b.addedAt.localeCompare(a.addedAt)),
   };
 }
 
 export type Db = SupabaseClient;
 
-/**
- * Service-role client. See the header for why this path cannot use RLS.
- *
- * ONE CONSEQUENCE WORTH KNOWING BEFORE YOU QUERY `projects` FROM A BROWSER.
- * `20260802180000` revoked blanket select on the table and re-granted every
- * column except `share_token`, which is a bearer credential. Because `select *`
- * expands to *all* columns, a browser-side read as `authenticated` gets:
- *
- *   403 42501 "permission denied ... GRANT SELECT ON"
- *
- * even though the "members read org projects" RLS policy would allow the row.
- * Name the columns you want and it works. Verified against live, not inferred.
- *
- * Nothing in the app hits this today — every projects query runs through this
- * service-role client, which ignores column grants — so this is a note for the
- * first person to add a client-side read, who would otherwise read the error as
- * an RLS problem and go looking in the wrong place.
- *
- * DO NOT "fix" it with `grant select on public.projects to authenticated`. That
- * restores blanket access and hands every org member a live client-facing
- * credential through the Data API. `lib/projects.test.ts` fails if you do.
- */
+/** Service-role client. See the header for why this path cannot use RLS. */
 export function db(): Db {
   return createAdminClient();
 }
 
-export type { LineItemRow, ProjectRow, VendorRequestRow };
+export type { ProjectItemRow, ProjectRow };

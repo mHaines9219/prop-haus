@@ -7,17 +7,10 @@
  *    `Profile.id` equals the auth user id; `email` is mirrored only for convenient joins.
  *  - Every user belongs to exactly one organization. A freelancer is an org of
  *    type 'personal' with a single 'owner' membership — same code path as a company.
- *  - Vendor relationships are ROWS (OrgVendorAccount), never a column per vendor, so
- *    onboarding a new vendor requires no schema change.
  *  - Enums below are stored as TEXT (validated in app code), not native DB enums, so
  *    adding a value is not a type migration. Each entity has a `metadata` jsonb escape
  *    hatch for soft attributes you can add without DDL.
- *  - This Organization supersedes the client-only BusinessProfile in lib/profile-store.ts
- *    and the BusinessProfile type in lib/insurance.ts (its policy becomes `org.insurance`).
  */
-import type { Source } from './types';
-import type { InsurancePolicy } from './insurance';
-
 // ---------- enums (text in DB; validate against these in app code) ----------
 
 export const ORG_TYPES = ['personal', 'company'] as const;
@@ -51,10 +44,6 @@ export const HEARD_ABOUT_US = [
   'other',
 ] as const;
 export type HeardAboutUs = (typeof HEARD_ABOUT_US)[number];
-
-export const VENDOR_ACCOUNT_STATUSES = ['claimed', 'verified', 'rejected'] as const;
-/** 'claimed' = org self-reported; 'verified' = platform-confirmed with the vendor. */
-export type VendorAccountStatus = (typeof VENDOR_ACCOUNT_STATUSES)[number];
 
 /** Billing/gating tier. Which features each tier unlocks is defined in lib/plans.ts (code, not DB). */
 export const PLAN_TIERS = ['free', 'pro'] as const;
@@ -92,7 +81,6 @@ export type Organization = {
   plan: PlanTier; // gating tier; entitlements resolved in lib/plans.ts (defaults to 'free')
   address?: string;
   contact?: Contact;
-  insurance?: InsurancePolicy; // replaces the client-only BusinessProfile.policy
   // --- progressive profiling: optional, capture AFTER signup — never gate entry on these ---
   productionTypes?: ProductionType[];
   markets?: string[]; // city slugs, e.g. ['LA']
@@ -123,21 +111,6 @@ export type Membership = {
   role: MembershipRole; // permission role
   createdAt: string;
   // (orgId, userId) is the composite primary key
-};
-
-export type OrgVendorAccount = {
-  id: string;
-  orgId: string;
-  vendor: Source; // slug validated against SOURCES — not a DB enum
-  status: VendorAccountStatus;
-  accountRef?: string; // the org's account # / login email with that vendor
-  coiOnFile: boolean; // hook into the COI flow: skip re-collection when true
-  verifiedAt?: string;
-  verifiedBy?: 'org_claimed' | 'platform_confirmed';
-  createdAt: string;
-  updatedAt: string;
-  metadata: Record<string, unknown>;
-  // unique (orgId, vendor)
 };
 
 // ---------- onboarding input (what the signup form collects post-auth) ----------

@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 /**
  * Refreshes the Supabase auth session on every request.
@@ -19,8 +19,8 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_SECRET_KEY!,
     {
       cookies: {
         getAll() {
@@ -53,25 +53,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Everything except static assets and image files.
-     *
-     * THREE ROUTES ARE TOKEN-AUTHENTICATED AND MUST NEVER BE SESSION-GATED:
-     *
-     *   /vendor/:token                     vendor reply page
-     *   /proposal/:token                   client-facing proposal
-     *   /api/proposal/:token/proposal.csv  its spreadsheet
-     *
-     * All three are reached by people who will never have an account — a vendor
-     * answering a request, a client reading a budget — and in every case the
-     * 16-byte URL token IS the credential. Refreshing a session they do not have
-     * is harmless; requiring one would break the vendor response loop and every
-     * share link a production has already sent.
-     *
-     * They are listed together because this comment is what the next person
-     * reads before adding route protection, and a list that named only the
-     * vendor route would send them to gate the other two.
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Everything except static assets and image files.
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
