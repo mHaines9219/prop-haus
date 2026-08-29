@@ -10,13 +10,14 @@ import { createClient } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/safe-redirect';
 
 /**
- * Magic link rather than a password.
+ * Google sign-in or a magic link — no password either way.
  *
  * No password to store, no reset flow, no second screen — and this audience is
  * set decorators and production designers working on a stage, not people who
  * will reach for a password manager. Supabase's `handle_new_user()` trigger
- * creates the organization, membership and profile on first sign-in, so there
- * is no separate sign-up path to build or to choose between.
+ * creates the organization, membership and profile on first sign-in (Google
+ * included — it reads full_name/name from the provider metadata), so there is
+ * no separate sign-up path to build or to choose between.
  */
 function LoginForm() {
   const params = useSearchParams();
@@ -24,6 +25,7 @@ function LoginForm() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
 
   // Where to land after the link is followed. Constrained to this site so a
   // crafted ?next= cannot turn our sign-in into somebody else's landing page.
@@ -53,6 +55,28 @@ function LoginForm() {
     else setSent(true);
   }
 
+  async function signInWithGoogle() {
+    setGooglePending(true);
+    setError(null);
+
+    const supabase = createClient();
+    // PKCE flow: Google hands back a one-time code, and the same /auth/callback
+    // route that handles magic links exchanges it for a session cookie.
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+
+    // On success the browser navigates away to Google, so only the failure path
+    // ever runs past this point.
+    if (oauthError) {
+      setGooglePending(false);
+      setError(oauthError.message);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-md space-y-6 py-12">
       <div className="space-y-2">
@@ -77,7 +101,17 @@ function LoginForm() {
           description="Follow the link in that email to finish signing in. You can close this tab."
         />
       ) : (
-        <form onSubmit={submit} className="space-y-4">
+        <div className="space-y-4">
+          <Button
+            label={googlePending ? 'Redirecting…' : 'Continue with Google'}
+            variant="secondary"
+            isDisabled={googlePending}
+            onClick={signInWithGoogle}
+          />
+          <Text type="supporting" color="secondary">
+            or get a link by email
+          </Text>
+          <form onSubmit={submit} className="space-y-4">
           <TextInput
             label="Email"
             type="email"
@@ -93,7 +127,8 @@ function LoginForm() {
             variant="primary"
             isDisabled={pending || !email.trim()}
           />
-        </form>
+          </form>
+        </div>
       )}
 
       <Text type="supporting" color="secondary">

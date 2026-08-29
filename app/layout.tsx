@@ -9,6 +9,7 @@ import { AppShell } from '@astryxdesign/core/AppShell';
 import { TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core/TopNav';
 import { Section } from '@astryxdesign/core/Section';
 import { Text } from '@astryxdesign/core/Text';
+import { AuthButton } from '@/components/auth-button';
 import { CartButton } from '@/components/cart-button';
 import { SearchBar } from '@/components/search-bar';
 import { Providers } from './providers';
@@ -44,7 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <SearchBar />
                   </div>
                 }
-                endContent={<CartButton />}
+                endContent={
+                  <div className="flex items-center gap-2">
+                    <CartButton />
+                    <AuthButton />
+                  </div>
+                }
               />
             }
           >

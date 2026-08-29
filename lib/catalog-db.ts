@@ -121,9 +121,14 @@ function toItems(rows: Record<string, unknown>[], label: string): PropItem[] {
 export type BrowsePage = { items: CardItem[]; total: number };
 
 /**
- * One page of the browse grid. `total` is the count of rows matching the
- * filters, which PostgREST returns in the content-range header alongside the
- * page — so pagination never needs a second round trip.
+ * One page of the browse grid.
+ *
+ * `total` comes from the facet_counts materialized view, NOT PostgREST's
+ * `count: "exact"`. Exact count drags every matching row — image arrays and
+ * all — through a window aggregate: ~10s against the anon role's 3s statement
+ * timeout, which 500'd every browse surface. The MV filters on the same
+ * has_images predicate as this query, so the numbers agree; it is refreshed on
+ * catalog load, which is the only time they can drift.
  */
 export async function browseCards(opts: {
   category?: string | null;
@@ -138,25 +143,45 @@ export async function browseCards(opts: {
 
   let q = db()
     .from("catalog_items")
-    .select(CARD_COLUMNS, { count: "exact" })
+    .select(CARD_COLUMNS)
     .eq("has_images", true);
   if (opts.category) q = q.eq("category", opts.category);
   if (opts.vendor) q = q.eq("source", opts.vendor);
 
-  const { data, error, count } = await q.range(offset, offset + limit - 1);
+  const [total, { data, error }] = await Promise.all([
+    browseTotal(opts),
+    q.range(offset, offset + limit - 1),
+  ]);
 
   // PGRST103: the offset is past the last row. PostgREST calls that a 416, but
   // for a paged grid it is simply the end of the list — the infinite-scroll
   // query can ask for it whenever the total shrinks between pages. Return an
   // empty page with the real total rather than surfacing a 500.
   if (error?.code === "PGRST103") {
-    return { items: [], total: await countMatching(opts) };
+    return { items: [], total };
   }
   if (error) throw new Error(`[catalog-db] browse failed: ${error.message}`);
   return {
     items: (data ?? []).map((r) => rowToCard(r as unknown as CardRow)),
-    total: count ?? 0,
+    total,
   };
+}
+
+/**
+ * Matching-row total for a browse query. Single-dimension filters (and no
+ * filter) are precomputed in the facets MV; only the category+vendor
+ * combination needs a live count, and that one runs over a small
+ * partial-index subset rather than the whole catalog.
+ */
+async function browseTotal(opts: {
+  category?: string | null;
+  vendor?: string | null;
+}): Promise<number> {
+  if (opts.category && opts.vendor) return countMatching(opts);
+  const facets = await catalogFacets();
+  if (opts.category) return facets.categories[opts.category] ?? 0;
+  if (opts.vendor) return facets.vendors[opts.vendor] ?? 0;
+  return facets.total;
 }
 
 async function countMatching(opts: {
