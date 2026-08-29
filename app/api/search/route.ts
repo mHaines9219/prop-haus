@@ -14,8 +14,8 @@ const MAX_QUERY = 400;
 
 /** Copy for a spent allowance. Named per metric because they reset differently. */
 const EXHAUSTED: Record<MeteredMetric, (limit: number) => string> = {
-  aiSearchesPerMonth: (limit) =>
-    `You have used all ${limit} AI searches on your plan this month. Keyword search stays available, and the count resets at the start of next month.`,
+  aiSearchesPerDay: (limit) =>
+    `You have used all ${limit} AI searches on your plan today. Keyword search stays available, and the count resets at midnight UTC.`,
   visionSearches: (limit) =>
     `You have used all ${limit} image searches included with your plan. Text-based AI search still works.`,
 };
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   // The metric is keyed off `attachments.length`, not `mode`. A vision-capable
   // mode with no image attached is just a text search and should be charged as one.
   const metric: MeteredMetric =
-    attachments.length > 0 ? 'visionSearches' : 'aiSearchesPerMonth';
+    attachments.length > 0 ? 'visionSearches' : 'aiSearchesPerDay';
   // The AI search is the only metered route — browse and keyword are local
   // scoring and stay public. Metering an anonymous caller is meaningless: there
   // is nobody to charge, so an unauthenticated AI search would be unlimited and
