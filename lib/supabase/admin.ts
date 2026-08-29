@@ -13,7 +13,7 @@ export function createAdminClient() {
   // New-style secret key (sb_secret_...), with the legacy service-role name
   // accepted so deployed environments using it keep working. Neither may ever
   // carry a NEXT_PUBLIC_ prefix.
-  const key = process.env.NEXT_PUBLIC_SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error('SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is not set');
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
     auth: { autoRefreshToken: false, persistSession: false },
