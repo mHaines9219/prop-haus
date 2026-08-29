@@ -6,7 +6,7 @@
  * Every gate routes through can() / withinLimit() / remaining() instead of
  * checking `plan === 'free'` inline.
  *
- * Metered allowances (visionSearches, aiSearchesPerMonth) are counted in the
+ * Metered allowances (visionSearches, aiSearchesPerDay) are counted in the
  * `usage_counters` table, which is SERVER-WRITTEN ONLY (service role). Storing
  * usage (count up) rather than "attempts left" (count down) means the limit can
  * change with no backfill, keeps full history, and can't be tampered with by a
@@ -21,7 +21,7 @@ export type Entitlements = {
   consolidatedInvoicing: boolean;
   // metered allowances — counted in usage_counters; null = unlimited
   visionSearches: number | null; // LIFETIME trial for free users (moodboard/image search)
-  aiSearchesPerMonth: number | null; // resets monthly (text search)
+  aiSearchesPerDay: number | null; // resets daily (text search)
   // current-state limits — derived by counting rows; no counter needed
   activeProjects: number | null;
   vendorsPerProject: number | null;
@@ -35,7 +35,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     paperworkGeneration: false,
     consolidatedInvoicing: false,
     visionSearches: 3, // 3 lifetime trial uses, then paywall
-    aiSearchesPerMonth: 20,
+    aiSearchesPerDay: 5,
     activeProjects: 2,
     vendorsPerProject: 3,
     seats: 1,
@@ -46,7 +46,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     paperworkGeneration: true,
     consolidatedInvoicing: true,
     visionSearches: null,
-    aiSearchesPerMonth: null,
+    aiSearchesPerDay: 10, // paid tier: 10/day, not unlimited — see lib/usage.ts
     activeProjects: null,
     vendorsPerProject: null,
     seats: 10,
@@ -65,7 +65,7 @@ type LimitMetric = {
 /** Metered metrics need a usage_counter; this maps each to its reset window. */
 export const METERED_METRICS = {
   visionSearches: 'lifetime',
-  aiSearchesPerMonth: 'monthly',
+  aiSearchesPerDay: 'daily',
 } as const;
 export type MeteredMetric = keyof typeof METERED_METRICS;
 
@@ -96,10 +96,11 @@ export function remaining(plan: PlanTier, metric: LimitMetric, current: number):
   return Math.max(0, limit - current);
 }
 
-/** The usage_counters.period key for a metered metric ('lifetime' or 'YYYY-MM'). */
+/** The usage_counters.period key for a metered metric ('lifetime' or 'YYYY-MM-DD'). */
 export function usagePeriod(metric: MeteredMetric, now = new Date()): string {
   if (METERED_METRICS[metric] === 'lifetime') return 'lifetime';
   const y = now.getUTCFullYear();
   const m = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  const d = String(now.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }

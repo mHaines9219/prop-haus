@@ -1,41 +1,34 @@
 /**
  * Metered usage — the counters behind the AI search paywall.
  *
+ * Backed by Postgres `public.usage_counters`
+ * (supabase/migrations/20260627181123_init_accounts.sql), which is
+ * SERVER-WRITTEN ONLY — its RLS grants revoke insert/update/delete from
+ * authenticated and anon entirely. Every read and write here goes through the
+ * service-role client (lib/supabase/admin.ts) for that reason; there is no
+ * client-reachable path that could self-grant usage.
+ *
+ * WHY THE INCREMENT IS AN RPC, NOT A READ-MODIFY-WRITE
+ * `increment_usage_counter` (supabase/migrations/20260829120000_usage_counter_daily_rpc.sql)
+ * does the upsert atomically in one statement:
+ *   insert ... on conflict (org_id, period, metric) do update set count = count + 1
+ * That is what makes concurrent requests from the same org count correctly —
+ * a select-then-update from this module could lose one of two simultaneous
+ * increments, which is a free search, the one thing a paywall exists to
+ * prevent.
+ *
  * WHAT IS COUNTED, AND WHY UP RATHER THAN DOWN
  * We store usage (a count that only rises) rather than remaining allowance (a
- * count that falls). lib/plans.ts explains the reasoning and this module is the
- * implementation of it: changing `aiSearchesPerMonth` from 20 to 5 is a one-line
- * edit with no backfill, because nothing on disk encodes the limit. The limit is
- * applied at read time, against whatever plans.ts says today.
- *
- * SHAPE MATCHES THE TABLE, DELIBERATELY
- * Rows are keyed `(orgId, period, metric)` — the exact primary key of
- * `public.usage_counters` in supabase/migrations/20260627181123_init_accounts.sql.
- * `period` comes from usagePeriod(): 'lifetime' for the vision trial, 'YYYY-MM'
- * for the monthly text allowance. When the Postgres port lands, readRows/writeRows
- * become a select and an upsert and nothing above them changes.
- *
- * WHY A FILE AND NOT SUPABASE TODAY
- * `usage_counters.org_id` is `not null references public.organizations(id)`, and
- * the placeholder org in lib/session.ts is not a real row — a service-role insert
- * would fail the foreign key. This mirrors lib/projects.ts (same file-backed
- * placeholder, same reason) so both stores port at the same time, with auth.
+ * count that falls). lib/plans.ts explains the reasoning: changing
+ * `aiSearchesPerDay` from 5 to 10 is a one-line edit with no backfill, because
+ * nothing on disk encodes the limit. The limit is applied at read time,
+ * against whatever plans.ts says today.
  */
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import { createAdminClient } from './supabase/admin';
 import type { PlanTier } from './accounts';
 import { limitFor, remaining as remainingFor, usagePeriod, type MeteredMetric } from './plans';
 
-/** One `usage_counters` row. */
-type UsageRow = {
-  orgId: string;
-  period: string;
-  metric: MeteredMetric;
-  count: number;
-  updatedAt: string;
-};
-
-/** What a gate needs to decide, and what the UI needs to render "3 of 20 left". */
+/** What a gate needs to decide, and what the UI needs to render "3 of 5 left". */
 export type Allowance = {
   metric: MeteredMetric;
   period: string;
@@ -48,39 +41,6 @@ export type Allowance = {
   /** False only when a real limit exists and it has been reached. */
   allowed: boolean;
 };
-
-const FILE = path.join(process.cwd(), 'data', 'usage.json');
-
-async function readRows(): Promise<UsageRow[]> {
-  try {
-    return JSON.parse(await fs.readFile(FILE, 'utf8')) as UsageRow[];
-  } catch {
-    return [];
-  }
-}
-
-async function writeRows(rows: UsageRow[]) {
-  await fs.writeFile(FILE, JSON.stringify(rows, null, 2));
-}
-
-/**
- * Serializes read-modify-write on the counter file.
- *
- * A lost update here is not a cosmetic bug — it is a free search, which is the
- * one thing a paywall exists to prevent. This closes the window within a single
- * Node process; it does NOT close it across processes or serverless instances.
- * That guarantee needs the database, where the upsert is atomic:
- *   insert ... on conflict (org_id, period, metric) do update set count = count + 1
- * Until then the limit is soft under genuine concurrency, and that is a known,
- * bounded overrun rather than an unbounded one.
- */
-let queue: Promise<unknown> = Promise.resolve();
-function serialized<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queue.then(fn, fn);
-  // Keep the chain alive even if `run` rejects, so one failure cannot wedge it.
-  queue = run.catch(() => undefined);
-  return run;
-}
 
 function toAllowance(
   plan: PlanTier,
@@ -107,9 +67,15 @@ export async function getAllowance(
   now = new Date(),
 ): Promise<Allowance> {
   const period = usagePeriod(metric, now);
-  const rows = await readRows();
-  const row = rows.find((r) => r.orgId === orgId && r.period === period && r.metric === metric);
-  return toAllowance(plan, metric, period, row?.count ?? 0);
+  const { data, error } = await createAdminClient()
+    .from('usage_counters')
+    .select('count')
+    .eq('org_id', orgId)
+    .eq('period', period)
+    .eq('metric', metric)
+    .maybeSingle();
+  if (error) throw error;
+  return toAllowance(plan, metric, period, (data?.count as number | undefined) ?? 0);
 }
 
 /**
@@ -126,19 +92,13 @@ export async function recordUsage(
   now = new Date(),
 ): Promise<Allowance> {
   const period = usagePeriod(metric, now);
-  return serialized(async () => {
-    const rows = await readRows();
-    const row = rows.find((r) => r.orgId === orgId && r.period === period && r.metric === metric);
-    const count = (row?.count ?? 0) + 1;
-    if (row) {
-      row.count = count;
-      row.updatedAt = now.toISOString();
-    } else {
-      rows.push({ orgId, period, metric, count, updatedAt: now.toISOString() });
-    }
-    await writeRows(rows);
-    return toAllowance(plan, metric, period, count);
+  const { data, error } = await createAdminClient().rpc('increment_usage_counter', {
+    p_org_id: orgId,
+    p_period: period,
+    p_metric: metric,
   });
+  if (error) throw error;
+  return toAllowance(plan, metric, period, data as number);
 }
 
 /**
@@ -149,9 +109,9 @@ export async function usageSnapshot(
   plan: PlanTier,
   now = new Date(),
 ): Promise<Record<MeteredMetric, Allowance>> {
-  const [visionSearches, aiSearchesPerMonth] = await Promise.all([
+  const [visionSearches, aiSearchesPerDay] = await Promise.all([
     getAllowance(orgId, plan, 'visionSearches', now),
-    getAllowance(orgId, plan, 'aiSearchesPerMonth', now),
+    getAllowance(orgId, plan, 'aiSearchesPerDay', now),
   ]);
-  return { visionSearches, aiSearchesPerMonth };
+  return { visionSearches, aiSearchesPerDay };
 }

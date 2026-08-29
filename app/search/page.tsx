@@ -29,12 +29,12 @@ type SearchWithUsage = SearchResponse & { usage?: Allowance };
 const isPaywall = (e: unknown) => e instanceof ApiError && e.status === 402;
 
 /**
- * "12 of 20 AI searches left this month" — omitted entirely on unlimited plans,
+ * "3 of 5 AI searches left today" — omitted entirely on unlimited plans,
  * where a counter is noise rather than information.
  */
 function AllowanceLine({ metrics }: { metrics: Record<MeteredMetric, Allowance> }) {
   const parts = [
-    { a: metrics.aiSearchesPerMonth, noun: 'AI searches', suffix: ' this month' },
+    { a: metrics.aiSearchesPerDay, noun: 'AI searches', suffix: ' today' },
     { a: metrics.visionSearches, noun: 'image searches', suffix: '' },
   ]
     .filter(({ a }) => a.limit !== null)
