@@ -59,7 +59,7 @@ export default function CartPage() {
   if (!mounted) return null;
 
   return (
-    <div data-theme="answer-print" className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
       <SiteNav />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
@@ -69,20 +69,20 @@ export default function CartPage() {
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
               {lines.length} item{lines.length !== 1 ? 's' : ''}{vendors.length > 0 ? ` · ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}` : ''}
             </p>
-            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em] [font-stretch:125%]">
+            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
               Cart
             </h1>
           </div>
 
           {lines.length === 0 ? (
             <div className="py-24 text-center">
-              <p className="font-display text-[22px] font-bold [font-stretch:125%]">Your cart is empty</p>
+              <p className="font-display text-[22px] font-bold">Your cart is empty</p>
               <p className="mt-2 text-[15px] text-text-secondary">
                 Browse the catalog and add pieces from any vendor.
               </p>
               <Link
                 href="/"
-                className="mt-6 inline-block rounded-sm bg-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-background transition-opacity hover:opacity-80"
+                className="mt-6 inline-block rounded-md border border-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background"
               >
                 Browse catalog
               </Link>
@@ -105,11 +105,11 @@ export default function CartPage() {
                               alt={line.item.name}
                               width={96}
                               height={96}
-                              className="h-24 w-24 object-cover"
+                              className="h-24 w-24 rounded-md object-cover"
                               unoptimized
                             />
                           ) : (
-                            <span className="block h-24 w-24 bg-surface-raised" />
+                            <span className="block h-24 w-24 rounded-md bg-surface-raised" />
                           )}
                         </Link>
                         <div className="flex flex-1 flex-col justify-between py-0.5">
@@ -143,7 +143,7 @@ export default function CartPage() {
 
               {/* Checkout panel */}
               <div className="space-y-5">
-                <div className="rounded-sm border border-border bg-surface-raised p-5 space-y-4">
+                <div className="rounded-md border border-border bg-surface-raised p-5 space-y-4">
                   <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                     Rental window
                   </p>
@@ -156,7 +156,7 @@ export default function CartPage() {
                         type="date"
                         value={rentalStart}
                         onChange={(e) => setRentalStart(e.target.value)}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                       />
                     </div>
                     <div>
@@ -167,7 +167,7 @@ export default function CartPage() {
                         type="date"
                         value={rentalEnd}
                         onChange={(e) => setRentalEnd(e.target.value)}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                       />
                     </div>
                   </div>
@@ -180,13 +180,13 @@ export default function CartPage() {
                       onChange={(e) => setDeliveryNotes(e.target.value)}
                       rows={2}
                       placeholder="Address, contact, access instructions…"
-                      className="w-full resize-none rounded-sm border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground"
+                      className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground"
                     />
                   </div>
                 </div>
 
                 {state === 'error' && (
-                  <p className="font-mono text-[12px] text-red-500">
+                  <p className="font-mono text-[12px] text-[#a8ff3e]">
                     Something went wrong — please try again.
                   </p>
                 )}
@@ -194,7 +194,7 @@ export default function CartPage() {
                 <button
                   onClick={handlePlaceOrder}
                   disabled={state === 'submitting'}
-                  className="w-full rounded-sm bg-foreground py-3 font-mono text-[13px] font-medium text-background transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {state === 'submitting' ? 'Placing order…' : 'Place order'}
                 </button>

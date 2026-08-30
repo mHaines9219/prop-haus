@@ -65,7 +65,7 @@ export default async function ProjectsPage({
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     {p.archivedAt && (
-                      <span className="rounded-sm border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">
+                      <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">
                         Archived
                       </span>
                     )}

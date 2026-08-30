@@ -170,7 +170,10 @@ export async function browseCards(opts: {
   let q = db()
     .from("prop_items")
     .select(CARD_COLUMNS)
-    .eq("has_images", true);
+    .eq("has_images", true)
+    // ORDER BY id keeps results deterministic across pages and nudges the
+    // planner toward the partial index on has_images rather than a seq scan.
+    .order("id");
   if (opts.category) q = q.eq("category", opts.category);
   if (opts.vendor) q = q.eq("source", opts.vendor);
 

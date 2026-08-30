@@ -169,7 +169,7 @@ function KeywordResults({ data, onAskAI }: { data: KeywordResponse; onAskAI: () 
         </p>
         <button
           onClick={onAskAI}
-          className="h-9 rounded-sm border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground"
+          className="h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground"
         >
           Ask AI to curate
         </button>
@@ -287,7 +287,7 @@ function Chip({ children, title }: { children: React.ReactNode; title?: string }
   return (
     <span
       title={title}
-      className="rounded-sm border border-border bg-surface-inset px-2 py-1 font-mono text-[11px] leading-[14px] text-text-secondary"
+      className="rounded-md border border-border bg-surface-inset px-2 py-1 font-mono text-[11px] leading-[14px] text-text-secondary"
     >
       {children}
     </span>

@@ -84,7 +84,7 @@ function LoginForm() {
               type="button"
               disabled={googlePending}
               onClick={signInWithGoogle}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-sm bg-primary text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary-hover active:scale-[0.98] disabled:opacity-60"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-500 text-sm font-medium text-emerald-400 transition-colors duration-150 hover:bg-emerald-500/10 active:scale-[0.98] disabled:opacity-60"
             >
               {googlePending ? 'Redirecting…' : 'Continue with Google'}
             </button>
@@ -112,7 +112,7 @@ function LoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@production.com"
-                  className="h-11 w-full rounded-sm border border-border bg-surface-inset px-4 font-mono text-[15px] text-foreground outline-none placeholder:text-text-tertiary focus:border-border-strong"
+                  className="h-11 w-full rounded-md border border-border bg-surface-inset px-4 font-mono text-[15px] text-foreground outline-none placeholder:text-text-tertiary focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
                 />
                 {error && (
                   <p className="mt-2 font-mono text-[11px] leading-[14px] text-accent">{error}</p>
@@ -121,7 +121,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={pending || !email.trim()}
-                className="flex h-11 w-full items-center justify-center rounded-sm border border-border text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-popover hover:text-foreground active:scale-[0.98] disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center rounded-md border border-border text-sm font-medium text-text-secondary transition-colors duration-150 hover:border-emerald-500/60 hover:text-foreground active:scale-[0.98] disabled:opacity-60"
               >
                 {pending ? 'Sending…' : 'Email me a link'}
               </button>

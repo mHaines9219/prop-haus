@@ -17,7 +17,7 @@ export function RemoveItemButton({ projectId, itemId }: { projectId: string; ite
       type="button"
       disabled={mutation.isPending}
       onClick={() => mutation.mutate()}
-      className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:text-accent disabled:opacity-40"
+      className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:text-green-500 disabled:opacity-40"
     >
       Remove
     </button>

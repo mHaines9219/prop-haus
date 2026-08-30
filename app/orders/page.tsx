@@ -16,7 +16,7 @@ export default async function OrdersPage() {
   const orders = await listOrders(orgId);
 
   return (
-    <div data-theme="answer-print" className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
       <SiteNav />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
@@ -25,20 +25,20 @@ export default async function OrdersPage() {
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
               Production sourcing
             </p>
-            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em] [font-stretch:125%]">
+            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
               Orders
             </h1>
           </div>
 
           {orders.length === 0 ? (
             <div className="py-24 text-center">
-              <p className="font-display text-[22px] font-bold [font-stretch:125%]">No orders yet</p>
+              <p className="font-display text-[22px] font-bold">No orders yet</p>
               <p className="mt-2 text-[15px] text-text-secondary">
                 Build a cart and place your first order.
               </p>
               <Link
                 href="/"
-                className="mt-6 inline-block rounded-sm bg-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-background transition-opacity hover:opacity-80"
+                className="mt-6 inline-block rounded-md border border-green-500 px-5 py-2.5 font-mono text-[13px] font-medium text-green-500 transition-colors hover:bg-green-500 hover:text-background"
               >
                 Browse catalog
               </Link>

@@ -22,10 +22,7 @@ export default async function CrewPage() {
   const contractors = await getContractors();
 
   return (
-    <div
-      data-theme="answer-print"
-      className="flex min-h-dvh flex-col bg-background font-sans text-foreground"
-    >
+    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
       <SiteNav />
 
       <main className="flex-1">
@@ -35,7 +32,7 @@ export default async function CrewPage() {
             <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
               Los Angeles crew
             </p>
-            <h1 className="mt-5 max-w-[640px] font-display text-[40px] font-bold leading-[1.06] tracking-[-0.01em] [font-stretch:125%] [text-wrap:balance] md:text-[56px] md:leading-[60px]">
+            <h1 className="mt-5 max-w-[640px] font-display text-[40px] font-bold leading-[1.06] tracking-[-0.01em] [text-wrap:balance] md:text-[56px] md:leading-[60px]">
               Extra hands, on call.
             </h1>
             <p className="mt-5 max-w-[480px] text-[15px] leading-[23px] text-text-secondary">

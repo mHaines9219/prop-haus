@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<Certificate['status'], string> = {
 
 const STATUS_DOT: Record<Certificate['status'], string> = {
   pending: 'bg-status-pending',
-  issued: 'bg-status-confirmed',
+  issued: 'bg-emerald-500',
   failed: 'bg-accent',
   expired: 'bg-text-disabled',
 };
@@ -142,7 +142,7 @@ function CertRow({ cert }: { cert: Certificate }) {
 
 function StatusToken({ status }: { status: Certificate['status'] }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2 py-0.5">
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-0.5">
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
       <span className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-text-secondary">
         {STATUS_LABEL[status]}
