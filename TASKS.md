@@ -137,7 +137,7 @@ extend to it).
 
 ### MVP-3 · CHECKOUT — One-click checkout scaffold
 
-**Status:** open
+**Status:** done
 **Priority:** high
 **Depends on:** nothing (coordinate with MVP-4: checkout will later trigger
 COI issuance)
@@ -410,7 +410,7 @@ Token-burn guardrails:
 |-------|--------------------------------------|-----------------------------|----------|
 | MVP-1 | Finish search (missing data) | blocked — awaiting data | high |
 | MVP-2 | Contractor hiring page (/crew) | open | high |
-| MVP-3 | One-click checkout scaffold | open | high |
+| MVP-3 | One-click checkout scaffold | done | high |
 | MVP-4 | COI issuance via API partner | open | medium-high |
 | MVP-5 | Site redesign (A: migrate, B: TBD) | open / B blocked | high |
 | MVP-6 | Backend optimization (competitor API) | blocked — awaiting captures | medium |
