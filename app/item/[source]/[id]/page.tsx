@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ExternalLink, ScanSearch } from 'lucide-react';
 import { getItemBySourceId, relatedCards } from '@/lib/catalog-db';
 import { SOURCE_META, type PriceUnit } from '@/lib/types';
 import { categoryName } from '@/lib/categories';
@@ -57,6 +57,19 @@ export default async function ItemPage({
   // an un-enriched item collapses gracefully. Ordered by decoration weight:
   // era anchors the period, style/vibes read the register, materials/colors
   // are concrete specs, setting/genre are downstream context, tags are catch-all.
+  // Build a similarity query from the item's enrichment signals. Subcategory
+  // is the sharpest term; era + first style/vibe give aesthetic context without
+  // over-constraining the keyword search.
+  const similarTerms = [
+    item.subcategory ?? item.name,
+    item.era,
+    item.style?.[0],
+    item.vibes?.[0],
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const similarHref = `/search?q=${encodeURIComponent(similarTerms)}`;
+
   const enrichmentGroups: Array<{ label: string; values: string[] }> = [
     { label: 'Era', values: item.era ? [item.era] : [] },
     { label: 'Style', values: item.style ?? [] },
@@ -151,6 +164,13 @@ export default async function ItemPage({
 
             <div className="mt-8 space-y-3">
               <AddToCart item={item} />
+              <Link
+                href={similarHref}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-sm border border-border text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-popover hover:text-foreground"
+              >
+                <ScanSearch size={16} strokeWidth={1.5} aria-hidden />
+                Find Similar
+              </Link>
               <a
                 href={item.sourceUrl}
                 target="_blank"
