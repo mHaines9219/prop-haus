@@ -130,10 +130,29 @@ function userContent(item: PropItem) {
   return content;
 }
 
+// Text-only content for items with no image — vision models still understand
+// prop names and category paths well enough to assign style/era/materials/vibes.
+function userContentTextOnly(item: PropItem) {
+  const text = [
+    `NAME: ${item.name}`,
+    item.description ? `DESCRIPTION: ${item.description}` : '',
+    `VENDOR CATEGORY PATH: ${item.sourceCategoryPath.join(' / ')}`,
+    `UNIFIED CATEGORY: ${item.category}`,
+    '(No image available — infer from name, description, and category.)',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return [{ type: 'text', text }];
+}
+
 async function enrichOne(item: PropItem, system: string, apiKey: string): Promise<Enrichment> {
   const key = cacheKey(item);
   const hit = await readCache(key);
   if (hit) return hit;
+
+  // Items without images use text-only content — the vision model still tags
+  // well from name, description, and category path.
+  const content = item.images[0] ? userContent(item) : userContentTextOnly(item);
 
   const res = await fetch(OR_URL, {
     method: 'POST',
@@ -154,7 +173,7 @@ async function enrichOne(item: PropItem, system: string, apiKey: string): Promis
           role: 'system',
           content: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         },
-        { role: 'user', content: userContent(item) },
+        { role: 'user', content },
       ],
     }),
   });
@@ -245,10 +264,15 @@ async function main() {
   const targets = args.limit ? pending.slice(0, args.limit) : pending;
   console.log(`Enriching ${targets.length} of ${items.length} items with ${MODEL} (concurrency ${CONCURRENCY})`);
 
+  const withImage = targets.filter((i) => i.images.length > 0).length;
+  const textOnly = targets.length - withImage;
+  console.log(`  vision: ${withImage}  text-only: ${textOnly}`);
+
   const system = buildSystemPrompt();
   const limit = pLimit(CONCURRENCY);
   let done = 0;
   let errs = 0;
+  const failedIds: string[] = [];
 
   const enriched = await Promise.all(
     targets.map((item) =>
@@ -258,11 +282,12 @@ async function main() {
           return { ...item, ...e };
         } catch (err) {
           errs++;
+          failedIds.push(item.id);
           if (errs <= 5) console.warn(`  ${item.id}: ${(err as Error).message}`);
           return item;
         } finally {
           done++;
-          if (done % 25 === 0) console.log(`  ${done}/${targets.length}`);
+          if (done % 25 === 0) console.log(`  ${done}/${targets.length} (${errs} errors)`);
         }
       }),
     ),
@@ -270,6 +295,19 @@ async function main() {
 
   const byId = new Map(enriched.map((i) => [i.id, i]));
   const updated = items.map((i) => byId.get(i.id) ?? i);
+
+  // Coverage report
+  const totalEnriched = updated.filter(isEnriched).length;
+  const coveragePct = ((totalEnriched / updated.length) * 100).toFixed(1);
+  console.log(`\nCoverage: ${totalEnriched}/${updated.length} enriched (${coveragePct}%)`);
+
+  // Log failed IDs so they can be retried or investigated
+  if (failedIds.length > 0) {
+    const errFile = path.join(DATA, 'enrich-errors.json');
+    await fs.writeFile(errFile, JSON.stringify(failedIds, null, 2), 'utf8');
+    console.warn(`${failedIds.length} items failed — IDs written to ${errFile}`);
+    console.warn('Re-run enrich to retry them (they have no cached result).');
+  }
 
   await fs.writeFile(file, JSON.stringify(updated, null, 2), 'utf8');
   console.log(`Wrote ${file} (${updated.length} items, ${errs} errors)`);

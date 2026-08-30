@@ -1,5 +1,7 @@
 import { shortlistByEmbedding, shortlistAsText, type Shortlist } from './search-index';
 import { interpretMoodboard } from './moodboard';
+import { loadCatalog } from './catalog';
+import { keywordSearch } from './keyword-search';
 import type {
   Attachment,
   DetectedItem,
@@ -147,8 +149,18 @@ function flattenMatches(acc: MatchAccumulator, limit = 60): SearchMatch[] {
 // --- mode: text ----------------------------------------------------------
 
 async function runTextMode(query: string): Promise<SearchResponse> {
-  const shortlist = await shortlistByEmbedding(query, 50);
-  const { ids, explanation } = await rerankShortlist(query, shortlist);
+  let shortlist = await shortlistByEmbedding(query, 50);
+  let { ids, explanation } = await rerankShortlist(query, shortlist);
+
+  // Recall expansion: reranker got nothing despite a populated shortlist — widen
+  // the embedding window to 150 and retry once. This catches queries where the
+  // right item sits just outside the top-50 cosine neighbours (Bumble measured
+  // ~15% of known-item queries falling into this gap).
+  if (ids.length === 0 && shortlist.length > 0) {
+    shortlist = await shortlistByEmbedding(query, 150);
+    ({ ids, explanation } = await rerankShortlist(query, shortlist, 24));
+  }
+
   const byId = new Map(shortlist.map((s) => [s.item.id, s]));
   const matches: SearchMatch[] = ids
     .map((id, i) => {
@@ -157,6 +169,25 @@ async function runTextMode(query: string): Promise<SearchResponse> {
       return { item: s.item, matchedVia: ['query'], score: 1 - i / ids.length };
     })
     .filter((x): x is SearchMatch => x !== null);
+
+  // Keyword fallback: if the full embedding path produced nothing (no shortlist
+  // or reranker stripped everything), fall back to exact keyword matching. This
+  // rescues literal item-name queries ("Eames chair", "Tiffany lamp") where the
+  // embedding similarity is diffuse and the reranker has nothing to work with.
+  if (matches.length === 0) {
+    const catalog = await loadCatalog();
+    const kwMatches = keywordSearch(catalog, query, { limit: 24 });
+    if (kwMatches.length > 0) {
+      return {
+        query,
+        mode: 'text',
+        modelsUsed: [RERANK_MODEL_DEFAULT],
+        matches: kwMatches,
+        explanation: `Showing keyword matches for "${query}" — no semantic matches found.`,
+      };
+    }
+  }
+
   return { query, mode: 'text', modelsUsed: [RERANK_MODEL_DEFAULT], matches, explanation };
 }
 

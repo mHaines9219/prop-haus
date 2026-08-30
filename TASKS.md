@@ -50,7 +50,7 @@ Build every task to a PLUG-AND-PLAY state:
 
 ### MVP-1 · SEARCH — Finish the search function
 
-**Status:** blocked — waiting on data update from Matthew
+**Status:** in progress — mHaines9219/biarritz (workable sub-items done; primary data gap still waiting on Matthew)
 **Priority:** high
 **Depends on:** incoming data (Matthew will specify what's missing)
 
