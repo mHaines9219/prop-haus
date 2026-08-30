@@ -18,6 +18,7 @@ export function toCardItem(item: PropItem): CardItem {
     name: item.name,
     subcategory: item.subcategory,
     images: item.images.slice(0, 1),
+    plateMode: item.plateMode,
   };
 }
 

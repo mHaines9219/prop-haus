@@ -113,6 +113,10 @@ export const PropItem = z.object({
   images: z.array(z.string().url()),
   sourceUrl: z.string().url(),
   scrapedAt: z.string(),
+  // Ingest-time flag: 'cutout' = white-background product shot (multiply blend);
+  // 'photo' = lifestyle/room shot (cover blend). Computed by scripts/plate-mode.ts.
+  // Defaults to 'cutout' in LightWell when absent — safe for most scraped inventory.
+  plateMode: z.enum(['cutout', 'photo']).optional(),
 });
 export type PropItem = z.infer<typeof PropItem>;
 
@@ -126,7 +130,7 @@ export type Catalog = z.infer<typeof Catalog>;
 // already holds a full item can be passed straight to an <ItemCard>.
 export type CardItem = Pick<
   PropItem,
-  'id' | 'source' | 'sourceId' | 'name' | 'subcategory' | 'images'
+  'id' | 'source' | 'sourceId' | 'name' | 'subcategory' | 'images' | 'plateMode'
 >;
 
 // ---------- Multimodal Ask AI ----------

@@ -18,6 +18,7 @@ export function ItemCard({ item }: { item: CardItem }) {
         src={item.images[0]}
         alt={item.name}
         name={item.name}
+        mode={item.plateMode ?? 'cutout'}
         sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 320px"
       />
       <div className="mt-3">
