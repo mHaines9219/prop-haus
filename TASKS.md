@@ -192,7 +192,7 @@ availability checks, email notifications, pricing/quote negotiation.
 
 ### MVP-4 · COI — COI issuance flow via insurance API partner
 
-**Status:** open — NOT blocked
+**Status:** done — PR pending · needs: COI_PROVIDER env var once partner chosen (add to .env.local.example)
 **Priority:** medium-high
 **Depends on:** nothing. The partner API is not chosen yet, but that does not
 block this task: build the entire flow behind the provider interface with the

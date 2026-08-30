@@ -117,13 +117,21 @@ function AuthControl() {
   }
 
   return (
-    <form action="/auth/signout" method="post">
-      <button
-        type="submit"
+    <div className="flex items-center gap-4">
+      <Link
+        href="/account/insurance"
         className="text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
       >
-        Sign out
-      </button>
-    </form>
+        Account
+      </Link>
+      <form action="/auth/signout" method="post">
+        <button
+          type="submit"
+          className="text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
+        >
+          Sign out
+        </button>
+      </form>
+    </div>
   );
 }
