@@ -1,5 +1,4 @@
-// Astryx layers stay global while legacy pages migrate: reset.css is the
-// app-wide reset, astryx.css + theme-stone only affect Astryx components.
+// Astryx layers are retained for app/(legacy)/cart, which has not yet migrated.
 import '@astryxdesign/core/reset.css';
 import '@astryxdesign/core/astryx.css';
 import '@astryxdesign/theme-stone/theme.css';

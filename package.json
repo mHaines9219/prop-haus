@@ -13,6 +13,7 @@
     "lint": "next lint",
     "scrape:merge": "tsx scrapers/merge.ts",
     "enrich": "tsx scripts/enrich.ts",
+    "plate-mode": "tsx scripts/plate-mode.ts",
     "embed": "tsx scripts/embed.ts",
     "data:prune": "tsx scripts/prune-data.ts",
     "check:stores": "tsx --env-file=.env.local scripts/check-store-agreement.ts",

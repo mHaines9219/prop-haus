@@ -1,20 +1,19 @@
 'use client';
 
 import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { motion, useReducedMotion } from 'motion/react';
 import { useState } from 'react';
 import { getJson } from '@/lib/api';
 import type { CardItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ItemCard } from './item-card';
 import { ItemCardSkeleton } from './item-card-skeleton';
+import { GridCell, SeamGrid } from './seam-grid';
 
 type CategoryOpt = { slug: string; name: string; count: number };
 type VendorOpt = { id: string; name: string; count: number };
 type BrowsePage = { items: CardItem[]; total: number };
 
 const PAGE = 24;
-const STAGGER_CAP = 12;
 
 /**
  * Ruled contact-sheet browse (DESIGN.md section 9.3): sticky filter rail of
@@ -210,43 +209,6 @@ export function BrowseGrid({
         </div>
       </div>
     </section>
-  );
-}
-
-/** 1px seams: cells sit on a border-colored track with a pixel gap. */
-function SeamGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-2 gap-px border border-border bg-border md:grid-cols-3 xl:grid-cols-4 min-[1680px]:grid-cols-5">
-      {children}
-    </div>
-  );
-}
-
-/** grid-arrive (DESIGN.md section 8): light comes up, cells never fly in. */
-function GridCell({
-  index,
-  children,
-  marquee,
-}: {
-  index: number;
-  children: React.ReactNode;
-  marquee?: boolean;
-}) {
-  const reduce = useReducedMotion();
-  return (
-    <motion.div
-      initial={reduce ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        type: 'spring',
-        stiffness: 380,
-        damping: 34,
-        delay: Math.min(index % PAGE, STAGGER_CAP) * 0.04,
-      }}
-      className={cn('bg-background', marquee && 'col-span-2 row-span-2')}
-    >
-      {children}
-    </motion.div>
   );
 }
 

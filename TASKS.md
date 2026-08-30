@@ -50,7 +50,7 @@ Build every task to a PLUG-AND-PLAY state:
 
 ### MVP-1 · SEARCH — Finish the search function
 
-**Status:** blocked — waiting on data update from Matthew
+**Status:** in progress — mHaines9219/biarritz (workable sub-items done; primary data gap still waiting on Matthew)
 **Priority:** high
 **Depends on:** incoming data (Matthew will specify what's missing)
 
@@ -93,7 +93,7 @@ data update arrives.
 
 ### MVP-2 · CREW — Contractor hiring page
 
-**Status:** open
+**Status:** done — PR #62
 **Priority:** high
 **Depends on:** nothing
 
@@ -137,7 +137,7 @@ extend to it).
 
 ### MVP-3 · CHECKOUT — One-click checkout scaffold
 
-**Status:** open
+**Status:** done
 **Priority:** high
 **Depends on:** nothing (coordinate with MVP-4: checkout will later trigger
 COI issuance)
@@ -192,7 +192,7 @@ availability checks, email notifications, pricing/quote negotiation.
 
 ### MVP-4 · COI — COI issuance flow via insurance API partner
 
-**Status:** open — NOT blocked
+**Status:** done — PR pending · needs: COI_PROVIDER env var once partner chosen (add to .env.local.example)
 **Priority:** medium-high
 **Depends on:** nothing. The partner API is not chosen yet, but that does not
 block this task: build the entire flow behind the provider interface with the
@@ -249,7 +249,7 @@ wiring, claims handling, broker workflows, W9/general document management.
 
 ### MVP-5 · REDESIGN — Site redesign
 
-**Status:** part B in progress — mHaines9219/sofia (direction proposal, see docs/design-direction-mvp5b.md); part A open
+**Status:** Part A done — mHaines9219/hyderabad. Part B in progress — mHaines9219/sofia (see docs/design-direction-mvp5b.md for direction; implementing punch list).
 **Priority:** high
 **Depends on:** nothing
 
@@ -410,7 +410,7 @@ Token-burn guardrails:
 |-------|--------------------------------------|-----------------------------|----------|
 | MVP-1 | Finish search (missing data) | blocked — awaiting data | high |
 | MVP-2 | Contractor hiring page (/crew) | open | high |
-| MVP-3 | One-click checkout scaffold | open | high |
+| MVP-3 | One-click checkout scaffold | done | high |
 | MVP-4 | COI issuance via API partner | open | medium-high |
 | MVP-5 | Site redesign (A: migrate, B: TBD) | open / B blocked | high |
 | MVP-6 | Backend optimization (competitor API) | blocked — awaiting captures | medium |

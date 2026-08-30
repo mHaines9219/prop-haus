@@ -91,8 +91,6 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
           onClick={handleQuickAdd}
           className={cn(
             'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-sm border border-border bg-[rgba(15,15,16,0.85)] text-foreground transition-opacity duration-[160ms] ease-attend',
-            // Hidden at rest on fine pointers, revealed on hover/focus.
-            // Always visible on coarse pointers (touch) per DESIGN.md §9.4.2.
             'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
             '[@media(pointer:coarse)]:opacity-100',
           )}

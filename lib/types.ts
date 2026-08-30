@@ -113,7 +113,9 @@ export const PropItem = z.object({
   images: z.array(z.string().url()),
   sourceUrl: z.string().url(),
   scrapedAt: z.string(),
-  // Computed at ingest (DESIGN.md §4). NULL/absent → falls back to 'cutout'.
+  // Ingest-time flag: 'cutout' = white-background product shot (multiply blend);
+  // 'photo' = lifestyle/room shot (cover blend). Computed by scripts/plate-mode.ts.
+  // Defaults to 'cutout' in LightWell when absent — safe for most scraped inventory.
   plateMode: z.enum(['cutout', 'photo']).optional(),
 });
 export type PropItem = z.infer<typeof PropItem>;
