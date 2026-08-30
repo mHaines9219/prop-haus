@@ -167,7 +167,7 @@ export async function browseCards(opts: {
   const limit = Math.min(200, Math.max(1, opts.limit ?? 24));
 
   let q = db()
-    .from("catalog_items")
+    .from("prop_items")
     .select(CARD_COLUMNS)
     .eq("has_images", true);
   if (opts.category) q = q.eq("category", opts.category);
@@ -214,7 +214,7 @@ async function countMatching(opts: {
   vendor?: string | null;
 }): Promise<number> {
   let q = db()
-    .from("catalog_items")
+    .from("prop_items")
     .select("id", { count: "exact", head: true })
     .eq("has_images", true);
   if (opts.category) q = q.eq("category", opts.category);
@@ -230,7 +230,7 @@ export async function getItemBySourceId(
   sourceId: string,
 ): Promise<PropItem | undefined> {
   const { data, error } = await db()
-    .from("catalog_items")
+    .from("prop_items")
     .select(FULL_COLUMNS)
     .eq("source", source)
     .eq("source_id", sourceId)
@@ -257,7 +257,7 @@ export async function categoryCards(
  */
 export async function relatedCards(slug: string, limit: number): Promise<CardItem[]> {
   const { data, error } = await db()
-    .from("catalog_items")
+    .from("prop_items")
     .select(CARD_COLUMNS)
     .eq("has_images", true)
     .eq("category", slug)
