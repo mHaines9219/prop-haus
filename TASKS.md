@@ -249,7 +249,11 @@ wiring, claims handling, broker workflows, W9/general document management.
 
 ### MVP-5 · REDESIGN — Site redesign
 
-**Status:** open (part B needs Matthew's direction)
+**Status:** Part A done — mHaines9219/hyderabad. All legacy pages migrated to
+Answer Print: `/search`, `/item`, `/category/[slug]`, `/projects`,
+`/projects/[id]`, `/login`. Only `/cart` remains in `app/(legacy)/` (owned by
+MVP-3 — skip). Astryx imports retained in `app/layout.tsx` until MVP-3 clears
+`/cart`. Part B open (needs Matthew's direction).
 **Priority:** high
 **Depends on:** nothing
 
