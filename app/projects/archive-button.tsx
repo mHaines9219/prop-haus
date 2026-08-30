@@ -27,7 +27,7 @@ export function ArchiveButton({
         e.stopPropagation();
         mutation.mutate(!isArchived);
       }}
-      className="h-8 rounded-sm border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground disabled:opacity-40"
+      className="h-8 rounded-md border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-green-500 hover:text-green-500 disabled:opacity-40"
     >
       {isArchived ? 'Restore' : 'Archive'}
     </button>

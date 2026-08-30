@@ -146,7 +146,7 @@ export function SearchControls({
         animate={reduce ? undefined : { scale: focused ? 1.005 : 1 }}
         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
         className={cn(
-          'flex h-14 items-center gap-2 rounded-sm border bg-surface-inset pl-4 pr-2 transition-colors duration-150',
+          'flex h-14 items-center gap-2 rounded-md border bg-surface-inset pl-4 pr-2 transition-colors duration-150',
           focused || dragOver ? 'border-border-strong' : 'border-border',
         )}
       >
@@ -179,7 +179,7 @@ export function SearchControls({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           aria-label="Attach a moodboard"
-          className="hidden h-9 shrink-0 items-center gap-1.5 rounded-sm border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:border-border-strong hover:text-text-secondary sm:flex"
+          className="hidden h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:border-border-strong hover:text-text-secondary sm:flex"
         >
           <ImagePlus size={16} strokeWidth={1.5} aria-hidden />
           Moodboard
@@ -198,7 +198,7 @@ export function SearchControls({
               }
             }}
             className={cn(
-              'hidden h-9 shrink-0 items-center rounded-sm border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:flex',
+              'hidden h-9 shrink-0 items-center rounded-md border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:flex',
               engine === 'ai'
                 ? 'border-accent text-accent-text'
                 : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary',
@@ -210,7 +210,7 @@ export function SearchControls({
 
         <button
           type="submit"
-          className="h-10 shrink-0 rounded-sm bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary-hover active:scale-[0.98]"
+          className="h-10 shrink-0 rounded-md border border-border px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:border-border-strong hover:text-foreground active:scale-[0.98]"
         >
           {hasFiles || engine === 'ai' ? 'Ask AI' : 'Search'}
         </button>
@@ -226,7 +226,7 @@ export function SearchControls({
                 aria-pressed={mode === m}
                 onClick={() => setMode(m)}
                 className={cn(
-                  'h-8 rounded-sm border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
+                  'h-8 rounded-md border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
                   mode === m
                     ? 'border-accent text-accent-text'
                     : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary',
@@ -243,7 +243,7 @@ export function SearchControls({
             {files.map((f, i) => (
               <span
                 key={i}
-                className="flex items-center gap-2 rounded-sm border border-border bg-surface-inset py-1 pl-1 pr-2"
+                className="flex items-center gap-2 rounded-md border border-border bg-surface-inset py-1 pl-1 pr-2"
               >
                 {f.previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

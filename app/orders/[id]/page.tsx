@@ -34,7 +34,7 @@ export default async function OrderPage({ params }: Props) {
   });
 
   return (
-    <div data-theme="answer-print" className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
       <SiteNav />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
@@ -44,7 +44,7 @@ export default async function OrderPage({ params }: Props) {
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
               Order confirmed
             </p>
-            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em] [font-stretch:125%]">
+            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
               #{order.id.slice(0, 8).toUpperCase()}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-text-secondary">
@@ -63,7 +63,7 @@ export default async function OrderPage({ params }: Props) {
 
           {/* Rental window */}
           {(order.rentalStart || order.rentalEnd) && (
-            <div className="mb-8 rounded-sm border border-border bg-surface-raised p-5">
+            <div className="mb-8 rounded-md border border-border bg-surface-raised p-5">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary mb-4">
                 Rental window
               </p>
@@ -129,13 +129,13 @@ export default async function OrderPage({ params }: Props) {
           <div className="mt-10 flex gap-3">
             <Link
               href="/orders"
-              className="rounded-sm border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
+              className="rounded-md border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
             >
               All orders
             </Link>
             <Link
               href="/"
-              className="rounded-sm bg-foreground px-4 py-2.5 font-mono text-[13px] text-background transition-opacity hover:opacity-80"
+              className="rounded-md border border-green-500 px-4 py-2.5 font-mono text-[13px] text-green-500 transition-colors hover:bg-green-500 hover:text-background"
             >
               Browse catalog
             </Link>

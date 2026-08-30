@@ -48,7 +48,7 @@ export function GridCell({
         damping: 34,
         delay: Math.min(index % STAGGER_SPAN, STAGGER_CAP) * 0.04,
       }}
-      className={cn('bg-background', marquee && 'col-span-2 row-span-2')}
+      className={cn('bg-card', marquee && 'col-span-2 row-span-2')}
     >
       {children}
     </motion.div>

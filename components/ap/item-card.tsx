@@ -66,7 +66,7 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
     <Link
       href={`/item/${item.source}/${encodeURIComponent(item.sourceId)}`}
       className={cn(
-        'group bg-background p-4',
+        'group rounded-md bg-background p-4',
         marquee ? 'flex h-full flex-col' : 'block',
       )}
     >
@@ -90,7 +90,7 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
           aria-label={inCart || added ? 'Added to cart' : 'Add to cart'}
           onClick={handleQuickAdd}
           className={cn(
-            'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-sm border border-border bg-[rgba(15,15,16,0.85)] text-foreground transition-opacity duration-[160ms] ease-attend',
+            'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card/90 text-foreground transition-opacity duration-[160ms] ease-attend',
             'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
             '[@media(pointer:coarse)]:opacity-100',
           )}
@@ -107,7 +107,7 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
       <div className="mt-3">
         <p
           className={cn(
-            'line-clamp-2 leading-[1.33] text-foreground',
+            'line-clamp-2 font-heading leading-[1.33] text-foreground',
             marquee
               ? 'min-h-[48px] text-[18px] font-semibold'
               : 'min-h-[44px] text-[15px] font-medium',

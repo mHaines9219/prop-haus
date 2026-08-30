@@ -124,7 +124,7 @@ export function InsuranceProfileForm({ orgId, orgName, initialProfile }: Props) 
         <button
           type="submit"
           disabled={pending}
-          className="h-11 min-w-[140px] rounded-sm bg-foreground px-5 font-sans text-[13px] font-medium text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="h-11 min-w-[140px] rounded-md border border-emerald-500 px-5 font-sans text-[13px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
         >
           {pending ? 'Saving…' : 'Save profile'}
         </button>

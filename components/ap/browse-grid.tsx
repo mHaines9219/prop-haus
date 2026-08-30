@@ -87,12 +87,6 @@ export function BrowseGrid({
     ? (vendors.find((v) => v.id === vendor)?.name ?? vendor)
     : null;
 
-  const countLine = filterActive
-    ? [`${total.toLocaleString()} ${total === 1 ? 'item' : 'items'}`, activeCategoryName, activeVendorName]
-        .filter(Boolean)
-        .join(', ')
-    : `${total.toLocaleString()} pieces across ${vendorCount} houses`;
-
   // Marquee item: first photo-mode item on home page only; not shown when filtering.
   const photoIdx = showMarquee && !filterActive ? items.findIndex((i) => i.plateMode === 'photo') : -1;
   const marqueeIndex = showMarquee && !filterActive ? (photoIdx >= 0 ? photoIdx : 0) : -1;
@@ -134,11 +128,17 @@ export function BrowseGrid({
 
         <div className="min-w-0 flex-1">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="font-mono text-[13px] leading-[18px] text-text-tertiary">{countLine}</p>
+            <p className="font-mono text-[13px] leading-[18px] text-text-tertiary">
+              <span className="font-bold text-foreground">{total.toLocaleString()}</span>
+              {filterActive
+                ? <> {total === 1 ? 'item' : 'items'}{activeCategoryName ? <>, <span className="text-accent">{activeCategoryName}</span></> : null}{activeVendorName ? <>, <span className="text-accent">{activeVendorName}</span></> : null}</>
+                : <> <span className="text-text-tertiary">pieces across</span> <span className="font-bold text-foreground">{vendorCount}</span> <span className="text-text-tertiary">houses</span></>
+              }
+            </p>
             {filterActive && (
               <button
                 onClick={clearAll}
-                className="h-8 rounded-sm border border-border px-3 text-[13px] text-text-secondary transition-colors duration-150 hover:bg-popover hover:text-foreground"
+                className="h-8 rounded-md border border-border px-3 text-[13px] text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
               >
                 Clear filters
               </button>
@@ -152,10 +152,10 @@ export function BrowseGrid({
                 key={c.slug}
                 onClick={() => toggleCategory(c.slug)}
                 className={cn(
-                  'h-8 shrink-0 whitespace-nowrap rounded-sm border px-3 font-mono text-[12px] transition-colors duration-150',
+                  'h-8 shrink-0 whitespace-nowrap rounded-md border px-3 font-mono text-[12px] transition-colors duration-150',
                   category === c.slug
-                    ? 'border-accent text-accent-text'
-                    : 'border-border text-text-secondary',
+                    ? 'border-accent text-accent'
+                    : 'border-border text-text-secondary hover:border-border/70 hover:text-foreground',
                 )}
               >
                 {c.name}
@@ -170,7 +170,7 @@ export function BrowseGrid({
               ))}
             </SeamGrid>
           ) : items.length === 0 ? (
-            <div className="border-y border-border py-16 text-center">
+            <div className="rounded-md border border-border bg-card py-16 text-center">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                 No matches
               </p>
@@ -179,7 +179,7 @@ export function BrowseGrid({
               </p>
               <button
                 onClick={clearAll}
-                className="mt-5 h-9 rounded-sm border border-border px-4 text-sm text-text-secondary transition-colors duration-150 hover:bg-popover hover:text-foreground"
+                className="mt-5 h-9 rounded-md border border-border px-4 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
               >
                 Clear filters
               </button>
@@ -198,7 +198,7 @@ export function BrowseGrid({
                   <button
                     onClick={() => query.fetchNextPage()}
                     disabled={query.isFetchingNextPage}
-                    className="h-10 rounded-sm border border-border px-5 text-sm text-text-secondary transition-colors duration-150 hover:bg-popover hover:text-foreground disabled:opacity-60"
+                    className="h-10 rounded-md border border-border px-5 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground disabled:opacity-60"
                   >
                     {query.isFetchingNextPage ? 'Loading' : 'Load more'}
                   </button>
@@ -215,7 +215,7 @@ export function BrowseGrid({
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-2 px-3 font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
+      <p className="mb-2 px-3 font-sans text-[11px] font-bold uppercase leading-[14px] tracking-[0.1em] text-text-tertiary">
         {label}
       </p>
       <div>{children}</div>
@@ -239,10 +239,10 @@ function FilterRow({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'flex h-9 w-full items-center justify-between gap-2 border-l-2 px-3 text-left transition-colors duration-150',
+        'flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 text-left transition-colors duration-150',
         selected
-          ? 'border-accent bg-popover text-foreground'
-          : 'border-transparent text-text-secondary hover:bg-popover hover:text-foreground',
+          ? 'border-accent bg-card text-foreground'
+          : 'border-transparent text-text-secondary hover:border-border hover:bg-card hover:text-foreground',
       )}
     >
       <span className="truncate text-sm">{name}</span>

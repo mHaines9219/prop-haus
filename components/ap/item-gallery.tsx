@@ -17,7 +17,7 @@ export function ItemGallery({ images, name }: { images: string[]; name: string }
 
   return (
     <div className="space-y-4">
-      <div className="border border-border bg-background p-6">
+      <div className="border border-border-subtle bg-surface-raised rounded-md p-6">
         <LightWell
           // Re-key on the source so a thumbnail switch remounts the well and the
           // new plate lights up cleanly rather than hard-cutting the image.
@@ -46,7 +46,7 @@ export function ItemGallery({ images, name }: { images: string[]; name: string }
                 src={src}
                 alt={`${name} thumbnail ${i + 1}`}
                 sizes="64px"
-                className={cn('w-16', i === selected && '!border-border-strong')}
+                className={cn('w-16 rounded-md', i === selected && '!border-accent ring-1 ring-accent/40')}
               />
             </button>
           ))}

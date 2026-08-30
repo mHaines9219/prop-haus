@@ -1,29 +1,21 @@
 import './globals.css';
 
 import type { Metadata } from 'next';
-import { Anybody, Spline_Sans_Mono } from 'next/font/google';
-import localFont from 'next/font/local';
+import { Archivo, Spline_Sans_Mono } from 'next/font/google';
 import { Providers } from './providers';
 
-// ANSWER PRINT type kit (DESIGN.md section 5): Anybody is the projector title
-// card, Switzer the reading grotesk, Spline Sans Mono the camera report.
-const anybody = Anybody({
+// Nocturne type kit: Archivo is the heading face, Helvetica Neue the reading
+// grotesk (system font, no loading needed), Spline Sans Mono the data face.
+const archivo = Archivo({
   subsets: ['latin'],
-  axes: ['wdth'],
-  variable: '--font-anybody',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-archivo',
   display: 'swap',
 });
 
 const splineMono = Spline_Sans_Mono({
   subsets: ['latin'],
   variable: '--font-spline-mono',
-  display: 'swap',
-});
-
-const switzer = localFont({
-  src: './fonts/Switzer-Variable.woff2',
-  weight: '100 900',
-  variable: '--font-switzer',
   display: 'swap',
 });
 
@@ -39,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // before hydration, which the server render can't know about.
     <html
       lang="en"
-      className={`${anybody.variable} ${switzer.variable} ${splineMono.variable}`}
+      className={`${archivo.variable} ${splineMono.variable}`}
       suppressHydrationWarning
     >
       <body>

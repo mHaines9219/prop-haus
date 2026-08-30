@@ -5,13 +5,15 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * The light well (DESIGN.md section 4): every inventory photo renders on a
- * neutral plate, never on its own scraped background. White cutouts fuse into
- * the plate via multiply blending; a 6% canvas scrim dims the well at rest and
- * lifts under attention (hover/focus on the parent `.group`).
+ * LightWell — Nocturne treatment (DESIGN.md section 4).
  *
- * `mode="cutout"` is the default until the ingest-time plate_mode flag lands
- * on item records; most scraped inventory is white-background cutouts.
+ * Photos blend into the dark canvas via mix-blend-mode: lighten — dark parts
+ * of the image fall away into the background. White-background cutouts render
+ * on a neutral-200 plate (#e3e4de) with multiply blend so the plate fuses
+ * into the card surface.
+ *
+ * `mode="cutout"` is the default; most scraped inventory is white-background.
+ * `mode="photo"` uses lighten blend for full-bleed dark-background shots.
  */
 export function LightWell({
   src,
@@ -26,9 +28,9 @@ export function LightWell({
   src?: string;
   alt: string;
   sizes?: string;
-  /** cutout: matted contain + multiply. photo: full-bleed cover, no blend. */
+  /** cutout: neutral-200 plate + multiply blend. photo: lighten blend, full-bleed. */
   mode?: 'cutout' | 'photo';
-  /** Pin the lit plate on (item-detail hero); disables the rest scrim. */
+  /** Retained for API compatibility; shows plate without scrim in Nocturne. */
   lit?: boolean;
   /** Drop the 4:5 aspect ratio and fill the parent container instead (marquee cell). */
   fill?: boolean;
@@ -43,7 +45,7 @@ export function LightWell({
   return (
     <div
       className={cn(
-        'relative isolate overflow-hidden rounded-sm border border-border bg-surface-inset',
+        'relative isolate overflow-hidden rounded-md border border-border bg-card',
         fill ? 'h-full w-full' : 'aspect-[4/5]',
         className,
       )}
@@ -55,36 +57,36 @@ export function LightWell({
             loaded ? 'opacity-100' : 'opacity-0',
           )}
         >
-          <div className="absolute inset-0 bg-plate" />
-          <div
-            className={cn(
-              'absolute inset-0 bg-plate-lit transition-opacity duration-[240ms] ease-attend',
-              lit
-                ? 'opacity-100'
-                : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-hover:duration-[180ms]',
-            )}
-          />
-          <div className={mode === 'cutout' ? 'absolute inset-[8%]' : 'absolute inset-0'}>
-            <Image
-              src={src}
-              alt={alt}
-              fill
-              sizes={sizes}
-              onLoad={() => setLoaded(true)}
-              onError={() => setFailed(true)}
-              className={cn(
-                mode === 'cutout' ? 'object-contain mix-blend-multiply' : 'object-cover',
-                'transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]',
-              )}
-            />
-          </div>
-          {!lit && (
-            <div className="absolute inset-0 bg-background opacity-[0.06] transition-opacity duration-[240ms] ease-attend group-focus-within:opacity-0 group-hover:opacity-0" />
+          {mode === 'cutout' ? (
+            <div className="absolute inset-0 bg-plate">
+              <div className="absolute inset-[8%]">
+                <Image
+                  src={src}
+                  alt={alt}
+                  fill
+                  sizes={sizes}
+                  onLoad={() => setLoaded(true)}
+                  onError={() => setFailed(true)}
+                  className="object-contain mix-blend-multiply transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="absolute inset-0">
+              <Image
+                src={src}
+                alt={alt}
+                fill
+                sizes={sizes}
+                onLoad={() => setLoaded(true)}
+                onError={() => setFailed(true)}
+                className="object-cover [mix-blend-mode:lighten] transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]"
+              />
+            </div>
           )}
         </div>
       ) : (
         <div className="absolute inset-0 bg-plate">
-          <div className="absolute inset-0 bg-background opacity-[0.06]" />
           {name && (
             <span className="absolute inset-0 grid place-items-center px-4 text-center font-mono text-[13px] leading-[18px] text-[#0F0F10]">
               {name}

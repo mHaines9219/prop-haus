@@ -39,7 +39,7 @@ export default async function InsurancePage() {
   const insuranceProfile = (org?.insurance_profile ?? null) as InsuranceProfile | null;
 
   return (
-    <div data-theme="answer-print" className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
       <SiteNav />
 
       <main className="flex-1">
@@ -50,7 +50,7 @@ export default async function InsurancePage() {
             <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
               Account
             </p>
-            <h1 className="mt-3 font-display text-[32px] font-bold leading-[1.1] tracking-[-0.01em] [font-stretch:125%]">
+            <h1 className="mt-3 font-display text-[32px] font-bold leading-[1.1] tracking-[-0.01em]">
               Insurance
             </h1>
             <p className="mt-2 max-w-[560px] font-sans text-[14px] leading-[22px] text-text-secondary">

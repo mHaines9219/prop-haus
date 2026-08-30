@@ -27,7 +27,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="text-text-secondary transition-colors duration-150 hover:text-foreground"
+      className="text-text-secondary transition-colors duration-150 hover:text-accent"
     >
       {isDark ? (
         <Sun size={20} strokeWidth={1.5} aria-hidden />

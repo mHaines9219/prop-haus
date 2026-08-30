@@ -1,10 +1,8 @@
 /*
- * Design language: ANSWER PRINT (see DESIGN.md). Dark-first screening-room
- * palette; photos live in light wells; tally red is signal, never "go".
- *
- * Theming: dark tokens live on :root; next-themes toggles a .light class on
- * <html> whose overrides win by source order. next-themes also sets
- * color-scheme on <html> (inherited), so no rule here should set it.
+ * Design language: NOCTURNE (Aug 2026).
+ * Ground: #0b0b0d — near-black, warm-free.
+ * Accent: #c8f24a — acid green, the ONLY saturated color.
+ * Light theme: achromatic — accent becomes near-black, no color.
  */
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
@@ -14,109 +12,141 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* surfaces */
-  --background: #0f0f10;
-  --foreground: #ededef;
-  --card: #161618;
-  --card-foreground: #ededef;
-  --popover: #232327;
-  --popover-foreground: #ededef;
-  --surface-inset: #1c1c1f;
+  /* ── surfaces ── */
+  --background: #0b0b0d;
+  --foreground: #e9e9ed;
+  --card: #16161a;
+  --card-foreground: #e9e9ed;
+  --popover: #2c2c33;
+  --popover-foreground: #e9e9ed;
+  --surface-inset: #1a1a1e;
 
-  /* actions: the beam button is primary; red is signal, never go */
-  --primary: #ededef;
-  --primary-foreground: #0f0f10;
-  --primary-hover: #f4f4f6;
-  --secondary: #1c1c1f;
-  --secondary-foreground: #a7a7ae;
-  --muted: #1c1c1f;
-  --muted-foreground: #8e8e97;
-  --accent: #d25446; /* tally, fill tier */
-  --accent-foreground: #0f0f10;
-  --accent-text: #e08573; /* tally, text tier: AA at small sizes on canvas */
-  --destructive: #d25446;
-  --destructive-foreground: #0f0f10;
+  /* ── actions: acid green is the sole accent ── */
+  --primary: #c8f24a;
+  --primary-foreground: #0b0b0d;
+  --primary-hover: #d3f56b;
+  --secondary: #1a1a1e;
+  --secondary-foreground: #adaea6;
+  --muted: #1a1a1e;
+  --muted-foreground: color-mix(in srgb, #e9e9ed 72%, transparent);
+  --accent: #c8f24a;
+  --accent-foreground: #0b0b0d;
+  --accent-text: #d3f56b;
+
+  /* ── destructive: red only, never tally ── */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
   --destructive-wash: #2a1617;
 
-  /* structure */
-  --border: #26262a;
-  --border-strong: #3a3a40;
-  --input: #1c1c1f;
-  --ring: #d25446;
+  /* ── structure ── */
+  --border: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --border-strong: color-mix(in srgb, #e9e9ed 32%, transparent);
+  --input: #16161a;
+  --ring: #c8f24a;
 
-  /* light wells */
-  --plate: #e9e9eb;
-  --plate-lit: #f4f4f6;
-  --well-scrim-opacity: 0.06;
+  /* ── light wells ── */
+  --plate: #e3e4de;
+  --plate-lit: #f4f5f0;
+  --well-scrim-opacity: 0;
   --well-inset: 8%;
 
-  /* workflow status (dots only; labels use secondary / accent-text) */
-  --status-pending: #8e8e96;
+  /* ── workflow status dots ── */
+  --status-pending: #8d8e86;
   --status-quoted: #e3b341;
   --status-confirmed: #58a87c;
-  --status-unavailable: #d25446;
+  --status-unavailable: #ef4444;
 
-  /* text tiers */
-  --text-secondary: #a7a7ae;
-  --text-tertiary: #8e8e97;
-  --text-disabled: #5a5a62;
+  /* ── text tiers ── */
+  --text-secondary: color-mix(in srgb, #e9e9ed 72%, transparent);
+  --text-tertiary: color-mix(in srgb, #e9e9ed 62%, transparent);
+  --text-disabled: color-mix(in srgb, #e9e9ed 45%, transparent);
 
-  /* overlay */
-  --scrim: #08080a;
-  --shadow-overlay: 0 24px 64px rgba(8, 8, 10, 0.55);
+  /* ── overlay ── */
+  --scrim: #0b0b0d;
+  --shadow-overlay: 0 0 0 1px #4a4a52, 0 16px 40px rgba(0, 0, 0, 0.7);
 
-  --radius: 2px; /* nested objects; structural chrome is 0 */
+  /* ── shape ── */
+  --radius: 8px;
+
+  /* ── neutral tonal ramp ── */
+  --color-neutral-100: #f4f4f4;
+  --color-neutral-200: #e3e3e5;
+  --color-neutral-300: #c8c8cc;
+  --color-neutral-400: #adaea6;
+  --color-neutral-500: #8d8e86;
+  --color-neutral-600: #6e6e76;
+  --color-neutral-700: #4a4a52;
+  --color-neutral-800: #2c2c33;
+  --color-neutral-900: #1a1a1e;
+
+  /* ── acid green tonal ramp ── */
+  --color-accent-100: #f2fccf;
+  --color-accent-200: #e6f99e;
+  --color-accent-300: #d3f56b;
+  --color-accent-400: #d3f56b;
+  --color-accent-500: #c8f24a;
+  --color-accent-600: #b4d93f;
+  --color-accent-700: #8fab2e;
+  --color-accent-800: #637820;
+  --color-accent-900: #3a4813;
+
+  /* ── section tokens ── */
+  --color-section: #0b0b0d;
+  --color-section-glow: #17190f;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+
+  /* ── text aliases ── */
+  --text-muted: color-mix(in srgb, #e9e9ed 72%, transparent);
+  --text-faint: color-mix(in srgb, #e9e9ed 62%, transparent);
+
+  /* ── typography ── */
+  --font-heading: "Archivo", "Helvetica Neue", Helvetica, sans-serif;
+  --font-heading-weight: 700;
+  --font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 /*
- * Light mode: the paper print of the same grade. Canvas flips to warm paper,
- * ink replaces the beam, tally red deepens to hold AA on light ground. Light
- * wells (--plate*) keep their :root values — a lit plate reads in both modes.
+ * Light theme: achromatic — acid green is suppressed, no saturated color.
+ * Background is off-white, ink is near-black.
  */
-:root.light {
-  --background: #f2f2f0;
-  --foreground: #141416;
-  --card: #fafaf9;
-  --card-foreground: #141416;
+:root[data-theme='light'] {
+  --background: #f4f4f4;
+  --foreground: #1b1b1b;
+  --card: #ffffff;
+  --card-foreground: #1b1b1b;
   --popover: #ffffff;
-  --popover-foreground: #141416;
+  --popover-foreground: #1b1b1b;
   --surface-inset: #e7e7e5;
 
-  --primary: #141416;
-  --primary-foreground: #f4f4f6;
-  --primary-hover: #26262a;
+  --primary: #1b1b1b;
+  --primary-foreground: #f4f4f4;
+  --primary-hover: #000000;
   --secondary: #e7e7e5;
   --secondary-foreground: #55555c;
   --muted: #e7e7e5;
-  --muted-foreground: #6b6b73;
-  --accent: #c24437;
-  --accent-foreground: #fbfbfa;
-  --accent-text: #b03a2e;
-  --destructive: #c24437;
-  --destructive-foreground: #fbfbfa;
-  --destructive-wash: #f6e3e0;
+  --muted-foreground: color-mix(in srgb, #1b1b1b 78%, transparent);
+  --accent: #1b1b1b;
+  --accent-foreground: #f4f4f4;
+  --accent-text: #1b1b1b;
 
-  --border: #dcdcda;
-  --border-strong: #bcbcc0;
+  --border: color-mix(in srgb, #1b1b1b 14%, transparent);
+  --border-strong: color-mix(in srgb, #1b1b1b 30%, transparent);
   --input: #e7e7e5;
-  --ring: #c24437;
+  --ring: #1b1b1b;
 
-  --well-scrim-opacity: 0.04;
+  --text-secondary: color-mix(in srgb, #1b1b1b 78%, transparent);
+  --text-tertiary: color-mix(in srgb, #1b1b1b 68%, transparent);
+  --text-disabled: color-mix(in srgb, #1b1b1b 40%, transparent);
 
-  --status-pending: #6b6b73;
-  --status-quoted: #9c7a14;
-  --status-confirmed: #257a4e;
-  --status-unavailable: #c24437;
+  --shadow-overlay: 0 0 0 1px #dcdcdc, 0 16px 40px rgba(0, 0, 0, 0.14);
 
-  --text-secondary: #4c4c54;
-  --text-tertiary: #6b6b73;
-  --text-disabled: #a3a3ab;
-
-  --shadow-overlay: 0 24px 64px rgba(20, 20, 22, 0.18);
+  --color-divider: color-mix(in srgb, #1b1b1b 14%, transparent);
+  --text-muted: color-mix(in srgb, #1b1b1b 78%, transparent);
+  --text-faint: color-mix(in srgb, #1b1b1b 68%, transparent);
 }
 
 @theme inline {
-  /* colors */
+  /* ── colors ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -152,52 +182,120 @@
   --color-text-disabled: var(--text-disabled);
   --color-scrim: var(--scrim);
 
-  /* fonts (wired to next/font variables set on <html>) */
-  --font-display: var(--font-anybody), 'Anybody', sans-serif;
-  --font-sans: var(--font-switzer), 'Switzer', system-ui, sans-serif;
-  --font-mono: var(--font-spline-mono), 'Spline Sans Mono', monospace;
+  /* ── fonts ── */
+  --font-display: var(--font-archivo), "Archivo", "Helvetica Neue", sans-serif;
+  --font-heading: var(--font-archivo), "Archivo", "Helvetica Neue", sans-serif;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
 
-  /* radius: dual rule (0 structural / 2px nested / full avatars only) */
-  --radius-xs: 2px;
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
+  /* ── radius ── */
+  --radius-xs: 4px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
 
-  /* motion */
+  /* ── motion ── */
   --ease-reveal: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-attend: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
+/* ── AI mode ring: spinning rainbow conic gradient border ────────────────── */
+/* @property must be top-level (not inside @layer) for the animation to work */
+@property --ai-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes ai-ring-spin { to { --ai-a: 360deg; } }
+
 @layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+  }
+
   body {
-    font-family: var(--font-switzer), 'Switzer', system-ui, sans-serif;
+    font-family: var(--font-body);
     font-variant-numeric: tabular-nums;
+    background: radial-gradient(
+        1200px 720px at 82% -160px,
+        color-mix(in srgb, var(--color-accent) 9%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        1100px 800px at -10% 100%,
+        color-mix(in srgb, black 55%, transparent),
+        transparent 55%
+      ),
+      var(--background);
   }
 
-  [data-theme='answer-print'] {
-    background: var(--background);
-    color: var(--foreground);
+  :root[data-theme='light'] body {
+    background: radial-gradient(
+        1200px 720px at 82% -160px,
+        color-mix(in srgb, #ffffff 85%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        1100px 800px at -10% 100%,
+        color-mix(in srgb, #1b1b1b 7%, transparent),
+        transparent 55%
+      ),
+      var(--background);
   }
 
-  [data-theme='answer-print'] :focus-visible {
-    outline: 2px solid var(--ring);
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
 
-  /*
-   * Film grain (DESIGN.md §6): 2.5%-opacity monochrome SVG feTurbulence tile
-   * on the canvas layer only. Never on plates, wells, panels, or overlays.
-   * Never animated. Fixed so it doesn't scroll with content.
-   */
-  [data-theme='answer-print']::before {
-    content: '';
-    position: fixed;
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  /* AI ring utility — apply to the AI MODE button; the pseudo-elements paint
+     the spinning conic border and its blurred glow behind the button face. */
+  .ai-ring {
+    position: relative;
+    isolation: isolate;
+  }
+  .ai-ring::before {
+    content: "";
+    position: absolute;
     inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.025;
-    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='256' height='256' filter='url(%23g)'/></svg>");
-    background-repeat: repeat;
-    background-size: 256px 256px;
+    padding: 1px;
+    border-radius: inherit;
+    background: conic-gradient(from var(--ai-a), #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b18cfe, #ff5f6d);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    z-index: -1;
+    opacity: 0.72;
+    animation: ai-ring-spin 6s linear infinite;
+  }
+  .ai-ring::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: inherit;
+    background: conic-gradient(from var(--ai-a), #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b18cfe, #ff5f6d);
+    filter: blur(7px);
+    z-index: -2;
+    opacity: 0.22;
+    animation: ai-ring-spin 6s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-ring::before, .ai-ring::after { animation: none; }
+  }
+
+  /* Light theme: SEARCH button goes solid black — the achromatic theme's one full fill */
+  :root[data-theme='light'] .search-go {
+    background: #1b1b1b !important;
+    color: #ffffff !important;
+  }
+  :root[data-theme='light'] .search-go:hover {
+    background: #000000 !important;
   }
 }

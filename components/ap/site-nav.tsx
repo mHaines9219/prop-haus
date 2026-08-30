@@ -9,44 +9,40 @@ import { createClient } from '@/lib/supabase/client';
 import { ThemeToggle } from './theme-toggle';
 
 const NAV = [
-  { label: 'Seating', href: '/category/seating' },
-  { label: 'Lighting', href: '/category/lighting' },
-  { label: 'Themed', href: '/category/themed-event' },
+  { label: 'How it works', href: '/#how' },
   { label: 'Crew', href: '/crew' },
   { label: 'Pulls', href: '/projects' },
 ];
 
 /**
- * Answer Print app chrome (DESIGN.md section 9.1): 56px canvas bar, hairline
- * bottom seam, no blur, no shadow. Wordmark is the locked lockup: Anybody 800
- * at width 150. The cart count is a tally-red badge with a mono digit ticker.
+ * Nocturne nav: wordmark flush left, all links + icons flush right.
+ * No center-aligned nav — the template layout keeps everything on one side.
  */
 export function SiteNav() {
   return (
-    <header className="sticky top-0 z-40 h-14 border-b border-border bg-background">
-      <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-6 px-4 sm:px-6">
-        <Link href="/" className="flex items-baseline gap-3">
-          <span className="font-display text-base font-extrabold uppercase leading-none tracking-[0.04em] text-foreground [font-stretch:150%]">
+    <header className="sticky top-0 z-40 h-14 bg-background/80 backdrop-blur-sm">
+      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center px-4 sm:px-6">
+        {/* Wordmark — flush left */}
+        <Link href="/" className="mr-auto flex items-baseline gap-2.5">
+          <span className="font-heading text-[18px] font-bold uppercase leading-none tracking-[0.04em] text-foreground">
             Prop Haus
-          </span>
-          <span className="hidden font-mono text-[11px] uppercase leading-none tracking-[0.08em] text-text-tertiary sm:inline">
-            Los Angeles
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
-            >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Nav links + icons — flush right */}
+        <div className="flex items-center gap-6">
+          <nav className="hidden items-center gap-6 md:flex">
+            {NAV.map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                className="font-heading text-[13px] font-bold tracking-[-0.028em] text-text-secondary transition-colors duration-150 hover:text-foreground"
+              >
+                {n.label}
+              </Link>
+            ))}
+          </nav>
 
-        <div className="flex items-center gap-5">
           <ThemeToggle />
           <CartLink />
           <AuthControl />
@@ -59,7 +55,6 @@ export function SiteNav() {
 function CartLink() {
   const lines = useCart((s) => s.lines);
   const reduce = useReducedMotion();
-  // Hydration guard: the store is persisted, so the server render has no count.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const count = mounted ? lines.length : 0;
@@ -70,9 +65,9 @@ function CartLink() {
       aria-label={count > 0 ? `Cart, ${count} items` : 'Cart'}
       className="relative text-text-secondary transition-colors duration-150 hover:text-foreground"
     >
-      <ShoppingCart size={20} strokeWidth={1.5} aria-hidden />
+      <ShoppingCart size={18} strokeWidth={1.5} aria-hidden />
       {count > 0 && (
-        <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center overflow-hidden rounded-sm bg-accent px-1 font-mono text-[11px] font-medium leading-none text-accent-foreground">
+        <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center overflow-hidden rounded-full bg-accent px-1 font-mono text-[10px] font-medium leading-none text-accent-foreground">
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
               key={count}
@@ -91,8 +86,6 @@ function CartLink() {
 }
 
 function AuthControl() {
-  // null = unknown; render nothing rather than flash the wrong control.
-  // Client-side because this chrome wraps statically generated pages.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -111,29 +104,28 @@ function AuthControl() {
     return (
       <Link
         href="/login"
-        className="text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
+        aria-label="Your account"
+        className="text-text-secondary transition-colors duration-150 hover:text-foreground"
       >
-        Sign in
+        {/* User icon — matches the template's account mark */}
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+          <circle cx="9" cy="6" r="3" />
+          <path d="M3.5 15.5c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" strokeLinecap="round" />
+        </svg>
       </Link>
     );
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <Link
-        href="/account/insurance"
-        className="text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
-      >
-        Account
-      </Link>
-      <form action="/auth/signout" method="post">
-        <button
-          type="submit"
-          className="text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-foreground"
-        >
-          Sign out
-        </button>
-      </form>
-    </div>
+    <Link
+      href="/account/insurance"
+      aria-label="Your account"
+      className="text-text-secondary transition-colors duration-150 hover:text-foreground"
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+        <circle cx="9" cy="6" r="3" />
+        <path d="M3.5 15.5c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" strokeLinecap="round" />
+      </svg>
+    </Link>
   );
 }

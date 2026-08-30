@@ -65,7 +65,7 @@ export function AIPromptModal({
             animate={{ opacity: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[3px]"
+            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
             onClick={onClose}
             aria-hidden
           />
@@ -82,14 +82,14 @@ export function AIPromptModal({
             transition={{ type: 'spring', stiffness: 340, damping: 30, duration: 0.22 }}
             className="fixed inset-x-0 top-[15vh] z-50 mx-auto w-full max-w-lg px-4"
           >
-            <div className="rounded-sm border border-border bg-surface shadow-2xl">
+            <div className="rounded-[14px] border border-border bg-card shadow-lg">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-border px-5 py-4">
                 <div>
                   <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-text-tertiary">
                     AI Mode
                   </p>
-                  <h2 className="font-display text-lg font-semibold leading-tight text-foreground">
+                  <h2 className="font-heading text-[20px] font-bold leading-tight text-foreground">
                     Curate a set
                   </h2>
                 </div>
@@ -121,10 +121,10 @@ export function AIPromptModal({
                     placeholder="70s bachelor apartment. Warm, wood-heavy. Think Boogie Nights."
                     rows={4}
                     className={cn(
-                      'w-full resize-none rounded-sm border border-border bg-surface-inset px-3 py-2.5',
+                      'w-full resize-none rounded-md border border-border bg-card px-3 py-2.5',
                       'font-mono text-[14px] leading-relaxed text-foreground outline-none',
                       'placeholder:text-text-tertiary',
-                      'transition-colors duration-150 focus:border-border-strong',
+                      'transition-colors duration-150 focus:border-accent',
                     )}
                   />
                   <p className="font-mono text-[11px] leading-[14px] text-text-tertiary">
@@ -140,7 +140,7 @@ export function AIPromptModal({
                   >
                     Budget <span className="text-text-tertiary">(optional)</span>
                   </label>
-                  <div className="flex items-center rounded-sm border border-border bg-surface-inset transition-colors duration-150 focus-within:border-border-strong">
+                  <div className="flex items-center rounded-md border border-border bg-card transition-colors duration-150 focus-within:border-accent">
                     <span className="pl-3 font-mono text-[14px] text-text-tertiary select-none">$</span>
                     <input
                       id="ai-budget"
@@ -162,14 +162,14 @@ export function AIPromptModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="h-9 rounded-sm border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground"
+                    className="h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-foreground/7"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={!inspiration.trim()}
-                    className="h-9 rounded-sm bg-primary px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="h-9 rounded-md border border-accent px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent transition-colors duration-150 hover:bg-accent/12 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Curate my set
                   </button>
