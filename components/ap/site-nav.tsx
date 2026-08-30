@@ -11,6 +11,7 @@ const NAV = [
   { label: 'Seating', href: '/category/seating' },
   { label: 'Lighting', href: '/category/lighting' },
   { label: 'Themed', href: '/category/themed-event' },
+  { label: 'Crew', href: '/crew' },
   { label: 'Pulls', href: '/projects' },
 ];
 
