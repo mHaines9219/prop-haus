@@ -24,22 +24,43 @@ The MVP is intentionally much smaller and simpler.
 
 ---
 
-# MVP Scope
+# Active Workstreams (multi-agent)
+
+Multiple agents work on this repo in parallel. The task board is TASKS.md at
+the repo root: every current MVP and future workstream is written there as a
+self-contained brief with file paths, deliverables, and boundaries.
+
+If you were asked to "pick up a task" or work on one of the MVP items, read
+TASKS.md, claim ONE task by updating its Status line, and follow its brief.
+Keep TASKS.md as the single source of truth for task status.
+
+Agents must NEVER stall on missing API keys, credentials, unchosen partners,
+or missing data. Build to a plug-and-play state: real integrations behind
+interfaces with working mock implementations, env vars documented in
+.env.local.example, clearly-marked placeholder data where needed. The full
+flow must be demoable with zero secrets. Flag what needs a real key or
+decision, then keep building. (Full rules at the top of TASKS.md.)
+
+---
+
+# MVP Scope (updated Aug 2026)
 
 The MVP is focused on:
 
 1. Inventory aggregation
-2. AI-assisted search and discovery
-3. Multi-vendor cart workflows
-4. Vendor communication automation
-5. COI/compliance coordination
-6. Consolidated invoicing workflows
+2. AI-assisted search and discovery (search completion is an active task —
+   missing catalog data is being resolved)
+3. Multi-vendor cart with ONE-CLICK CHECKOUT
+4. Crew/contractor hiring (extra hands on set, delivery-type jobs)
+5. COI ISSUANCE via a licensed insurance API partner
+6. Site redesign (Answer Print migration + design iteration)
 
 The MVP DOES NOT:
 - handle physical logistics
 - own warehouses
 - provide trucking
-- issue insurance
+- underwrite or bind insurance itself (a licensed API partner issues COIs;
+  Prop Haus is the workflow and integration layer)
 - provide financing
 - guarantee payments
 - manage returns
@@ -59,8 +80,10 @@ Users can:
 - Browse aggregated prop inventory from multiple vendors in a city
 - Search inventory naturally using AI-assisted search
 - Build carts from multiple vendors simultaneously
-- Submit a single "project request"
-- Receive consolidated proposal/invoice workflows
+- Check out in ONE CLICK (order details live on the org profile, so checkout
+  has nothing to ask)
+- Hire crew/contractors for extra hands on set and delivery-type jobs
+- Get COIs issued per vendor through an insurance API partner
 - Manage production sourcing in one place
 
 The product should feel like:
@@ -107,28 +130,46 @@ Example:
 - lamps from Prop N Spoon
 - decor from Eclectic
 
-The cart is NOT a direct ecommerce checkout.
-
-It is a:
-- sourcing request
-- procurement request
-- project assembly workflow
+The cart is a project assembly workflow that ends in a ONE-CLICK checkout —
+not a multi-step ecommerce funnel, and not a mere inquiry form.
 
 ---
 
-## 3. Project Request
+## 3. One-Click Checkout
 
-User submits:
-- rental dates
-- production details
+Checkout is a single action. Everything an order needs lives on the org's
+profile ahead of time:
+- production/company details
 - contact info
-- optional notes/moodboards
+- rental date defaults
+- (later) payment method and insurance profile
+
+User clicks once → an order is created with all cart items snapshotted.
 
 The backend then:
-- fans out availability requests to vendors
-- coordinates vendor responses
+- records the order and per-vendor line items
+- coordinates vendor availability/confirmation (initially manual or
+  email-driven)
+- triggers COI issuance per vendor (see section 5)
 - tracks item statuses
-- consolidates invoice/proposal information
+
+Payment capture is stubbed behind a provider interface in the MVP — the flow
+is real, the payment rails come later.
+
+---
+
+## 3b. Crew / Contractor Hiring
+
+Productions can hire extra hands directly in the platform:
+- delivery and pickup runs
+- load-in / load-out labor
+- set dressing assistance
+- general on-set help
+
+MVP shape: a curated contractor directory (/crew) with a request-to-hire
+flow. NOT a full labor marketplace — no payouts, scheduling, or contractor
+self-signup yet. This is the seed of booking ALL vendor categories later
+(catering, styling, makeup — see Expansion Opportunities).
 
 ---
 
@@ -150,32 +191,27 @@ The MVP does NOT require vendor APIs.
 
 ---
 
-## 5. COI / Compliance Coordination
+## 5. COI Issuance (via insurance API partner)
 
-The platform should help centralize:
-- insurance requirements
-- COI requests
-- vendor compliance requirements
-- certificate tracking
+STRATEGY CHANGE (Aug 2026): COI issuance is IN the MVP. Prop Haus partners
+with a licensed insurance API to issue COIs directly in-product — this
+replaces the old "coordination-only" stance.
 
-IMPORTANT:
-The platform DOES NOT issue insurance.
+The flow:
+- store the production's insurance profile on the org
+- store per-vendor COI requirements as data
+- evaluate coverage compatibility against each vendor's requirements
+- issue COIs per vendor through the partner API (triggered at checkout or
+  manually)
+- track issued certificates (status, expiry, documents)
 
-The platform is only:
-- workflow software
-- compliance coordination
-- document automation
+Division of responsibility — this matters for legal/copy:
+- The PARTNER underwrites, binds, and issues coverage.
+- Prop Haus is the workflow, data, and integration layer.
+- UI copy must never claim Prop Haus is the insurer or broker.
 
-The MVP may:
-- store vendor COI requirements
-- store production insurance info
-- generate structured requests
-- automate communication with brokers/vendors
-
-The platform should NOT:
-- claim to issue insurance
-- bind coverage
-- act as insurer/broker
+Until the partner API is selected, the flow is built behind a provider
+interface with a mock implementation (see TASKS.md · MVP-4).
 
 ---
 
@@ -264,12 +300,35 @@ Potential future layer:
 NOT part of MVP.
 
 ## Insurance Infrastructure
-Potential future layer:
-- automated COI workflows
+COI issuance via API partner is NOW PART OF THE MVP (see MVP Scope).
+Still future:
 - broker integrations
-- embedded insurance coordination
+- deeper embedded insurance products
+- underwriting/risk systems
 
-NOT part of MVP.
+## Vendor Category Expansion (FUT-1 in TASKS.md)
+Book every production vendor category, not just props and crew:
+- catering
+- styling
+- hair/makeup
+- equipment
+- location support
+
+The MVP crew/contractor model is the seed — its schema should generalize by
+category. NOT part of MVP.
+
+## Spacelab 3D Set Preview (FUT-2 in TASKS.md)
+Integration with Spacelab (separate repo: mHaines9219/spacelab, local at
+/Users/matthewhaines/z_code/spacelab) — a browser-based 3D room studio
+(Rust/WASM scene core + React/three.js). After checkout, users can arrange
+their ordered items in a 3D room:
+- each cart item's photo is converted to a GLB model via an image-to-3D
+  service (generated once per catalog item, cached)
+- generated models publish to a Spacelab-loadable catalog
+- an order becomes a pre-staged Spacelab scene the user opens in one click
+
+Requires cross-repo work in Spacelab (remote catalog loading, deployment).
+NOT part of MVP. Full pipeline spec in TASKS.md.
 
 ## Logistics Layer
 Potential future layer:
