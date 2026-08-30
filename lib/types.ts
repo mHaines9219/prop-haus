@@ -123,14 +123,26 @@ export type PropItem = z.infer<typeof PropItem>;
 export const Catalog = z.array(PropItem);
 export type Catalog = z.infer<typeof Catalog>;
 
-// Minimal shape the grid/cards actually render. List endpoints project full
-// PropItems down to this so list payloads ship ~a tenth of the bytes — no
-// enrichment arrays, description, dimensions, price, vendor blob, or the extra
-// image URLs. PropItem is structurally assignable to CardItem, so anything that
-// already holds a full item can be passed straight to an <ItemCard>.
+// Minimal shape the grid/cards actually render. Extended beyond the original
+// id/source/sourceId/name/subcategory/images to carry the fields the card
+// placard and quick-add gesture need:
+//   - category + sourceUrl: required by the cart store add() signature
+//   - price + dimensions: the "camera report" data line (DESIGN.md §9.4.3)
+//   - plateMode: wires the correct LightWell blend mode (DESIGN.md §4)
+// PropItem is structurally assignable to CardItem.
 export type CardItem = Pick<
   PropItem,
-  'id' | 'source' | 'sourceId' | 'name' | 'subcategory' | 'images' | 'plateMode'
+  | 'id'
+  | 'source'
+  | 'sourceId'
+  | 'name'
+  | 'subcategory'
+  | 'images'
+  | 'category'
+  | 'sourceUrl'
+  | 'price'
+  | 'dimensions'
+  | 'plateMode'
 >;
 
 // ---------- Multimodal Ask AI ----------

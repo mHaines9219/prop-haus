@@ -17,7 +17,7 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseCatalogItems, describeRejections } from "./catalog-parse";
-import type { CardItem, PropItem } from "./types";
+import type { CardItem, PropItem, PriceUnit } from "./types";
 
 /** Columns a full PropItem needs. Excludes embedding and search_tsv by omission. */
 const FULL_COLUMNS =
@@ -25,8 +25,10 @@ const FULL_COLUMNS =
   "style,era,materials,colors,vibes,setting_type,genre_fit,tags,dimensions,vendor," +
   "images,source_url,scraped_at,price_amount,price_currency,price_unit";
 
-/** What a card renders. #9 trimmed list payloads to this; keep it that way. */
-const CARD_COLUMNS = "id,source,source_id,name,subcategory,images";
+/** What a card renders. Extended to carry camera-report data and cart fields. */
+const CARD_COLUMNS =
+  "id,source,source_id,name,subcategory,images," +
+  "category,source_url,plate_mode,dimensions,price_amount,price_currency,price_unit";
 
 let client: SupabaseClient | null = null;
 
@@ -50,9 +52,20 @@ type CardRow = {
   name: string;
   subcategory: string | null;
   images: string[] | null;
+  category: string;
+  source_url: string;
+  plate_mode: string | null;
+  dimensions: { width?: number; depth?: number; height?: number; unit?: 'in' } | null;
+  price_amount: string | null;
+  price_currency: string | null;
+  price_unit: string | null;
 };
 
 function rowToCard(row: CardRow): CardItem {
+  const amount =
+    row.price_amount === null || row.price_amount === undefined
+      ? undefined
+      : Number(row.price_amount);
   return {
     id: row.id,
     source: row.source as CardItem["source"],
@@ -60,6 +73,18 @@ function rowToCard(row: CardRow): CardItem {
     name: row.name,
     subcategory: row.subcategory ?? undefined,
     images: (row.images ?? []).slice(0, 1),
+    category: row.category,
+    sourceUrl: row.source_url,
+    plateMode: (row.plate_mode as "cutout" | "photo" | null) ?? undefined,
+    dimensions: row.dimensions ? { ...row.dimensions, unit: 'in' as const } : undefined,
+    price:
+      amount === undefined
+        ? undefined
+        : {
+            amount,
+            currency: row.price_currency ?? "USD",
+            unit: (row.price_unit as PriceUnit | null) ?? undefined,
+          },
   };
 }
 

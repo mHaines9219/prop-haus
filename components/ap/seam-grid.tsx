@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion } from 'motion/react';
+import { cn } from '@/lib/utils';
 
 /**
  * The ruled contact sheet (DESIGN.md sections 6, 9.3): grid cells share single
@@ -25,8 +26,17 @@ const STAGGER_CAP = 12;
  * grid-arrive (DESIGN.md section 8): light comes up per cell, never flies in.
  * `index` is the item's position in the flat list; the modulo keeps the stagger
  * bounded so infinite-scroll appends animate in their own wave.
+ * `marquee`: spans 2×2 in the grid (home page lead frame, DESIGN.md v1.1 §9.2).
  */
-export function GridCell({ index, children }: { index: number; children: React.ReactNode }) {
+export function GridCell({
+  index,
+  children,
+  marquee,
+}: {
+  index: number;
+  children: React.ReactNode;
+  marquee?: boolean;
+}) {
   const reduce = useReducedMotion();
   return (
     <motion.div
@@ -38,7 +48,7 @@ export function GridCell({ index, children }: { index: number; children: React.R
         damping: 34,
         delay: Math.min(index % STAGGER_SPAN, STAGGER_CAP) * 0.04,
       }}
-      className="bg-background"
+      className={cn('bg-background', marquee && 'col-span-2 row-span-2')}
     >
       {children}
     </motion.div>

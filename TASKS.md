@@ -249,11 +249,7 @@ wiring, claims handling, broker workflows, W9/general document management.
 
 ### MVP-5 · REDESIGN — Site redesign
 
-**Status:** Part A done — mHaines9219/hyderabad. All legacy pages migrated to
-Answer Print: `/search`, `/item`, `/category/[slug]`, `/projects`,
-`/projects/[id]`, `/login`. Only `/cart` remains in `app/(legacy)/` (owned by
-MVP-3 — skip). Astryx imports retained in `app/layout.tsx` until MVP-3 clears
-`/cart`. Part B open (needs Matthew's direction).
+**Status:** Part A done — mHaines9219/hyderabad. Part B in progress — mHaines9219/sofia (see docs/design-direction-mvp5b.md for direction; implementing punch list).
 **Priority:** high
 **Depends on:** nothing
 
@@ -283,7 +279,7 @@ direction arrives, changes go through DESIGN.md first, then components.
 
 ### MVP-6 · BACKEND-OPT — Backend optimization (competitor API analysis)
 
-**Status:** blocked — waiting on competitor captures + context from Matthew
+**Status:** in progress — mHaines9219/sofia (our-side analysis + capture intake done; compare/contrast still needs Matthew's captures — drop them in docs/competitor-captures/)
 **Priority:** medium
 **Depends on:** incoming material from Matthew. Do not start until it lands.
 
