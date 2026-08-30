@@ -1,14 +1,137 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap');
-
 /*
- * Astryx design system owns the reset + component + theme-token layers; they are
- * imported (in cascade order) from app/layout.tsx before this file. Tailwind's
- * own preflight is disabled in tailwind.config.ts so the two resets don't fight.
- * Tailwind here provides layout utilities + the legacy palette for pages not yet
- * migrated to Astryx components.
+ * Tailwind v4, imported without preflight: Astryx (@astryxdesign/core/reset.css,
+ * loaded from app/layout.tsx) still owns the reset while legacy pages migrate.
+ *
+ * Design language: ANSWER PRINT (see DESIGN.md). Dark-first screening-room
+ * palette; photos live in light wells; tally red is signal, never "go".
  */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
 
-body { font-family: 'DM Sans', system-ui, sans-serif; }
+:root {
+  /* surfaces */
+  --background: #0f0f10;
+  --foreground: #ededef;
+  --card: #161618;
+  --card-foreground: #ededef;
+  --popover: #232327;
+  --popover-foreground: #ededef;
+  --surface-inset: #1c1c1f;
+
+  /* actions: the beam button is primary; red is signal, never go */
+  --primary: #ededef;
+  --primary-foreground: #0f0f10;
+  --primary-hover: #f4f4f6;
+  --secondary: #1c1c1f;
+  --secondary-foreground: #a7a7ae;
+  --muted: #1c1c1f;
+  --muted-foreground: #8e8e97;
+  --accent: #d25446; /* tally, fill tier */
+  --accent-foreground: #0f0f10;
+  --accent-text: #e08573; /* tally, text tier: AA at small sizes on canvas */
+  --destructive: #d25446;
+  --destructive-foreground: #0f0f10;
+  --destructive-wash: #2a1617;
+
+  /* structure */
+  --border: #26262a;
+  --border-strong: #3a3a40;
+  --input: #1c1c1f;
+  --ring: #d25446;
+
+  /* light wells */
+  --plate: #e9e9eb;
+  --plate-lit: #f4f4f6;
+  --well-scrim-opacity: 0.06;
+  --well-inset: 8%;
+
+  /* workflow status (dots only; labels use secondary / accent-text) */
+  --status-pending: #8e8e96;
+  --status-quoted: #e3b341;
+  --status-confirmed: #58a87c;
+  --status-unavailable: #d25446;
+
+  /* text tiers */
+  --text-secondary: #a7a7ae;
+  --text-tertiary: #8e8e97;
+  --text-disabled: #5a5a62;
+
+  /* overlay */
+  --scrim: #08080a;
+  --shadow-overlay: 0 24px 64px rgba(8, 8, 10, 0.55);
+
+  --radius: 2px; /* nested objects; structural chrome is 0 */
+}
+
+@theme inline {
+  /* colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface-inset: var(--surface-inset);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-text: var(--accent-text);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-wash: var(--destructive-wash);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-plate: var(--plate);
+  --color-plate-lit: var(--plate-lit);
+  --color-status-pending: var(--status-pending);
+  --color-status-quoted: var(--status-quoted);
+  --color-status-confirmed: var(--status-confirmed);
+  --color-status-unavailable: var(--status-unavailable);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-disabled: var(--text-disabled);
+  --color-scrim: var(--scrim);
+
+  /* fonts (wired to next/font variables set on <html>) */
+  --font-display: var(--font-anybody), 'Anybody', sans-serif;
+  --font-sans: var(--font-switzer), 'Switzer', system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), 'Spline Sans Mono', monospace;
+
+  /* radius: dual rule (0 structural / 2px nested / full avatars only) */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+
+  /* motion */
+  --ease-reveal: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-attend: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-switzer), 'Switzer', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scoped to redesigned surfaces so legacy Astryx pages keep their light chrome. */
+  [data-theme='answer-print'] {
+    color-scheme: dark;
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  [data-theme='answer-print'] :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

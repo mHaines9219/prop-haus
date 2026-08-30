@@ -96,7 +96,7 @@ export default function CartPage() {
                       className="h-20 w-20 object-cover"
                     />
                   ) : (
-                    <span className="block h-20 w-20 bg-muted" />
+                    <span className="block h-20 w-20 bg-[#E5E0D8]" />
                   )}
                 </Link>
               }
