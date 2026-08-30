@@ -351,6 +351,28 @@ The moat is:
 Prop Haus should become:
 "the operating system for production sourcing."
 
+# Design Language: ANSWER PRINT (Aug 2026 redesign)
+
+The UI is migrating to the ANSWER PRINT design language. The full spec lives in
+DESIGN.md at the repo root: tokens, color system, the light-well image
+treatment, typography, motion patterns, and per-surface component specs. Dark
+first, cinematic, balanced neo-brutalist.
+
+- Stack for new and redesigned surfaces: Tailwind v4 (tokens via @theme in
+  app/globals.css) + shadcn conventions (components.json, lib/utils cn) +
+  KokonutUI registry (npx shadcn add @kokonutui/<name>, always restyled to the
+  language, never default) + Motion (import from "motion/react").
+- Fonts: Anybody (display, Google), Switzer (body, self-hosted in app/fonts),
+  Spline Sans Mono (all data/numbers). Loaded via next/font in app/layout.tsx.
+- Answer Print components live in components/ap/. The home page (app/page.tsx)
+  is the reference implementation.
+- Legacy pages live in app/(legacy)/ and still use Astryx (rules below). Do
+  NOT build new surfaces with Astryx. When touching a legacy page, prefer
+  migrating it to Answer Print and moving it out of (legacy).
+- Every inventory photo renders inside a LightWell
+  (components/ap/light-well.tsx), never as a bare image tile. This is the
+  signature move of the language; see DESIGN.md section 4.
+
 <!-- ASTRYX:START -->
 Astryx v0.1.8 · 153 components
 CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
