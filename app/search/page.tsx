@@ -30,6 +30,7 @@ function SearchInner() {
   const params = useSearchParams();
   const urlQuery = params.get('q') ?? '';
   const wantsAI = params.get('ai') === '1';
+  const urlBudget = params.get('budget') ? Number(params.get('budget')) : null;
 
   const qc = useQueryClient();
 
@@ -68,14 +69,18 @@ function SearchInner() {
     onError: () => qc.invalidateQueries({ queryKey: ['usage'] }),
   });
 
-  // Text AI search is driven by the URL (?ai=1). Fire once per distinct query.
+  // Text AI search is driven by the URL (?ai=1). Fire once per distinct query+budget combo.
   const lastAiRun = useRef<string | null>(null);
   useEffect(() => {
-    if (wantsAI && urlQuery && lastAiRun.current !== urlQuery) {
-      lastAiRun.current = urlQuery;
-      ai.mutate(urlQuery);
+    const runKey = `${urlQuery}::${urlBudget ?? ''}`;
+    if (wantsAI && urlQuery && lastAiRun.current !== runKey) {
+      lastAiRun.current = runKey;
+      const queryWithBudget = urlBudget
+        ? `${urlQuery}\n\nBudget: $${urlBudget.toLocaleString()}`
+        : urlQuery;
+      ai.mutate(queryWithBudget);
     }
-  }, [wantsAI, urlQuery, ai]);
+  }, [wantsAI, urlQuery, urlBudget, ai]);
 
   // A text search (URL change) always supersedes an in-memory moodboard result.
   // goText resets this synchronously; the effect is the backstop for any other
@@ -84,9 +89,12 @@ function SearchInner() {
     setMoodboardActive(false);
   }, [urlQuery, wantsAI]);
 
-  const goText = (q: string, engine: 'keyword' | 'ai') => {
+  const goText = (q: string, engine: 'keyword' | 'ai', budget?: number | null) => {
     setMoodboardActive(false);
-    router.push(`/search?q=${encodeURIComponent(q)}${engine === 'ai' ? '&ai=1' : ''}`);
+    const p = new URLSearchParams({ q });
+    if (engine === 'ai') p.set('ai', '1');
+    if (budget) p.set('budget', String(budget));
+    router.push(`/search?${p.toString()}`);
   };
 
   const showAi = wantsAI || moodboardActive;
