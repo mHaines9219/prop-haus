@@ -20,7 +20,9 @@ const STAGGER_CAP = 12;
  * Ruled contact-sheet browse (DESIGN.md section 9.3): sticky filter rail of
  * edge-to-edge rows, grid cells sharing 1px hairline seams (gap-px over a
  * border-colored track), mono running count, spring-staggered cell arrival.
- * Query logic is carried over from components/browse-grid.tsx unchanged.
+ *
+ * showMarquee: home page only — the first photo-mode item (or first item) spans
+ * 2×2 in the ruled grid (DESIGN.md v1.1 §9.2).
  */
 export function BrowseGrid({
   categories,
@@ -28,12 +30,14 @@ export function BrowseGrid({
   initialItems,
   totalCatalog,
   vendorCount,
+  showMarquee = false,
 }: {
   categories: CategoryOpt[];
   vendors: VendorOpt[];
   initialItems: CardItem[];
   totalCatalog: number;
   vendorCount: number;
+  showMarquee?: boolean;
 }) {
   const [category, setCategory] = useState<string | null>(null);
   const [vendor, setVendor] = useState<string | null>(null);
@@ -42,10 +46,15 @@ export function BrowseGrid({
 
   const query = useInfiniteQuery({
     queryKey: ['browse', category, vendor],
-    enabled: filterActive,
     staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
     initialPageParam: 0,
+    // Seed the unfiltered view with server-side data so the first render has
+    // items immediately and the "load more" button works without a filter.
+    initialData: !filterActive
+      ? { pages: [{ items: initialItems, total: totalCatalog }], pageParams: [0] }
+      : undefined,
+    initialDataUpdatedAt: Date.now(),
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (category) params.set('category', category);
@@ -61,10 +70,9 @@ export function BrowseGrid({
     },
   });
 
-  const items = filterActive ? (query.data?.pages.flatMap((p) => p.items) ?? []) : initialItems;
-  const total = filterActive ? (query.data?.pages[0]?.total ?? 0) : initialItems.length;
-  const loading = filterActive && query.isFetching && !query.isFetchingNextPage;
-  const hasMore = filterActive && query.hasNextPage;
+  const items = query.data?.pages.flatMap((p) => p.items) ?? initialItems;
+  const total = query.data?.pages[0]?.total ?? totalCatalog;
+  const loading = query.isFetching && !query.isFetchingNextPage && items.length === 0;
 
   const toggleCategory = (slug: string) => setCategory((c) => (c === slug ? null : slug));
   const toggleVendor = (id: string) => setVendor((v) => (v === id ? null : id));
@@ -84,7 +92,11 @@ export function BrowseGrid({
     ? [`${total.toLocaleString()} ${total === 1 ? 'item' : 'items'}`, activeCategoryName, activeVendorName]
         .filter(Boolean)
         .join(', ')
-    : `${totalCatalog.toLocaleString()} pieces across ${vendorCount} houses`;
+    : `${total.toLocaleString()} pieces across ${vendorCount} houses`;
+
+  // Marquee item: first photo-mode item on home page only; not shown when filtering.
+  const photoIdx = showMarquee && !filterActive ? items.findIndex((i) => i.plateMode === 'photo') : -1;
+  const marqueeIndex = showMarquee && !filterActive ? (photoIdx >= 0 ? photoIdx : 0) : -1;
 
   return (
     <section className="mx-auto w-full max-w-[1600px] px-4 pb-24 sm:px-6">
@@ -134,7 +146,7 @@ export function BrowseGrid({
             )}
           </div>
 
-          {/* Mobile filter chips (rail is hidden on small screens) */}
+          {/* Mobile filter chips */}
           <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 md:hidden">
             {categories.map((c) => (
               <button
@@ -152,7 +164,7 @@ export function BrowseGrid({
             ))}
           </div>
 
-          {loading && items.length === 0 ? (
+          {loading ? (
             <SeamGrid>
               {Array.from({ length: PAGE }, (_, i) => (
                 <ItemCardSkeleton key={i} />
@@ -177,12 +189,12 @@ export function BrowseGrid({
             <>
               <SeamGrid>
                 {items.map((item, i) => (
-                  <GridCell key={item.id} index={i}>
-                    <ItemCard item={item} />
+                  <GridCell key={item.id} index={i} marquee={i === marqueeIndex}>
+                    <ItemCard item={item} marquee={i === marqueeIndex} />
                   </GridCell>
                 ))}
               </SeamGrid>
-              {hasMore && (
+              {query.hasNextPage && (
                 <div className="mt-10 flex justify-center">
                   <button
                     onClick={() => query.fetchNextPage()}
@@ -211,7 +223,15 @@ function SeamGrid({ children }: { children: React.ReactNode }) {
 }
 
 /** grid-arrive (DESIGN.md section 8): light comes up, cells never fly in. */
-function GridCell({ index, children }: { index: number; children: React.ReactNode }) {
+function GridCell({
+  index,
+  children,
+  marquee,
+}: {
+  index: number;
+  children: React.ReactNode;
+  marquee?: boolean;
+}) {
   const reduce = useReducedMotion();
   return (
     <motion.div
@@ -223,7 +243,7 @@ function GridCell({ index, children }: { index: number; children: React.ReactNod
         damping: 34,
         delay: Math.min(index % PAGE, STAGGER_CAP) * 0.04,
       }}
-      className="bg-background"
+      className={cn('bg-background', marquee && 'col-span-2 row-span-2')}
     >
       {children}
     </motion.div>

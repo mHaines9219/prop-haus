@@ -39,7 +39,7 @@ export default async function HomePage() {
       <SiteNav />
       <main className="flex-1">
         <section>
-          <div className="mx-auto w-full max-w-[1600px] px-4 pb-16 pt-16 sm:px-6 md:pt-24">
+          <div className="mx-auto w-full max-w-[1600px] px-4 pb-10 pt-10 sm:px-6 md:pt-14">
             <div className="max-w-[880px]">
               <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
                 Los Angeles inventory
@@ -71,6 +71,7 @@ export default async function HomePage() {
           initialItems={featured}
           totalCatalog={facets.total}
           vendorCount={vendors.length}
+          showMarquee
         />
       </main>
       <SiteFooter />

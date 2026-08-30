@@ -18,6 +18,11 @@ export function toCardItem(item: PropItem): CardItem {
     name: item.name,
     subcategory: item.subcategory,
     images: item.images.slice(0, 1),
+    category: item.category,
+    sourceUrl: item.sourceUrl,
+    price: item.price,
+    dimensions: item.dimensions,
+    plateMode: item.plateMode,
   };
 }
 

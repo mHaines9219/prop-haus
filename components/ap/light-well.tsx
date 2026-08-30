@@ -19,6 +19,7 @@ export function LightWell({
   sizes,
   mode = 'cutout',
   lit = false,
+  fill = false,
   name,
   className,
 }: {
@@ -29,6 +30,8 @@ export function LightWell({
   mode?: 'cutout' | 'photo';
   /** Pin the lit plate on (item-detail hero); disables the rest scrim. */
   lit?: boolean;
+  /** Drop the 4:5 aspect ratio and fill the parent container instead (marquee cell). */
+  fill?: boolean;
   /** Shown on the bare plate when the image is missing or fails. */
   name?: string;
   className?: string;
@@ -40,7 +43,8 @@ export function LightWell({
   return (
     <div
       className={cn(
-        'relative isolate aspect-[4/5] overflow-hidden rounded-sm border border-border bg-surface-inset',
+        'relative isolate overflow-hidden rounded-sm border border-border bg-surface-inset',
+        fill ? 'h-full w-full' : 'aspect-[4/5]',
         className,
       )}
     >
