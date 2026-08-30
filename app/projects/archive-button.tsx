@@ -2,7 +2,6 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Button } from '@astryxdesign/core/Button';
 import { postJson } from '@/lib/api';
 
 export function ArchiveButton({
@@ -20,17 +19,17 @@ export function ArchiveButton({
   });
 
   return (
-    <Button
-      label={isArchived ? 'Restore' : 'Archive'}
-      size="sm"
-      variant="secondary"
-      isDisabled={mutation.isPending}
-      // The row itself is a link; without this the click would also navigate.
+    <button
+      type="button"
+      disabled={mutation.isPending}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         mutation.mutate(!isArchived);
       }}
-    />
+      className="h-8 rounded-sm border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground disabled:opacity-40"
+    >
+      {isArchived ? 'Restore' : 'Archive'}
+    </button>
   );
 }

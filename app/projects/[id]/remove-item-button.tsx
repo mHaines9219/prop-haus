@@ -2,7 +2,6 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Button } from '@astryxdesign/core/Button';
 import { deleteJson } from '@/lib/api';
 
 export function RemoveItemButton({ projectId, itemId }: { projectId: string; itemId: string }) {
@@ -14,12 +13,13 @@ export function RemoveItemButton({ projectId, itemId }: { projectId: string; ite
   });
 
   return (
-    <Button
-      label="Remove"
-      size="sm"
-      variant="ghost"
-      isDisabled={mutation.isPending}
+    <button
+      type="button"
+      disabled={mutation.isPending}
       onClick={() => mutation.mutate()}
-    />
+      className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:text-accent disabled:opacity-40"
+    >
+      Remove
+    </button>
   );
 }
