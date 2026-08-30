@@ -4,9 +4,9 @@ import { SiteNav } from './site-nav';
 
 /**
  * Standard Answer Print page frame: the velvet-black canvas, the 56px nav, and
- * the footer credit. Migrated pages render their own chrome (they no longer sit
- * under the Astryx legacy layout), so this is the shared shell they all use.
- * The home page keeps its own bespoke layout; everything else composes this.
+ * the footer credit. Every page renders its own chrome through this shared
+ * shell. The home page keeps its own bespoke layout; everything else composes
+ * this.
  */
 export function PageShell({
   children,

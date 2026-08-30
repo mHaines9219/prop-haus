@@ -1,7 +1,3 @@
-// Astryx layers are retained for app/(legacy)/cart, which has not yet migrated.
-import '@astryxdesign/core/reset.css';
-import '@astryxdesign/core/astryx.css';
-import '@astryxdesign/theme-stone/theme.css';
 import './globals.css';
 
 import type { Metadata } from 'next';
@@ -39,7 +35,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${anybody.variable} ${switzer.variable} ${splineMono.variable}`}>
+    // suppressHydrationWarning: next-themes sets the theme class on <html>
+    // before hydration, which the server render can't know about.
+    <html
+      lang="en"
+      className={`${anybody.variable} ${switzer.variable} ${splineMono.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <Providers>{children}</Providers>
       </body>
