@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { createClient } from '@/lib/supabase/client';
+import { ThemeToggle } from './theme-toggle';
 
 const NAV = [
   { label: 'Seating', href: '/category/seating' },
@@ -46,6 +47,7 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-5">
+          <ThemeToggle />
           <CartLink />
           <AuthControl />
         </div>
@@ -90,8 +92,7 @@ function CartLink() {
 
 function AuthControl() {
   // null = unknown; render nothing rather than flash the wrong control.
-  // Same client-side pattern as components/auth-button.tsx and for the same
-  // reason: this chrome wraps statically generated pages.
+  // Client-side because this chrome wraps statically generated pages.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {

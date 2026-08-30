@@ -15,8 +15,7 @@ const SUGGESTIONS = [
   'victorian drawing room',
 ];
 
-// First surface migrated to the Answer Print design language (DESIGN.md).
-// Legacy pages keep the Astryx chrome via app/(legacy)/layout.tsx.
+// Reference implementation of the Answer Print design language (DESIGN.md).
 export default async function HomePage() {
   // Counts come from the precomputed facet view rather than a live GROUP BY —
   // aggregating 90k rows per request exceeded the statement timeout at 3.2s.

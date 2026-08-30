@@ -412,53 +412,27 @@ Prop Haus should become:
 
 # Design Language: ANSWER PRINT (Aug 2026 redesign)
 
-The UI is migrating to the ANSWER PRINT design language. The full spec lives in
+ALL UI uses the ANSWER PRINT design language. The full spec lives in
 DESIGN.md at the repo root: tokens, color system, the light-well image
 treatment, typography, motion patterns, and per-surface component specs. Dark
 first, cinematic, balanced neo-brutalist.
 
-- Stack for new and redesigned surfaces: Tailwind v4 (tokens via @theme in
-  app/globals.css) + shadcn conventions (components.json, lib/utils cn) +
-  KokonutUI registry (npx shadcn add @kokonutui/<name>, always restyled to the
-  language, never default) + Motion (import from "motion/react").
+- Stack: Tailwind v4 (tokens via @theme in app/globals.css) + shadcn
+  conventions (components.json, lib/utils cn) + KokonutUI registry
+  (npx shadcn add @kokonutui/<name>, always restyled to the language, never
+  default) + Motion (import from "motion/react").
 - Fonts: Anybody (display, Google), Switzer (body, self-hosted in app/fonts),
   Spline Sans Mono (all data/numbers). Loaded via next/font in app/layout.tsx.
 - Answer Print components live in components/ap/. The home page (app/page.tsx)
   is the reference implementation.
-- Legacy pages live in app/(legacy)/ and still use Astryx (rules below). Do
-  NOT build new surfaces with Astryx. When touching a legacy page, prefer
-  migrating it to Answer Print and moving it out of (legacy).
 - Every inventory photo renders inside a LightWell
   (components/ap/light-well.tsx), never as a bare image tile. This is the
   signature move of the language; see DESIGN.md section 4.
+- Theming: dark is the default. next-themes (wired in app/providers.tsx)
+  toggles a `.light` class on <html>; light token overrides live in
+  app/globals.css next to the dark :root block. Any new color token needs a
+  value in BOTH blocks. The toggle lives in components/ap/site-nav.tsx.
+- Astryx (the previous design system) was FULLY REMOVED in Aug 2026 — no
+  @astryxdesign dependencies, no `astryx` CLI, no app/(legacy)/. Never
+  reintroduce it; ignore stale references in old docs or git history.
 
-<!-- ASTRYX:START -->
-Astryx v0.1.8 · 153 components
-CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
-
-SETUP (once, in your app entry e.g. main.tsx) — without these, components render unstyled:
-  import "@astryxdesign/core/reset.css";
-  import "@astryxdesign/core/astryx.css";
-
-WORKFLOW — discover, don't guess. Before writing UI:
-1. `astryx build "<idea>"` — START HERE: returns a kit (closest [page] + [block]s + [component]s). No args = full playbook.
-2. `astryx template <name> [--skeleton]` — scaffold the [page]/[block]s it named, or study their layout. Templates are reference code.
-3. `astryx component <Name>` — props + examples for every component you use.
-
-RULES:
-- No <div> — components do all layout/spacing. Full page → AppShell; sidebar nav → SideNav.
-- Frame first: pick the shell (AppShell / Layout+LayoutPanel) and budget regions in px BEFORE writing content (`astryx docs layout`).
-- Dense data = rows (Table, List/Item) edge-to-edge — never Card-wrapped list items. Card = dashboard widgets, galleries, settings groups only.
-- Status → StatusDot/Token; Badge only for counts and enumerated states, never decoration.
-- Custom styling: component props first; else Tailwind utilities backed by tokens (bg-surface, text-primary, rounded-lg) via tailwind-theme.css. No raw hex/px.
-- Tokens for every value (`astryx docs tokens`). Brand/accent via `astryx theme` — never override --color-* in :root.
-- SELF-CHECK before you finish: re-read the file and replace any style={{…}}, raw <div>/<span> layout, imported .css/@apply, or hardcoded/arbitrary value (e.g. bg-[#fff], p-[13px]) with the component or a token-backed utility. If unsure a component/prop exists, run `astryx component <Name>` / `astryx search "<thing>"`; don't hand-roll CSS.
-
-MORE CLI:
-  search "<query>"   find any component / hook / doc / template / block
-  component --list   153 components by category
-  template --list    page + block recipes
-  docs <topic>       color, elevation, icons, illustrations, internationalization, layout, migration, motion, principles, shape, spacing, styling, theme, tokens, typography
-  swizzle <Name>     eject component source for deep customization
-  upgrade --apply    run after any @astryxdesign/core bump
-<!-- ASTRYX:END -->

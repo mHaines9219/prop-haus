@@ -1,13 +1,17 @@
 /*
- * Tailwind v4, imported without preflight: Astryx (@astryxdesign/core/reset.css,
- * loaded from app/layout.tsx) still owns the reset while legacy pages migrate.
- *
  * Design language: ANSWER PRINT (see DESIGN.md). Dark-first screening-room
  * palette; photos live in light wells; tally red is signal, never "go".
+ *
+ * Theming: dark tokens live on :root; next-themes toggles a .light class on
+ * <html> whose overrides win by source order. next-themes also sets
+ * color-scheme on <html> (inherited), so no rule here should set it.
  */
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   /* surfaces */
@@ -62,6 +66,53 @@
   --shadow-overlay: 0 24px 64px rgba(8, 8, 10, 0.55);
 
   --radius: 2px; /* nested objects; structural chrome is 0 */
+}
+
+/*
+ * Light mode: the paper print of the same grade. Canvas flips to warm paper,
+ * ink replaces the beam, tally red deepens to hold AA on light ground. Light
+ * wells (--plate*) keep their :root values — a lit plate reads in both modes.
+ */
+:root.light {
+  --background: #f2f2f0;
+  --foreground: #141416;
+  --card: #fafaf9;
+  --card-foreground: #141416;
+  --popover: #ffffff;
+  --popover-foreground: #141416;
+  --surface-inset: #e7e7e5;
+
+  --primary: #141416;
+  --primary-foreground: #f4f4f6;
+  --primary-hover: #26262a;
+  --secondary: #e7e7e5;
+  --secondary-foreground: #55555c;
+  --muted: #e7e7e5;
+  --muted-foreground: #6b6b73;
+  --accent: #c24437;
+  --accent-foreground: #fbfbfa;
+  --accent-text: #b03a2e;
+  --destructive: #c24437;
+  --destructive-foreground: #fbfbfa;
+  --destructive-wash: #f6e3e0;
+
+  --border: #dcdcda;
+  --border-strong: #bcbcc0;
+  --input: #e7e7e5;
+  --ring: #c24437;
+
+  --well-scrim-opacity: 0.04;
+
+  --status-pending: #6b6b73;
+  --status-quoted: #9c7a14;
+  --status-confirmed: #257a4e;
+  --status-unavailable: #c24437;
+
+  --text-secondary: #4c4c54;
+  --text-tertiary: #6b6b73;
+  --text-disabled: #a3a3ab;
+
+  --shadow-overlay: 0 24px 64px rgba(20, 20, 22, 0.18);
 }
 
 @theme inline {
@@ -123,9 +174,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Scoped to redesigned surfaces so legacy Astryx pages keep their light chrome. */
   [data-theme='answer-print'] {
-    color-scheme: dark;
     background: var(--background);
     color: var(--foreground);
   }

@@ -11,7 +11,7 @@ without further briefing.
   and commit that change early so other agents see it.
 - When you finish, set `Status` to `done — PR #<n>`.
 - All new UI is Answer Print (see CLAUDE.md "Design Language" + DESIGN.md).
-  Never build new surfaces with Astryx.
+  Astryx was fully removed Aug 2026 — never reintroduce it.
 - Migrations: files in `supabase/migrations/` are timestamp-ordered. Use the
   current date/time for new migration filenames to avoid collisions with
   parallel agents.
@@ -152,7 +152,7 @@ with real order records, with payment capture stubbed behind an interface.
 **Current state:**
 - Cart: `lib/cart-store.ts` — client-only Zustand store persisted to
   localStorage. Lines carry item id/source/name/images/sourceUrl/category.
-- Cart page: `app/(legacy)/cart/page.tsx` is an Astryx stub.
+- Cart page: `app/cart/page.tsx` (Answer Print).
 - There is NO checkout, order model, or payment integration. A previous
   quote/vendor-request workflow was intentionally removed in
   `supabase/migrations/20260829130000_strip_workflow_to_folders.sql` — read it
@@ -255,20 +255,18 @@ wiring, claims handling, broker workflows, W9/general document management.
 
 **Context.** We are still not happy with the design. Two distinct parts:
 
-**Part A — finish the migration (agent-workable now).** Only the home page
-(`app/page.tsx`) is on Answer Print. Every other user-facing page is legacy
-Astryx in `app/(legacy)/`: `/search`, `/category/[slug]`,
-`/item/[source]/[id]`, `/projects`, `/projects/[id]`, `/cart`, `/login`.
-Migrate these to Answer Print per DESIGN.md and move them out of `(legacy)`:
+**Part A — migration: COMPLETE (Aug 30, 2026).** Every user-facing page is on
+Answer Print. `app/(legacy)/` is deleted, and Astryx is fully removed: no
+`@astryxdesign/*` dependencies, no Astryx CSS/provider wiring in the app
+shell, no Astryx-based components. Tailwind's preflight now owns the CSS
+reset. Do not reintroduce Astryx. Ongoing rules for new surfaces:
 - Reuse/extend `components/ap/` (SiteNav, LightWell, BrowseGrid, ItemCard…).
 - Every inventory photo goes in a LightWell — never a bare image tile.
 - Rows for dense data, ruled grids with visible hairline seams, one gray
   family + tally-red accent, Spline Sans Mono for all data/numbers.
-- Note: `/cart` is being rebuilt under MVP-3 — skip it here to avoid
-  collision. One page per PR is fine; `/search` and `/item` are the highest
-  traffic and go first.
-- When `app/(legacy)/` is empty, remove the Astryx layout wrapper and drop
-  the Astryx dependencies.
+- Dark/light mode: dark is the default; a next-themes toggle in SiteNav
+  flips a `.light` class on `<html>` whose token overrides live in
+  `app/globals.css`. New tokens need values in both blocks.
 
 **Part B — design direction iteration (blocked on input).** The Answer Print
 language itself may need revision — Matthew hasn't said what specifically is
