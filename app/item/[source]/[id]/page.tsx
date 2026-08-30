@@ -53,6 +53,21 @@ export default async function ItemPage({
   const dims = item.dimensions;
   const hasDims = dims && (dims.width != null || dims.depth != null || dims.height != null);
 
+  // Enrichment groups — DB has these per item; render only groups with data so
+  // an un-enriched item collapses gracefully. Ordered by decoration weight:
+  // era anchors the period, style/vibes read the register, materials/colors
+  // are concrete specs, setting/genre are downstream context, tags are catch-all.
+  const enrichmentGroups: Array<{ label: string; values: string[] }> = [
+    { label: 'Era', values: item.era ? [item.era] : [] },
+    { label: 'Style', values: item.style ?? [] },
+    { label: 'Vibes', values: item.vibes ?? [] },
+    { label: 'Materials', values: item.materials ?? [] },
+    { label: 'Colors', values: item.colors ?? [] },
+    { label: 'Setting', values: item.settingType ?? [] },
+    { label: 'Genre fit', values: item.genreFit ?? [] },
+    { label: 'Tags', values: item.tags ?? [] },
+  ].filter((g) => g.values.length > 0);
+
   return (
     <PageShell>
       <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 sm:py-10">
@@ -111,6 +126,28 @@ export default async function ItemPage({
                 )}
               </SpecRow>
             </dl>
+
+            {enrichmentGroups.length > 0 && (
+              <div className="mt-8 space-y-3">
+                {enrichmentGroups.map((g) => (
+                  <div key={g.label} className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
+                    <span className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary sm:min-w-[88px] sm:pt-1.5">
+                      {g.label}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.values.map((v) => (
+                        <span
+                          key={v}
+                          className="inline-flex h-7 items-center rounded-sm border border-border bg-popover px-2.5 text-[12px] leading-[16px] text-text-secondary"
+                        >
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="mt-8 space-y-3">
               <AddToCart item={item} />
