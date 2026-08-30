@@ -93,7 +93,7 @@ data update arrives.
 
 ### MVP-2 · CREW — Contractor hiring page
 
-**Status:** in progress — mHaines9219/istanbul
+**Status:** done — PR #62
 **Priority:** high
 **Depends on:** nothing
 
