@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /**
- * Refreshes the Supabase auth session on every request, and gates the
+ * Refreshes the Supabase auth session on the routes that read it, and gates the
  * account-only routes.
  *
  * `lib/supabase/server.ts:26` swallows cookie writes from Server Components — those
@@ -10,6 +10,13 @@ import { createServerClient } from "@supabase/ssr";
  * Without this, access tokens expire and Server Components silently start seeing a
  * signed-out user, which is the confusing kind of broken: no error, just an app
  * that logs you out on its own schedule.
+ *
+ * The matcher below is the flip side: `getUser()` is a blocking round trip to the
+ * auth server, and on Vercel middleware runs in FRONT of the CDN cache. Matching
+ * every route made each catalog page view and /api/browse call — public surfaces
+ * that never read the session — pay that toll before a byte was served. Only the
+ * routes that consult the session are matched now; add any new session-reading
+ * route to the list or its token will expire mid-session.
  */
 
 // Routes that only make sense with an owner. Everything else (browse, search,
@@ -70,7 +77,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except static assets and image files.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Owned pages (gated above) and the route handlers that call
+    // currentSession(). Everything else — browse, category, item, cart,
+    // /api/browse, /api/keyword — is public and skips the auth round trip.
+    "/projects/:path*",
+    "/api/projects/:path*",
+    "/api/usage",
+    "/api/search",
   ],
 };
