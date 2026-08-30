@@ -23,7 +23,7 @@ import type { CardItem, PropItem, PriceUnit } from "./types";
 const FULL_COLUMNS =
   "id,source,source_id,name,description,category,subcategory,source_category_path," +
   "style,era,materials,colors,vibes,setting_type,genre_fit,tags,dimensions,vendor," +
-  "images,source_url,scraped_at,price_amount,price_currency,price_unit";
+  "images,source_url,scraped_at,price_amount,price_currency,price_unit,plate_mode";
 
 /** What a card renders. Extended to carry camera-report data and cart fields. */
 const CARD_COLUMNS =
@@ -121,6 +121,7 @@ function rowToItemShape(row: Record<string, unknown>): unknown {
     images: row.images ?? [],
     sourceUrl: row.source_url,
     scrapedAt: row.scraped_at,
+    plateMode: row.plate_mode ?? undefined,
     price:
       amount === undefined
         ? undefined
