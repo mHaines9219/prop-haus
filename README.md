@@ -2,7 +2,8 @@
 
 Production rental aggregation and workflow platform for the entertainment, event, and creative production industries. Currently LA-focused for MVP.
 
-See `CLAUDE.md` for the full product brief.
+See `CLAUDE.md` for the full product brief and `TASKS.md` for the active
+workstream board (multi-agent task briefs for the current MVP push).
 
 ## Stack
 
