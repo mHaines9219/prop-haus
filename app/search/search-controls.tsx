@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { AIPromptModal } from '@/components/ap/ai-prompt-modal';
 
 type Engine = 'keyword' | 'ai';
 type StagedFile = { file: File; previewUrl?: string };
@@ -41,7 +42,7 @@ export function SearchControls({
 }: {
   initialQuery: string;
   initialEngine: Engine;
-  onText: (query: string, engine: Engine) => void;
+  onText: (query: string, engine: Engine, budget?: number | null) => void;
   onMultipart: (form: FormData) => void;
 }) {
   const reduce = useReducedMotion();
@@ -51,6 +52,7 @@ export function SearchControls({
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [focused, setFocused] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -110,12 +112,25 @@ export function SearchControls({
       return;
     }
 
+    // AI engine with no files: open the modal so the user can add context and budget.
+    if (engine === 'ai') {
+      setModalOpen(true);
+      return;
+    }
+
     onText(q, engine);
   }
 
   const hasFiles = files.length > 0;
 
+  function handleModalSubmit({ inspiration, budget }: { inspiration: string; budget: number | null }) {
+    setModalOpen(false);
+    setValue(inspiration);
+    onText(inspiration, 'ai', budget);
+  }
+
   return (
+    <>
     <form onSubmit={handleSubmit}>
       <motion.div
         onDragOver={(e) => {
@@ -174,7 +189,14 @@ export function SearchControls({
           <button
             type="button"
             aria-pressed={engine === 'ai'}
-            onClick={() => setEngine(engine === 'ai' ? 'keyword' : 'ai')}
+            onClick={() => {
+              if (engine === 'ai') {
+                setEngine('keyword');
+              } else {
+                setEngine('ai');
+                setModalOpen(true);
+              }
+            }}
             className={cn(
               'hidden h-9 shrink-0 items-center rounded-sm border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:flex',
               engine === 'ai'
@@ -254,5 +276,13 @@ export function SearchControls({
         </p>
       )}
     </form>
+
+      <AIPromptModal
+        open={modalOpen}
+        initialInspiration={value}
+        onSubmit={handleModalSubmit}
+        onClose={() => setModalOpen(false)}
+      />
+    </>
   );
 }
