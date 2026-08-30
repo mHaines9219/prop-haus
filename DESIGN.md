@@ -2,7 +2,7 @@
 
 **The screening room at night: the UI is the room, the props are the picture.**
 
-Version 1.0. Ready to implement. Dark-first, cinematic, balanced neo-brutalist. This is the winning candidate from the design review (highest total, 23.5, ranked first by the audience and usability lenses), refined to resolve every judge-flagged weakness and hardened with the strongest grafts from the other three candidates. See the decision record at the end of this document.
+Version 1.1 (Aug 2026: §9.2 amended — marquee cell and fold discipline; see docs/design-direction-mvp5b.md for the rationale). Ready to implement. Dark-first, cinematic, balanced neo-brutalist. This is the winning candidate from the design review (highest total, 23.5, ranked first by the audience and usability lenses), refined to resolve every judge-flagged weakness and hardened with the strongest grafts from the other three candidates. See the decision record at the end of this document.
 
 ---
 
@@ -237,6 +237,10 @@ Base unit **4px**. Steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 96.
 ### 9.2 Home: hero + AI search + featured grid
 
 Full-bleed canvas with grain. One eyebrow allowed (11px mono label, `LOS ANGELES INVENTORY`), which spends the page's ration. Then `display-xl` Anybody headline in sentence case, two lines max. The AI search bar is the hero object: 56px tall, `surface-inset`, hairline border, 2px radius, max 760px; mono placeholder cycles scene prompts ("Describe the scene. Try 70s bachelor apartment.") and goes static under reduced motion. On focus: `search-focus` motion plus the 2px tally outline. Below, the featured browse grid begins immediately as a ruled contact sheet, edge-to-edge. No marketing cards, no gradient panels.
+
+**Marquee cell (v1.1).** The featured contact sheet opens with a lead frame: the first cell spans 2 columns by 2 rows inside the same ruled grid — identical seams, identical placard anatomy, name stepped up to 18px Switzer 600. Prefer a `plate_mode = "photo"` item so the lead frame is location footage, not a cutout. One marquee per page, home only. No text overlays on the well, no autoplay rotation, no carousel.
+
+**Fold discipline (v1.1).** The hero is an overture, not a curtain: its vertical rhythm must leave the first row of light wells visibly cresting the fold at 1440×900. If the fold shows no lit plate, the hero is too tall. The photos are the only luminous thing on screen — so the first screen must contain photos.
 
 ### 9.3 Browse grid + filter sidebar + infinite scroll
 

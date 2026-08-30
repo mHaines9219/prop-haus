@@ -249,7 +249,7 @@ wiring, claims handling, broker workflows, W9/general document management.
 
 ### MVP-5 · REDESIGN — Site redesign
 
-**Status:** open (part B needs Matthew's direction)
+**Status:** part B in progress — mHaines9219/sofia (direction proposal, see docs/design-direction-mvp5b.md); part A open
 **Priority:** high
 **Depends on:** nothing
 
@@ -279,7 +279,7 @@ direction arrives, changes go through DESIGN.md first, then components.
 
 ### MVP-6 · BACKEND-OPT — Backend optimization (competitor API analysis)
 
-**Status:** blocked — waiting on competitor captures + context from Matthew
+**Status:** in progress — mHaines9219/sofia (our-side analysis + capture intake done; compare/contrast still needs Matthew's captures — drop them in docs/competitor-captures/)
 **Priority:** medium
 **Depends on:** incoming material from Matthew. Do not start until it lands.
 
