@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Heading, Text } from '@astryxdesign/core/Text';
 import { Link } from '@astryxdesign/core/Link';
@@ -6,11 +7,28 @@ import { AspectRatio } from '@astryxdesign/core/AspectRatio';
 import { Thumbnail } from '@astryxdesign/core/Thumbnail';
 import { Grid } from '@astryxdesign/core/Grid';
 import { MetadataList, MetadataListItem } from '@astryxdesign/core/MetadataList';
-import { getItemBySourceId, categoryCards } from '@/lib/catalog-db';
+import { getItemBySourceId, relatedCards } from '@/lib/catalog-db';
 import { SOURCE_META } from '@/lib/types';
 import { categoryName } from '@/lib/categories';
 import { AddToCart } from '@/components/add-to-cart';
 import { ItemCard } from '@/components/item-card';
+
+/**
+ * ISR: the catalog only changes on a pipeline load, so each item page is
+ * rendered once on first visit and served from the cache after that. Without
+ * this the page was fully dynamic — every listing click paid a serverless
+ * invocation plus two sequential Supabase round trips.
+ *
+ * The empty generateStaticParams is load-bearing: `revalidate` alone leaves a
+ * dynamic-param route rendering per request (verified against `pnpm start` —
+ * Cache-Control stayed no-store). Its presence is what opts unvisited paths
+ * into on-demand static generation; prebuilding 90k item pages is not.
+ */
+export const revalidate = 86400;
+
+export function generateStaticParams(): { source: string; id: string }[] {
+  return [];
+}
 
 export default async function ItemPage({
   params,
@@ -21,7 +39,7 @@ export default async function ItemPage({
   const item = await getItemBySourceId(source, decodeURIComponent(id));
   if (!item) notFound();
   // Fetch one extra so removing the item itself still leaves a full row of 8.
-  const related = (await categoryCards(item.category, 9)).items
+  const related = (await relatedCards(item.category, 9))
     .filter((i) => i.id !== item.id)
     .slice(0, 8);
   const meta = SOURCE_META[item.source];
@@ -36,8 +54,15 @@ export default async function ItemPage({
           {item.images[0] && (
             <Card padding={0}>
               <AspectRatio ratio={4 / 3} fit="cover">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.images[0]} alt={item.name} className="h-full w-full object-cover" />
+                {/* priority: this is the page's LCP element. */}
+                <Image
+                  src={item.images[0]}
+                  alt={item.name}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover"
+                />
               </AspectRatio>
             </Card>
           )}

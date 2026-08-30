@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { ClickableCard } from '@astryxdesign/core/ClickableCard';
 import { AspectRatio } from '@astryxdesign/core/AspectRatio';
 import { Badge } from '@astryxdesign/core/Badge';
@@ -22,12 +23,15 @@ export function ItemCard({
       <div className="relative overflow-hidden">
         <AspectRatio ratio={4 / 5} fit="cover">
           {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            // next/image rather than the scraped original: vendor images are
+            // frequently multi-MB, and a grid of them dominated page weight.
+            // `sizes` tracks the grid's ~200-320px columns (2-up on mobile).
+            <Image
               src={img}
               alt={item.name}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+              fill
+              sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 320px"
+              className="object-cover transition-transform duration-300 hover:scale-[1.03]"
             />
           ) : (
             <span className="grid h-full w-full place-items-center">

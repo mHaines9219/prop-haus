@@ -225,6 +225,22 @@ export async function categoryCards(
   return browseCards({ category: slug, limit, offset: 0 });
 }
 
+/**
+ * Cards for a non-paginated strip (the item page's "More in …" row). Unlike
+ * browseCards this skips the total entirely — computing it costs a facets RPC
+ * round trip, and a strip that never pages has no use for it.
+ */
+export async function relatedCards(slug: string, limit: number): Promise<CardItem[]> {
+  const { data, error } = await db()
+    .from("catalog_items")
+    .select(CARD_COLUMNS)
+    .eq("has_images", true)
+    .eq("category", slug)
+    .limit(limit);
+  if (error) throw new Error(`[catalog-db] related failed: ${error.message}`);
+  return (data ?? []).map((r) => rowToCard(r as unknown as CardRow));
+}
+
 export type Facets = {
   categories: Record<string, number>;
   vendors: Record<string, number>;
