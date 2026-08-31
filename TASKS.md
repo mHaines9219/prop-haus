@@ -277,7 +277,7 @@ direction arrives, changes go through DESIGN.md first, then components.
 
 ### MVP-6 · BACKEND-OPT — Backend optimization (competitor API analysis)
 
-**Status:** in progress — mHaines9219/sofia (our-side analysis + capture intake done; compare/contrast still needs Matthew's captures — drop them in docs/competitor-captures/)
+**Status:** compare/contrast DONE (2026-08-31) — see docs/backend-api-analysis.md §4, reviewed with Matthew. Next: implement the emulate bucket (§4 is the guide; priorities: vendor-popularity data, UI load speed, AI-pipeline efficiency). Coordinate with MVP-1 on shared endpoints.
 **Priority:** medium
 **Depends on:** incoming material from Matthew. Do not start until it lands.
 
