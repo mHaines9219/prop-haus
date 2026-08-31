@@ -303,8 +303,6 @@ endpoints.
 **Out of scope:** scraping or probing competitor systems yourself — work only
 from the captures and context Matthew provides.
 
----
-
 ### MVP-7 · CLIP — Save furniture from anywhere on the web (v1: paste a link)
 
 **Status:** open — planned 2026-08-31, ready for an agent to claim
@@ -448,6 +446,58 @@ the fallback posture if he says hotlink-only.
 
 ---
 
+### MVP-8 · JOBS — Jobs-in-progress dashboard (DripDome dashboard port)
+
+**Status:** open — plan complete (docs/jobs-dashboard-plan.md, researched 2026-08-31 on branch claude/dd-dashboard-jobs-integration-lqciql)
+**Priority:** medium-high
+**Depends on:** nothing (MVP-3 orders and MVP-2 crew already landed)
+
+**Context.** Matthew's separate business dashboard
+(mHaines9219/dashboard-ui, npm name `dripdome-dashboard`) centers on a
+per-job dashboard: Job status entity → composable module tabs → task
+kanban → overview stat tiles. We're porting the CONCEPT — one surface
+showing all of a user's work in flight — not the stack (it's Express +
+Prisma + Vite SPA + Google JWT auth; none of that carries over). The full
+source analysis is in the plan doc, so do NOT clone or survey
+dashboard-ui; everything needed is written down.
+
+**The shape.** A "job" in Phase 1 IS an order, enriched with its crew
+requests and COIs. No new `jobs` table, and no workflow columns back on
+`projects` (they were deliberately stripped to folders —
+`supabase/migrations/20260829130000_strip_workflow_to_folders.sql`).
+
+**Build (full spec + file list in docs/jobs-dashboard-plan.md §3–5):**
+1. Migration: per-line-item status on `order_items`
+   (`pending|quoted|confirmed|unavailable` + `status_note`,
+   `quoted_cents`) — matches DESIGN.md §9.10's canonical StatusToken
+   states. New event types in `lib/events.ts`, written from checkout/crew/
+   transition routes.
+2. Status transitions: `PATCH app/api/orders/[id]/status` (order + item),
+   `setOrderStatus`/`setItemStatus` in `lib/orders.ts`, and a PLACEHOLDER
+   `pnpm simulate:vendor` script so the flow demos with zero secrets.
+3. `GET /api/crew/requests` (today crew requests are fire-and-forget with
+   no read path at all).
+4. Extract `StatusToken` to `components/ap/status-token.tsx` from the
+   local copy in `app/account/insurance/certificate-ledger.tsx`; adopt it
+   there and in `app/orders/page.tsx` (which currently uses free-floating
+   raw-Tailwind dots — a DESIGN.md §9.10/§13 violation).
+5. `/jobs` page: stat-tile band + DESIGN.md §9.7 list rows (list view,
+   NEVER a card grid; aggregate copy like "Newel confirmed 4 of 6 items.
+   2 pending."), crew section, §9.9 empty state. `lib/jobs.ts` is the
+   aggregation seam. Rows link to `/orders/[id]`, which gets enriched into
+   the job detail (per-item tokens, per-vendor rollups, linked COIs) — no
+   separate `/jobs/[id]`.
+6. Nav: add "Jobs" to `components/ap/site-nav.tsx` (merge hotspot — keep
+   the diff to one array entry). Middleware: add `/jobs` AND the
+   already-missing session-reading routes (`/orders`, `/account`,
+   `/api/checkout`, `/api/crew`, `/api/coi`) to the matcher — live
+   token-expiry bug this task inherits and fixes.
+
+**Out of scope:** vendor portal/emails, payments, the module system and
+task kanban, AI summaries, notifications, realtime (all Phase 2 — FUT-4).
+
+---
+
 ## Future tasks (not MVP — do not start unless assigned)
 
 ### FUT-1 · VENDOR-EXPAND — Book all vendor categories
@@ -538,6 +588,18 @@ users clip without leaving the retailer's site. Shape:
 Requires the app to be deployed somewhere the extension can talk to. Scope
 with Matthew before starting.
 
+### FUT-4 · JOBS-PHASE-2 — Full DripDome dashboard port
+
+**Status:** future
+**Depends on:** MVP-8 (builds on its aggregation seam in lib/jobs.ts)
+
+The rest of the dashboard-ui port, per docs/jobs-dashboard-plan.md §6:
+task kanban (todo/in_progress/done), composable per-job module tabs (JSON
+config), AI overview (summary/risks/next-steps via our existing Anthropic
+SDK usage, not OpenRouter), and — once users run multiple orders per
+production — a real `jobs` grouping entity spanning orders + crew + COIs.
+Scope with Matthew before starting.
+
 ---
 
 ## Recommended agent/model per task (note for Matthew — token budget)
@@ -558,7 +620,8 @@ is the bottleneck.
 | MVP-5B | Opus/Fable | Open-ended design direction work — worth the spend, but only after you give direction. |
 | MVP-6 | Opus/Fable for the analysis, Sonnet to implement | The compare/contrast judgment is the hard part; the resulting changes are scoped. |
 | MVP-7 | Sonnet | Fully specced parser + endpoint + UI; the file survey is in the brief. |
-| FUT-1/2 | Opus/Fable to scope, Sonnet to build | Cross-repo architecture (Spacelab) needs the strong model briefly, not for the whole build. |
+| MVP-8 | Sonnet | Research done (docs/jobs-dashboard-plan.md has the source analysis, schema, and file list); pure execution against a spec. |
+| FUT-1/2/3/4 | Opus/Fable to scope, Sonnet to build | Cross-repo architecture (Spacelab) needs the strong model briefly, not for the whole build. |
 
 Token-burn guardrails:
 - ONE agent per task, one task at a time per agent. Don't run two agents on
@@ -576,13 +639,15 @@ Token-burn guardrails:
 
 | ID | Title | Status | Priority |
 |-------|--------------------------------------|-----------------------------|----------|
-| MVP-1 | Finish search (missing data) | blocked — awaiting data | high |
-| MVP-2 | Contractor hiring page (/crew) | open | high |
+| MVP-1 | Finish search (missing data) | in progress — data gap open | high |
+| MVP-2 | Contractor hiring page (/crew) | done — PR #62 | high |
 | MVP-3 | One-click checkout scaffold | done | high |
-| MVP-4 | COI issuance via API partner | open | medium-high |
-| MVP-5 | Site redesign (A: migrate, B: TBD) | open / B blocked | high |
-| MVP-6 | Backend optimization (competitor API) | blocked — awaiting captures | medium |
+| MVP-4 | COI issuance via API partner | done — PR pending | medium-high |
+| MVP-5 | Site redesign (A done, B in progress)| in progress | high |
+| MVP-6 | Backend optimization (competitor API) | analysis done, emulate next | medium |
 | MVP-7 | Web clipper v1 (paste a link) | open | medium-high |
+| MVP-8 | Jobs-in-progress dashboard | open — plan ready | medium-high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
 | FUT-3 | Chrome extension web clipper | future | — |
+| FUT-4 | Jobs Phase 2 (full dashboard port) | future | — |
