@@ -303,7 +303,150 @@ endpoints.
 **Out of scope:** scraping or probing competitor systems yourself — work only
 from the captures and context Matthew provides.
 
-### MVP-7 · JOBS — Jobs-in-progress dashboard (DripDome dashboard port)
+### MVP-7 · CLIP — Save furniture from anywhere on the web (v1: paste a link)
+
+**Status:** open — planned 2026-08-31, ready for an agent to claim
+**Priority:** medium-high
+**Depends on:** nothing
+
+**Context.** A competitor ships a Chrome extension that lets users "save" any
+furniture image from retail sites (Wayfair etc.) into their project screen.
+We want that capability. V1 is deliberately smaller: a link input on the
+folder (project) screen — the user pastes a product listing URL (Wayfair
+first), the server fetches the page, extracts the primary image + metadata,
+and the item lands in the folder next to their saved catalog items. The
+Chrome extension is FUT-3 and reuses this task's endpoint unchanged — build
+the API as if the extension already existed.
+
+**Working name in UI copy:** "Add from the web" / "clip". Clipped items are
+reference material the user sourced themselves — they are NOT catalog
+inventory, don't enter search/embeddings, and can't be checked out.
+
+**Current state (the survey — don't re-derive it):**
+- "Projects" are saved-item folders: `lib/projects.ts` (types + CRUD),
+  `lib/projects-db.ts` (row mapping), UI at `app/projects/page.tsx` and
+  `app/projects/[id]/page.tsx`, APIs at `app/api/projects/route.ts` and
+  `app/api/projects/[id]/items/route.ts`.
+- `ProjectItem` is already a snapshot (itemId, source, sourceId, name,
+  image?, sourceUrl, category?) — exactly the shape a clip needs. The DB
+  column `project_items.source` is plain `text`
+  (`20260829130000_strip_workflow_to_folders.sql`), so clips need NO schema
+  change to the source column; only the TS type is narrow.
+- `ProjectItem.source` is typed as `Source` (the scraped-vendor enum in
+  `lib/types.ts`). `SOURCE_META[item.source]?.name ?? item.source` fallbacks
+  exist in `app/projects/[id]/page.tsx:54` and `app/cart/page.tsx`, but
+  `components/ap/item-card.tsx:124` indexes without a fallback (clips never
+  render there — keep it that way).
+- Dedupe already works for free: `project_items` has unique
+  `(project_id, item_id)` and `addItemsToProject` upserts with
+  `ignoreDuplicates` — a deterministic itemId makes re-clipping a no-op.
+- `cheerio` is already a dependency (scrapers use it). Scraper fetch
+  conventions live in `scrapers/common/fetch.ts` (UA, retries, jitter) —
+  that module is CLI-oriented (disk cache in `.scrape-cache/`); don't import
+  it into a route handler, write a lean server-side fetch instead.
+- `lib/safe-url.ts` allow-lists http/https for rendering hrefs. It is NOT an
+  SSRF guard — it doesn't resolve hosts or block private ranges.
+- `next.config.ts` images.remotePatterns already includes `**` — any https
+  image host renders through `next/image` today.
+- `app/api/projects/[id]/items/route.ts` casts the request body with zero
+  validation (`as { items }`) — tighten while you're in there.
+
+**Build:**
+
+1. **Type widening (`lib/types.ts` — shared-file hotspot, coordinate).**
+   `export const CLIP_SOURCE = 'clip' as const` and
+   `export type SavedSource = Source | typeof CLIP_SOURCE`. Change
+   `ProjectItem.source` (and `ProjectItemInput`) in `lib/projects.ts` to
+   `SavedSource`. Identity for a clipped item:
+   - `source: 'clip'`
+   - `sourceId`: the canonical product URL (post-redirect, stripped of
+     tracking params)
+   - `itemId`: `clip:<sha1(sourceId)>` — deterministic, so the existing
+     upsert dedupes re-clips of the same listing into the same folder.
+
+2. **Migration: `project_items.meta jsonb null`.** Carries clip extras the
+   snapshot columns don't have: `{ retailer, price: { amount, currency },
+   description? }`. Timestamp-dated filename per the rules above. Map it
+   through `lib/projects-db.ts`. Catalog-saved items leave it null.
+
+3. **Extractor: `lib/clip/parse.ts`.** Pure function `parseListing(html,
+   url) → ClipPreview | null` using cheerio. Extraction ladder, first hit
+   wins per field:
+   1. JSON-LD `Product` (`<script type="application/ld+json">`) — Wayfair
+      publishes name/image/sku/offers here; handle `@graph` arrays.
+   2. OpenGraph (`og:title`, `og:image`, `og:price:amount`) and
+      `twitter:image`.
+   3. Fallback: `<title>` + largest `<img>` by declared dimensions.
+   Plus a per-retailer override table keyed by hostname
+   (`lib/clip/retailers.ts`) for quirks — seed it with `wayfair.com`
+   (prefer the highest-res `assets.wfcdn.com` image, strip `?resize`
+   params). Unit-test the parser against 2–3 saved HTML fixtures (vitest is
+   set up).
+
+4. **Endpoint: `POST /api/clip` (auth required, org from session).** Body
+   `{ url }`. Pipeline: validate → fetch → parse → snapshot image → return
+   `ClipPreview { name, image, sourceUrl, retailer, price?, description? }`.
+   The client then confirms and POSTs the item through the EXISTING
+   `app/api/projects/[id]/items` route — /api/clip never writes to folders
+   itself. This split is what lets the FUT-3 extension reuse it.
+   - **SSRF guard (this is the security-critical part):** https only; DNS-
+     resolve the host and reject private/loopback/link-local/metadata
+     ranges (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1, fc00::/7);
+     cap redirects at ~3 and re-check every hop; 10s timeout; ~3 MB HTML
+     cap. Do this in a `lib/clip/safe-fetch.ts` with tests — `lib/safe-url.ts`
+     alone is not sufficient.
+   - **Bot walls:** send a realistic browser UA/accept headers. If the fetch
+     comes back 403/challenge/unparseable, return a typed
+     `{ error: 'unreadable' }` — the UI then falls back to manual entry
+     (user pastes an image URL + name themselves, same ProjectItemInput
+     path). Never a dead end.
+   - Rate-limit per org (simple in-memory or reuse the usage-counter
+     pattern in `lib/usage.ts`) — this endpoint fetches arbitrary URLs on
+     our dime.
+
+5. **Image snapshot: `lib/clip/image-store.ts`.** Retail CDN URLs rot and
+   some check referers, so copy the image: interface `put(url) →
+   storedUrl`, with `SupabaseImageStore` (public bucket `clips`, keyed by
+   the itemId hash, content-type must be `image/*`, ~10 MB cap) and a
+   `PassthroughStore` that returns the original URL when storage isn't
+   configured/reachable. Wire the bucket name through
+   `.env.local.example` (`CLIP_IMAGE_BUCKET=clips`). Demo path must work
+   with zero secrets via the passthrough.
+
+6. **UI (Answer Print, see DESIGN.md).** On `app/projects/[id]/page.tsx`:
+   an "Add from the web" control — paste-a-link input (mono type), submit →
+   preview row (image in a LightWell, name, retailer, price in Spline Sans
+   Mono) → confirm saves to the folder. States: loading, unreadable-page
+   fallback (manual entry), duplicate (already in folder). Then fix the two
+   render paths for clips in the folder row list:
+   - the row's detail link (`/item/<source>/<id>`, line 53) would 404 for
+     clips — link clipped rows to `item.sourceUrl` (external, via
+     `safeExternalUrl`) instead;
+   - vendor label: for clips show the retailer from `meta` (fall back to
+     the sourceUrl hostname, `www.` stripped), not `SOURCE_META` (which
+     would print "clip").
+
+7. **Validate the items route.** Add a zod schema for `ProjectItemInput` in
+   `app/api/projects/[id]/items/route.ts` (and the create-with-items path
+   in `app/api/projects/route.ts`): source must be a `SavedSource`, `image`
+   and `sourceUrl` must pass `isSafeExternalUrl`, name/category length
+   caps. Today it accepts anything.
+
+**Out of scope for v1:** the Chrome extension (FUT-3); clips entering
+search/embeddings/enrichment; adding clips to the cart or orders (they're
+retail purchases, not rentals); multi-image galleries; clipping from a bare
+image URL as the primary flow (it's only the unreadable-page fallback);
+cleanup of orphaned snapshot images (note it, skip it).
+
+**Flag for Matthew (don't stall on it):** clipping is user-initiated,
+single-page, attributed, and links back to the retailer — Pinterest-shaped,
+much lower risk than our bulk scrapers — but copying images into our bucket
+from retail sites is worth a conscious sign-off. The PassthroughStore is
+the fallback posture if he says hotlink-only.
+
+---
+
+### MVP-8 · JOBS — Jobs-in-progress dashboard (DripDome dashboard port)
 
 **Status:** open — plan complete (docs/jobs-dashboard-plan.md, researched 2026-08-31 on branch claude/dd-dashboard-jobs-integration-lqciql)
 **Priority:** medium-high
@@ -351,7 +494,7 @@ requests and COIs. No new `jobs` table, and no workflow columns back on
    token-expiry bug this task inherits and fixes.
 
 **Out of scope:** vendor portal/emails, payments, the module system and
-task kanban, AI summaries, notifications, realtime (all Phase 2 — FUT-3).
+task kanban, AI summaries, notifications, realtime (all Phase 2 — FUT-4).
 
 ---
 
@@ -419,10 +562,36 @@ object they can arrange in a Spacelab room.
 Cross-repo work is required in Spacelab (remote catalog loading, possibly a
 trimmed embed route). Scope each phase with Matthew before starting.
 
-### FUT-3 · JOBS-PHASE-2 — Full DripDome dashboard port
+### FUT-3 · CLIP-EXT — Chrome extension web clipper
 
 **Status:** future
-**Depends on:** MVP-7 (builds on its aggregation seam in lib/jobs.ts)
+**Depends on:** MVP-7 (reuses its endpoint and item model)
+
+The competitor-parity follow-up to MVP-7: a Manifest V3 Chrome extension so
+users clip without leaving the retailer's site. Shape:
+- **Surfaces:** right-click context menu on any image ("Save to Prop Haus")
+  + a toolbar popup showing the parsed listing and a folder picker (fetched
+  from `GET /api/projects`).
+- **Payload:** the extension sends `{ pageUrl, imageUrl? }` to the same
+  `POST /api/clip` from MVP-7 — an extension-supplied `imageUrl` wins over
+  the parse ladder (extend the endpoint to accept it then); everything else
+  (SSRF guard, snapshot, ProjectItemInput) is unchanged. The extension also
+  has the page DOM in hand, so it can send extracted JSON-LD/OG directly
+  when the server-side fetch would hit a bot wall — that sidesteps MVP-7's
+  main failure mode.
+- **Auth:** the deployed app's session cookie with CORS scoped to the
+  extension origin (`chrome-extension://<id>`), or a per-org API token if
+  cookie auth proves brittle. Decide then.
+- **Not in scope until then:** Firefox/Safari ports, clipping full pages,
+  screenshot-based clipping.
+
+Requires the app to be deployed somewhere the extension can talk to. Scope
+with Matthew before starting.
+
+### FUT-4 · JOBS-PHASE-2 — Full DripDome dashboard port
+
+**Status:** future
+**Depends on:** MVP-8 (builds on its aggregation seam in lib/jobs.ts)
 
 The rest of the dashboard-ui port, per docs/jobs-dashboard-plan.md §6:
 task kanban (todo/in_progress/done), composable per-job module tabs (JSON
@@ -450,8 +619,9 @@ is the bottleneck.
 | MVP-5A | Opus for the first page, then Sonnet | Design taste matters; let Opus set the pattern on /search, then Sonnet replicates it per page cheaply. |
 | MVP-5B | Opus/Fable | Open-ended design direction work — worth the spend, but only after you give direction. |
 | MVP-6 | Opus/Fable for the analysis, Sonnet to implement | The compare/contrast judgment is the hard part; the resulting changes are scoped. |
-| MVP-7 | Sonnet | Research done (docs/jobs-dashboard-plan.md has the source analysis, schema, and file list); pure execution against a spec. |
-| FUT-1/2/3 | Opus/Fable to scope, Sonnet to build | Cross-repo architecture (Spacelab) needs the strong model briefly, not for the whole build. |
+| MVP-7 | Sonnet | Fully specced parser + endpoint + UI; the file survey is in the brief. |
+| MVP-8 | Sonnet | Research done (docs/jobs-dashboard-plan.md has the source analysis, schema, and file list); pure execution against a spec. |
+| FUT-1/2/3/4 | Opus/Fable to scope, Sonnet to build | Cross-repo architecture (Spacelab) needs the strong model briefly, not for the whole build. |
 
 Token-burn guardrails:
 - ONE agent per task, one task at a time per agent. Don't run two agents on
@@ -475,7 +645,9 @@ Token-burn guardrails:
 | MVP-4 | COI issuance via API partner | done — PR pending | medium-high |
 | MVP-5 | Site redesign (A done, B in progress)| in progress | high |
 | MVP-6 | Backend optimization (competitor API) | analysis done, emulate next | medium |
-| MVP-7 | Jobs-in-progress dashboard | open — plan ready | medium-high |
+| MVP-7 | Web clipper v1 (paste a link) | open | medium-high |
+| MVP-8 | Jobs-in-progress dashboard | open — plan ready | medium-high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
-| FUT-3 | Jobs Phase 2 (full dashboard port) | future | — |
+| FUT-3 | Chrome extension web clipper | future | — |
+| FUT-4 | Jobs Phase 2 (full dashboard port) | future | — |

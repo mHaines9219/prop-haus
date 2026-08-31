@@ -1,4 +1,4 @@
-# Jobs-in-progress dashboard — implementation plan (MVP-7)
+# Jobs-in-progress dashboard — implementation plan (MVP-8)
 
 **Source of the concept:** `mHaines9219/dashboard-ui` (the DripDome business
 dashboard, npm name `dripdome-dashboard`). This doc contains everything an
@@ -47,7 +47,7 @@ status tokens, "Newel confirmed 4 of 6 items. 2 pending.").
 
 **Explicitly NOT ported:** Express/Prisma/JWT/Google-token storage, Gmail
 and Drive sync, OpenRouter agents, notifications table. Phase 1 also skips
-JobModule composability and the task kanban — those are Phase 2 (FUT-3).
+JobModule composability and the task kanban — those are Phase 2 (FUT-4).
 
 ---
 
@@ -223,7 +223,7 @@ realtime (server components + refresh are fine; no polling).
 
 ---
 
-## 6. Phase 2 — FUT-3 (do not build now)
+## 6. Phase 2 — FUT-4 (do not build now)
 
 The rest of the DripDome port, scope with Matthew first:
 - `job_tasks` kanban (todo/in_progress/done, dnd-kit is NOT currently a
