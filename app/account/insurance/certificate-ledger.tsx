@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { StatusToken, coiStatusSpec } from '@/components/ap/status-token';
 
 type Certificate = {
   id: string;
@@ -19,20 +20,6 @@ type Certificate = {
 
 type Props = {
   certificates: Certificate[];
-};
-
-const STATUS_LABEL: Record<Certificate['status'], string> = {
-  pending: 'PENDING',
-  issued: 'ISSUED',
-  failed: 'FAILED',
-  expired: 'EXPIRED',
-};
-
-const STATUS_DOT: Record<Certificate['status'], string> = {
-  pending: 'bg-status-pending',
-  issued: 'bg-emerald-500',
-  failed: 'bg-accent',
-  expired: 'bg-text-disabled',
 };
 
 export function CertificateLedger({ certificates }: Props) {
@@ -86,7 +73,7 @@ function CertRow({ cert }: { cert: Certificate }) {
           {cert.vendor_name}
         </span>
         <span className="w-[80px] shrink-0">
-          <StatusToken status={cert.status} />
+          <StatusToken {...coiStatusSpec(cert.status)} />
         </span>
         <span className="w-[100px] shrink-0 font-mono text-[13px] text-text-secondary">
           {cert.expiry_date ? formatDate(cert.expiry_date) : '—'}
@@ -137,17 +124,6 @@ function CertRow({ cert }: { cert: Certificate }) {
         </div>
       )}
     </div>
-  );
-}
-
-function StatusToken({ status }: { status: Certificate['status'] }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-0.5">
-      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
-      <span className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-text-secondary">
-        {STATUS_LABEL[status]}
-      </span>
-    </span>
   );
 }
 

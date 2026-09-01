@@ -487,7 +487,7 @@ the fallback posture if he says hotlink-only.
 
 ### MVP-8 · JOBS — Jobs-in-progress dashboard (DripDome dashboard port)
 
-**Status:** open — plan complete (docs/jobs-dashboard-plan.md, researched 2026-08-31 on branch claude/dd-dashboard-jobs-integration-lqciql)
+**Status:** DONE (mHaines9219/cancun, 2026-08-31) — plan in docs/jobs-dashboard-plan.md
 **Priority:** medium-high
 **Depends on:** nothing (MVP-3 orders and MVP-2 crew already landed)
 
@@ -685,7 +685,7 @@ Token-burn guardrails:
 | MVP-5 | Site redesign (A done, B in progress)| in progress | high |
 | MVP-6 | Backend optimization (competitor API) | analysis done, emulate next | medium |
 | MVP-7 | Web clipper v1 (paste a link) | in progress — asuncion | medium-high |
-| MVP-8 | Jobs-in-progress dashboard | open — plan ready | medium-high |
+| MVP-8 | Jobs-in-progress dashboard | done | medium-high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
 | FUT-3 | Chrome extension web clipper | future | — |

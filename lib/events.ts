@@ -22,6 +22,11 @@ export const EVENT_TYPES = [
   'project_submitted',
   'paywall_hit', // strongest upgrade signal; payload: { feature, metric? }
   'document_uploaded', // payload: { kind, vendor? }
+  'order_placed', // payload: { orderId, itemCount, vendorCount }
+  'order_status_changed', // payload: { orderId, status }
+  'item_status_changed', // payload: { orderId, orderItemId, status }
+  'crew_requested', // payload: { crewRequestId, contractorId }
+  'crew_status_changed', // payload: { crewRequestId, status }
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 

@@ -3,13 +3,7 @@ import { listOrders } from '@/lib/orders';
 import { requireOrgId } from '@/lib/session';
 import { SiteNav } from '@/components/ap/site-nav';
 import { SiteFooter } from '@/components/ap/site-footer';
-
-const STATUS_DOT: Record<string, string> = {
-  placed:     'bg-yellow-400',
-  processing: 'bg-blue-400',
-  confirmed:  'bg-green-400',
-  cancelled:  'bg-red-400',
-};
+import { StatusToken, orderStatusSpec } from '@/components/ap/status-token';
 
 export default async function OrdersPage() {
   const orgId = await requireOrgId('/orders');
@@ -58,9 +52,6 @@ export default async function OrdersPage() {
                     href={`/orders/${order.id}`}
                     className="flex items-center gap-4 py-5 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-colors hover:bg-surface-raised"
                   >
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[order.status] ?? 'bg-text-tertiary'}`}
-                    />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium leading-snug">
                         Order #{order.id.slice(0, 8).toUpperCase()}
@@ -69,9 +60,7 @@ export default async function OrdersPage() {
                         {placedDate} · {order.items.length} item{order.items.length !== 1 ? 's' : ''} · {vendorCount} vendor{vendorCount !== 1 ? 's' : ''}
                       </p>
                     </div>
-                    <span className="font-mono text-[12px] uppercase tracking-[0.06em] text-text-secondary shrink-0">
-                      {order.status}
-                    </span>
+                    <StatusToken {...orderStatusSpec(order.status)} />
                   </Link>
                 );
               })}
