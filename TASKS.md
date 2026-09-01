@@ -578,7 +578,7 @@ yet — scope with Matthew before starting.
 
 ### FUT-2 · SPACELAB — 3D set preview from cart
 
-**Status:** Prop Haus side DONE — claude/fut2-space-lab-integration-jwwfs3 ·
+**Status:** scaffolded — PR #82 · claude/fut2-space-lab-integration-jwwfs3 ·
 phases 1-3 built and demoable with zero secrets; phase 4 needs two things from
 Matthew: (a) pick an image-to-3D service (Meshy/Tripo/TRELLIS-class) — the mock
 generates real, loadable photo-mapped boxes until then, and swapping it is one
