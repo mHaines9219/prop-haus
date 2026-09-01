@@ -82,6 +82,7 @@ export const config = {
     // /api/browse, /api/keyword — is public and skips the auth round trip.
     "/projects/:path*",
     "/api/projects/:path*",
+    "/api/clip",
     "/api/usage",
     "/api/search",
   ],
