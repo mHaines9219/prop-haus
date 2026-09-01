@@ -11,6 +11,7 @@ import { ThemeToggle } from './theme-toggle';
 const NAV = [
   { label: 'How it works', href: '/#how' },
   { label: 'Crew', href: '/crew' },
+  { label: 'Book', href: '/book' },
   { label: 'Pulls', href: '/projects' },
 ];
 
