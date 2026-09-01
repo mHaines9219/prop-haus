@@ -17,6 +17,7 @@ export const EVENT_TYPES = [
   'zero_result_search', // demand/inventory gap; payload: { query }
   'cart_add', // payload: { itemId, vendor }
   'cart_abandoned',
+  'outbound_click', // vendor click-out won; payload: { itemId, source, surface }
   'project_created',
   'project_submitted',
   'paywall_hit', // strongest upgrade signal; payload: { feature, metric? }

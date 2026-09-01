@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server';
-import { addItemsToProject, removeItemFromProject, type ProjectItemInput } from '@/lib/projects';
+import { z } from 'zod';
+import { addItemsToProject, removeItemFromProject, ProjectItemInputSchema } from '@/lib/projects';
 import { currentOrgId } from '@/lib/session';
+
+// Bound the batch and validate every snapshot: this route now accepts web clips
+// (MVP-7), which turn arbitrary retailer HTML into these — untrusted input.
+const ItemsBody = z.object({ items: z.array(ProjectItemInputSchema).min(1).max(100) });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = (await req.json()) as { items?: ProjectItemInput[] };
-  if (!body.items?.length) {
-    return NextResponse.json({ error: 'no items' }, { status: 400 });
+  const parsed = ItemsBody.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'invalid items' }, { status: 400 });
   }
 
   const orgId = await currentOrgId();
   if (!orgId) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
 
-  const project = await addItemsToProject(orgId, id, body.items);
+  const project = await addItemsToProject(orgId, id, parsed.data.items);
   if (!project) return NextResponse.json({ error: 'not found' }, { status: 404 });
   return NextResponse.json({ ok: true, itemCount: project.items.length });
 }
