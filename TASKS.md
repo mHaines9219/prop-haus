@@ -277,9 +277,48 @@ direction arrives, changes go through DESIGN.md first, then components.
 
 ### MVP-6 · BACKEND-OPT — Backend optimization (competitor API analysis)
 
-**Status:** compare/contrast DONE (2026-08-31) — see docs/backend-api-analysis.md §4, reviewed with Matthew. Next: implement the emulate bucket (§4 is the guide; priorities: vendor-popularity data, UI load speed, AI-pipeline efficiency). Coordinate with MVP-1 on shared endpoints.
+**Status:** in progress — emulate bucket landing incrementally (one PR per item, priority order per docs/backend-api-analysis.md §4). #1 outbound-click demand signal → done — PR #78. #2–5 open for the next agent (see "Next up" below). #6–8 (search-surface) still deferred pending MVP-1 coordination.
 **Priority:** medium
-**Depends on:** incoming material from Matthew. Do not start until it lands.
+**Depends on:** compare/contrast DONE + reviewed with Matthew (2026-08-31). Emulate items #2–5 are unblocked and independent.
+
+**Next up (for the next agent — pick ONE, they're independent).** Each is an
+additive change from §4's EMULATE list; the analysis doc is the spec. Priority
+order reflects Matthew's stated priorities: (a) vendor-popularity data, (b) UI
+load speed, (c) AI-pipeline efficiency.
+
+- **#2 imageHash (priority c — do next).** Content hash per image at ingest so
+  AI passes scale with *change*, not catalog size: skip re-embed/re-enrich when
+  a re-scrape returns an unchanged image; dedupe identical photos; later, key
+  FUT-2 image-to-3D GLBs per hash. Shape: migration adds an `image_hash`
+  column, ingest/load hook computes it, `pnpm embed`/`pnpm enrich` gain a
+  "skip if hash unchanged" guard. Coordinate on the catalog-load path.
+- **#3 AI-vs-source provenance (§4.3).** Namespaced jsonb (`ai_metadata`)
+  beside immutable scraped fields so any AI pass is re-runnable with a better
+  model without destroying source data. First applications: parsed dimensions
+  (also needed by MVP-5b's camera-report placard) and a `Price.unit` backfill
+  that never overwrites scraper-confirmed values.
+- **#4 canonical/duplicate linkage (§4.4).** A canonical-item link (seed via
+  imageHash from #2 + fuzzy title match) so search collapses cross-vendor dupes
+  and shows "available from N vendors." Best done AFTER #2 (needs the hash).
+- **#5 category provenance (§4.5).** A column recording which pipeline set a
+  category (`ai` | `tags`) so AI recategorization is re-runnable/rollbackable
+  without clobbering scraper-derived categories. Addresses the mapper-gap bug
+  class from PRs #68/#70.
+
+Sequencing note: #2 before #4 (dedup seeds off the hash). #3 and #5 are
+standalone. All are additive — an events insert, a column + hook, a jsonb
+column, a link table, a provenance column — none restructure existing data.
+
+**#1 shipped (PR #78) — reference for the pattern:** signal collection only,
+not ranking. `outbound_click` event (`lib/events.ts`) fired via
+`navigator.sendBeacon` from `components/ap/outbound-link.tsx`, recorded by
+`app/api/events/outbound-click/route.ts` (validates source/surface, auth-
+optional, 204). Wired on the item-detail "View on {vendor}" CTA
+(`surface: 'item_detail'`). Direct attributed href kept — took GetSet's signal,
+not their proxy. FOLLOW-UPS left open: (i) a demand-ranked browse order that
+reads this signal — browse still sorts by `id` in lib/catalog-db.ts:176;
+(ii) additional surfaces (`project`, `order`) — the `surface` allow-list in
+the route + component's union type extend in one line each.
 
 **Context.** Matthew is analyzing competitors' products by capturing the
 network responses behind their API calls. This task is a compare-and-contrast

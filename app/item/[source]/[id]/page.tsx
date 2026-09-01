@@ -7,6 +7,7 @@ import { categoryName } from '@/lib/categories';
 import { AddToCart } from '@/components/ap/add-to-cart';
 import { ItemCard } from '@/components/ap/item-card';
 import { ItemGallery } from '@/components/ap/item-gallery';
+import { OutboundLink } from '@/components/ap/outbound-link';
 import { PageShell } from '@/components/ap/page-shell';
 import { GridCell, SeamGrid } from '@/components/ap/seam-grid';
 
@@ -171,15 +172,16 @@ export default async function ItemPage({
                 <ScanSearch size={16} strokeWidth={1.5} aria-hidden />
                 Find Similar
               </Link>
-              <a
+              <OutboundLink
                 href={item.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
+                itemId={item.id}
+                source={item.source}
+                surface="item_detail"
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border text-sm font-medium text-foreground transition-colors duration-150 hover:bg-foreground/7"
               >
                 View on {meta.name}
                 <ExternalLink size={16} strokeWidth={1.5} aria-hidden />
-              </a>
+              </OutboundLink>
             </div>
           </div>
         </div>
