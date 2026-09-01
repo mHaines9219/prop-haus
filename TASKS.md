@@ -344,7 +344,7 @@ from the captures and context Matthew provides.
 
 ### MVP-7 · CLIP — Save furniture from anywhere on the web (v1: paste a link)
 
-**Status:** open — planned 2026-08-31, ready for an agent to claim
+**Status:** in progress — mHaines9219/asuncion · built + tests green. Flags for Matthew: (1) reused the EXISTING `project_items.metadata` jsonb column instead of adding a new `meta` column (it was unused; avoids a near-duplicate) — comment-only migration documents it; (2) `.env.local.example` is permission-locked in this workspace, so `CLIP_IMAGE_BUCKET=clips` must be added there by hand (image snapshotting is off until then — PassthroughStore hotlinks, demo works with zero secrets); (3) conscious sign-off wanted on copying retail images into our bucket vs hotlink-only (PassthroughStore is the hotlink-only posture).
 **Priority:** medium-high
 **Depends on:** nothing
 
@@ -684,7 +684,7 @@ Token-burn guardrails:
 | MVP-4 | COI issuance via API partner | done — PR pending | medium-high |
 | MVP-5 | Site redesign (A done, B in progress)| in progress | high |
 | MVP-6 | Backend optimization (competitor API) | analysis done, emulate next | medium |
-| MVP-7 | Web clipper v1 (paste a link) | open | medium-high |
+| MVP-7 | Web clipper v1 (paste a link) | in progress — asuncion | medium-high |
 | MVP-8 | Jobs-in-progress dashboard | open — plan ready | medium-high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |

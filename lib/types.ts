@@ -25,6 +25,27 @@ export const SOURCES = [
 ] as const;
 export type Source = (typeof SOURCES)[number];
 
+/**
+ * Items a user clipped from the open web (MVP-7) rather than our scraped
+ * catalog. They live in folders alongside catalog items but never enter
+ * search/embeddings and can't be checked out — they're reference material the
+ * user sourced themselves and that links back to the retailer.
+ */
+export const CLIP_SOURCE = 'clip' as const;
+
+/** What a folder-saved item's `source` can be: a scraped vendor, or a web clip. */
+export type SavedSource = Source | typeof CLIP_SOURCE;
+
+/**
+ * Extras a clipped item carries that the snapshot columns don't have. Stored on
+ * `project_items.metadata`; catalog-saved items leave it absent.
+ */
+export type ClipMeta = {
+  retailer?: string;
+  price?: { amount: number; currency: string };
+  description?: string;
+};
+
 export const SOURCE_META: Record<Source, { name: string; url: string }> = {
   gilandroy: { name: 'Gil & Roy Props', url: 'https://www.gilandroyprops.tv' },
   hpr: { name: 'Hand Prop Room', url: 'https://www.hpr.com' },

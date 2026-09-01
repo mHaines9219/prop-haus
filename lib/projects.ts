@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
-import type { Source } from './types';
+import { z } from 'zod';
+import { CLIP_SOURCE, SOURCES, type ClipMeta, type SavedSource } from './types';
+import { isSafeExternalUrl } from './safe-url';
 import { PROJECT_SELECT, db, toProject } from './projects-db';
 
 /**
@@ -26,16 +28,63 @@ export type Project = {
 /** A catalog item saved into a folder. Snapshotted so a folder survives the item being de-listed. */
 export type ProjectItem = {
   itemId: string;
-  source: Source;
+  source: SavedSource;
   sourceId: string;
   name: string;
   image?: string;
   sourceUrl: string;
   category?: string;
+  /** Web-clip extras (retailer/price/description). Absent for catalog items. */
+  meta?: ClipMeta;
   addedAt: string;
 };
 
 export type ProjectItemInput = Omit<ProjectItem, 'addedAt'>;
+
+/**
+ * Runtime validation for a snapshot arriving from a client — the folder-item
+ * POST routes cast the body with no checks otherwise, and one of the writers is
+ * now the web clipper (MVP-7), which turns arbitrary retailer HTML into these.
+ *
+ * `image`/`sourceUrl` must survive `isSafeExternalUrl` (http/https only, no
+ * `javascript:`) because the folder page renders them as an <img src> and an
+ * <a href>. Lengths are capped so a hostile listing can't write a novel into a
+ * row.
+ */
+const safeHttpUrl = z
+  .string()
+  .refine(isSafeExternalUrl, 'must be an http(s) URL');
+
+const ClipMetaSchema = z
+  .object({
+    retailer: z.string().max(200).optional(),
+    price: z
+      .object({ amount: z.number().finite(), currency: z.string().max(8) })
+      .optional(),
+    description: z.string().max(4000).optional(),
+  })
+  .strict();
+
+export const ProjectItemInputSchema = z.object({
+  itemId: z.string().min(1).max(512),
+  source: z.union([z.enum(SOURCES), z.literal(CLIP_SOURCE)]),
+  sourceId: z.string().min(1).max(2048),
+  name: z.string().min(1).max(300),
+  image: safeHttpUrl.optional(),
+  sourceUrl: safeHttpUrl,
+  category: z.string().max(120).optional(),
+  meta: ClipMetaSchema.optional(),
+});
+
+// Compile-time guard: the schema's output must be assignable to the hand-written
+// ProjectItemInput (and vice versa), so the two can't drift apart silently.
+type _SchemaMatchesInput = z.infer<typeof ProjectItemInputSchema> extends ProjectItemInput
+  ? ProjectItemInput extends z.infer<typeof ProjectItemInputSchema>
+    ? true
+    : never
+  : never;
+const _schemaMatches: _SchemaMatchesInput = true;
+void _schemaMatches;
 
 /** Backed by Postgres (public.projects / public.project_items). Row mapping lives in lib/projects-db.ts. */
 
@@ -195,5 +244,7 @@ function toItemRow(projectId: string, item: ProjectItemInput) {
     image: item.image ?? null,
     source_url: item.sourceUrl,
     category: item.category ?? null,
+    // Clip extras land in the existing `metadata` jsonb; catalog items store {}.
+    metadata: item.meta ?? {},
   };
 }
