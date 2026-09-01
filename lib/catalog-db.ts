@@ -246,6 +246,37 @@ export async function getItemBySourceId(
   )[0];
 }
 
+/**
+ * Full items for a set of catalog ids, in one round trip.
+ *
+ * The order-to-Spacelab handoff (FUT-2) needs dimensions and enrichment for
+ * every line on an order at once; calling getItemBySourceId per line would be a
+ * query per item. Ids are chunked because they travel in the query string, and
+ * a missing id is simply absent from the result — an item can be de-listed
+ * between checkout and a set preview, and the order snapshot still carries the
+ * name and photo.
+ */
+export async function itemsByIds(ids: string[]): Promise<PropItem[]> {
+  const unique = [...new Set(ids)].filter(Boolean);
+  if (unique.length === 0) return [];
+
+  const CHUNK = 100;
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += CHUNK) chunks.push(unique.slice(i, i + CHUNK));
+
+  const pages = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await db()
+        .from("prop_items")
+        .select(FULL_COLUMNS)
+        .in("id", chunk);
+      if (error) throw new Error(`[catalog-db] itemsByIds failed: ${error.message}`);
+      return toItems((data ?? []) as unknown as Record<string, unknown>[], "items-by-id");
+    }),
+  );
+  return pages.flat();
+}
+
 /** Cards for one category. Capped — see the note in app/category/[slug]/page.tsx. */
 export async function categoryCards(
   slug: string,

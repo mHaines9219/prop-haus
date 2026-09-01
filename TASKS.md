@@ -578,7 +578,16 @@ yet — scope with Matthew before starting.
 
 ### FUT-2 · SPACELAB — 3D set preview from cart
 
-**Status:** future
+**Status:** scaffolded — PR #82 · claude/fut2-space-lab-integration-jwwfs3 ·
+phases 1-3 built and demoable with zero secrets; phase 4 needs two things from
+Matthew: (a) pick an image-to-3D service (Meshy/Tripo/TRELLIS-class) — the mock
+generates real, loadable photo-mapped boxes until then, and swapping it is one
+adapter file plus `SPACELAB_MODEL_PROVIDER` + `SPACELAB_ASSET_BUCKET`; (b) the
+cross-repo Spacelab change + deployment (remote catalog loading, absolute model
+URLs, `?room=` open) — spec'd as a concrete diff in
+docs/spacelab-integration.md §0, which is the standing list of what this needs
+from Matthew. Until Spacelab is deployed the fallback is real: download the
+room file, open it with Spacelab's own "import room".
 **Depends on:** MVP-3 (hooks into post-checkout), Spacelab deployment
 
 **Concept.** Spacelab is Matthew's separate project at
@@ -624,6 +633,16 @@ object they can arrange in a Spacelab room.
 
 Cross-repo work is required in Spacelab (remote catalog loading, possibly a
 trimmed embed route). Scope each phase with Matthew before starting.
+
+**Built (2026-09-01).** Phases 1-3 in `lib/spacelab/` behind interfaces:
+image-to-3D provider (`provider.ts`, mock emits a real GLB via `glb.ts`), model
+cache shared across orgs (`models.ts` + `spacelab_models`), Spacelab-format
+catalog (`catalog.ts` + `/api/spacelab/catalog`), scene builder verified against
+Spacelab's own serde types (`scene.ts`), and the order-page handoff
+(`handoff.ts`, `components/ap/spacelab-panel.tsx`, checkout prewarm). See
+docs/spacelab-integration.md for the pipeline, the Spacelab-side patch, and what
+was deliberately left out (async generator polling, editing back, wall-hung
+placement, folder-sourced rooms).
 
 ### FUT-3 · CLIP-EXT — Chrome extension web clipper
 
