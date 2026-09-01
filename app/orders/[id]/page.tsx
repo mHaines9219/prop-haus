@@ -10,10 +10,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getJobDetail } from '@/lib/jobs';
+import { getSceneForOrder } from '@/lib/spacelab/handoff';
 import type { OrderItem, VendorSummary } from '@/lib/orders';
 import { requireOrgId } from '@/lib/session';
 import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
+import { SpacelabPanel } from '@/components/ap/spacelab-panel';
 import {
   StatusToken,
   orderStatusSpec,
@@ -29,6 +31,11 @@ export default async function OrderPage({ params }: Props) {
 
   const detail = await getJobDetail(id, orgId);
   if (!detail) notFound();
+
+  // FUT-2: the set preview, if this order already has a room prepared (checkout
+  // warms one). Never fatal to the page — an order detail that 500s because a
+  // 3D preview could not be read is a worse trade than a missing panel.
+  const scene = await getSceneForOrder(id, orgId).catch(() => null);
 
   const { order, vendorSummaries, certificates } = detail;
 
@@ -152,6 +159,9 @@ export default async function OrderPage({ params }: Props) {
             </div>
           </div>
         )}
+
+        {/* FUT-2 — Spacelab set preview */}
+        <SpacelabPanel orderId={order.id} initialScene={scene} />
 
         {/* Footer actions */}
         <div className="mt-10 flex gap-3">
