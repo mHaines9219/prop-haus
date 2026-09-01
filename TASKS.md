@@ -277,13 +277,37 @@ direction arrives, changes go through DESIGN.md first, then components.
 
 ### MVP-6 · BACKEND-OPT — Backend optimization (competitor API analysis)
 
-**Status:** in progress — emulate bucket landing incrementally (one PR per item, priority order per docs/backend-api-analysis.md §4). #1 outbound-click demand signal → done — PR #78. #2–5 open for the next agent (see "Next up" below). #6–8 (search-surface) still deferred pending MVP-1 coordination.
-**Priority:** medium
-**Depends on:** compare/contrast DONE + reviewed with Matthew (2026-08-31). Emulate items #2–5 are unblocked and independent.
+**Status:** BLOCKED / on hold (2026-08-31) — do NOT pick up #2–5 yet. #1
+outbound-click demand signal shipped (PR #78) and stays. Everything else is
+frozen pending a strategy decision (see "Why blocked" below). #6–8 (search-
+surface) remain deferred pending MVP-1 coordination regardless.
+**Priority:** medium (paused)
+**Depends on:** compare/contrast DONE + reviewed with Matthew (2026-08-31), but
+now GATED on the direct-API-access outcome below.
 
-**Next up (for the next agent — pick ONE, they're independent).** Each is an
-additive change from §4's EMULATE list; the analysis doc is the spec. Priority
-order reflects Matthew's stated priorities: (a) vendor-popularity data, (b) UI
+**Why blocked (2026-08-31).** We're going to try to contact the prop houses
+directly and hook into their own APIs rather than treat scraping as the only
+ingest path. If those integrations land, the catalog's ingest/normalization
+layer changes shape — vendor-native fields, real availability, canonical IDs
+from the source — which would force us to redo any backend optimization built
+against the current scraped-data model. So there's no point hardening the
+scrape-era backend (imageHash, provenance jsonb, canonical/dup linkage,
+category provenance) until we know what the data plane actually looks like.
+
+Matthew's read: some inventory will *still* have to be scraped (not every house
+will have or grant an API), so the eventual design is likely hybrid — API where
+we can, scrape where we can't. That means #2–5 aren't cancelled, just deferred
+until the ingest architecture is settled; several may survive largely intact but
+should be (re)specced against the hybrid model, not the current one.
+
+**Unblock when:** we know which prop houses will grant API access and roughly
+what those APIs expose. At that point: revisit §4's EMULATE list against the
+hybrid ingest model, re-scope #2–5, and resume one-PR-per-item.
+
+**Next up — FROZEN (do not start; re-spec after unblock).** Each below is an
+additive change from §4's EMULATE list against the *current scraped-data* model;
+treat as historical spec until the ingest architecture is settled. Priority
+order reflected Matthew's stated priorities: (a) vendor-popularity data, (b) UI
 load speed, (c) AI-pipeline efficiency.
 
 - **#2 imageHash (priority c — do next).** Content hash per image at ingest so
@@ -683,7 +707,7 @@ Token-burn guardrails:
 | MVP-3 | One-click checkout scaffold | done | high |
 | MVP-4 | COI issuance via API partner | done — PR pending | medium-high |
 | MVP-5 | Site redesign (A done, B in progress)| in progress | high |
-| MVP-6 | Backend optimization (competitor API) | analysis done, emulate next | medium |
+| MVP-6 | Backend optimization (competitor API) | BLOCKED — awaiting direct-API access decision; #1 shipped | medium (paused) |
 | MVP-7 | Web clipper v1 (paste a link) | open | medium-high |
 | MVP-8 | Jobs-in-progress dashboard | open — plan ready | medium-high |
 | FUT-1 | Book all vendor categories | future | — |
