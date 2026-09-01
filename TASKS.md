@@ -565,16 +565,53 @@ task kanban, AI summaries, notifications, realtime (all Phase 2 — FUT-4).
 
 ### FUT-1 · VENDOR-EXPAND — Book all vendor categories
 
-**Status:** future
+**Status:** scaffolded (Sep 2026) — directories live with placeholder data;
+real vendor data comes from Matthew
 **Depends on:** MVP-2 (extends its schema)
 
 Expand beyond props and crew to booking every production vendor category:
 catering, styling, hair/makeup, equipment, locations support, etc. The
 contractor model from MVP-2 generalizes: a `category` on the
 contractor/vendor record, per-category browse pages or a unified directory,
-same request-to-book flow. When building MVP-2, keep the schema
-category-friendly so this is an extension, not a rewrite. No further spec
-yet — scope with Matthew before starting.
+same request-to-book flow.
+
+**Scaffolded so far:**
+- Category config: `lib/vendor-categories.ts` — adding a category is one
+  entry there plus seed rows; no schema change.
+- Shared directory page + card: `components/vendors/category-directory.tsx`,
+  `components/vendors/contractor-card.tsx` (moved from `app/crew/`, now
+  parameterized). `/crew` renders through the shared component and filters
+  `category = 'crew'`.
+- Routes: `/book` (category hub, linked in nav), `/book/hair-makeup`,
+  `/book/styling`, `/book/lighting-rigging` (dynamic `app/book/[category]`),
+  `/book/catering` (own page with a roadmap strip).
+- Seed: `supabase/migrations/20260901120000_vendor_categories_seed.sql` —
+  PLACEHOLDER people/vendors per category; swap for real data.
+- All categories reuse the MVP-2 request flow (`POST /api/crew/requests`).
+
+**Catering — integration notes (researched Sep 2026):**
+Catering is the one category that should outgrow request-to-book into
+menu-level ordering. Don't build ordering ourselves; options, best-fit first:
+- **ezCater** (ezcater.com) — the dominant B2B/workplace catering
+  marketplace, closest product fit. Has public **Menus API** and **Orders
+  API** (api.ezcater.io) as of 2025; access is partner-program based, so it
+  needs a partnership conversation, not just an API key.
+- **MealMe** (mealme.ai) — programmatic food-ordering API over 1M+
+  restaurants (search, menus, order placement, delivery via aggregated
+  third parties). The closest thing to the "Postmates-style API" — Postmates
+  itself no longer has a public ordering API (folded into Uber). Self-serve,
+  good for a fast pilot; less catering/head-count native than ezCater.
+- **Uber Direct / DoorDash Drive** — white-label delivery-only APIs. No
+  catalog/menus; only useful to move food from partner vendors we source
+  ourselves.
+- **Fallback (current scaffold):** curated partner vendors in the
+  contractors table (`category = 'catering'`) with the request flow. This is
+  live now and may be the right long-term shape for craft services anyway,
+  since set catering is call-sheet-driven, not on-demand.
+
+**Still open:** equipment and location-support categories; per-category
+request fields (head count for catering, kit fees for HMU); whether crew
+folds into /book permanently.
 
 ### FUT-2 · SPACELAB — 3D set preview from cart
 

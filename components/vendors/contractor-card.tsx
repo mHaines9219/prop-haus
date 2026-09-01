@@ -18,15 +18,6 @@ export type Contractor = {
   category: string;
 };
 
-const SKILL_LABELS: Record<string, string> = {
-  delivery: 'Delivery',
-  'set-hands': 'Set hands',
-  'load-in': 'Load-in',
-  'load-out': 'Load-out',
-  'set-dressing': 'Set dressing',
-  general: 'General',
-};
-
 function formatRate(low: number | null, high: number | null): string {
   if (!low && !high) return 'Rate on request';
   const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
@@ -36,7 +27,15 @@ function formatRate(low: number | null, high: number | null): string {
 
 type Status = 'idle' | 'open' | 'submitting' | 'sent' | 'error';
 
-export function ContractorCard({ contractor }: { contractor: Contractor }) {
+export function ContractorCard({
+  contractor,
+  skillLabels,
+  ctaLabel,
+}: {
+  contractor: Contractor;
+  skillLabels: Record<string, string>;
+  ctaLabel: string;
+}) {
   const [status, setStatus] = useState<Status>('idle');
   const [dates, setDates] = useState('');
   const [location, setLocation] = useState('');
@@ -110,7 +109,7 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
               key={s}
               className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[11px] uppercase leading-none tracking-[0.06em] text-text-tertiary"
             >
-              {SKILL_LABELS[s] ?? s}
+              {skillLabels[s] ?? s}
             </span>
           ))}
         </div>
@@ -148,7 +147,7 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
                     : 'border-emerald-500 text-emerald-400 hover:bg-emerald-500/10',
                 )}
               >
-                {formOpen ? 'Cancel' : 'Request crew'}
+                {formOpen ? 'Cancel' : ctaLabel}
               </button>
 
               <AnimatePresence initial={false}>
