@@ -578,7 +578,7 @@ yet — scope with Matthew before starting.
 
 ### FUT-2 · SPACELAB — 3D set preview from cart
 
-**Status:** future
+**Status:** in progress — claude/fut2-space-lab-integration-jwwfs3
 **Depends on:** MVP-3 (hooks into post-checkout), Spacelab deployment
 
 **Concept.** Spacelab is Matthew's separate project at
