@@ -3,6 +3,12 @@ import { createAdminClient } from './supabase/admin';
 
 export type OrderStatus = 'placed' | 'processing' | 'confirmed' | 'cancelled';
 
+/**
+ * Per-line vendor coordination state. Matches DESIGN.md §9.10's canonical
+ * StatusToken states and the CHECK constraint on order_items.status.
+ */
+export type ItemStatus = 'pending' | 'quoted' | 'confirmed' | 'unavailable';
+
 export type OrderItem = {
   id: string;
   itemId: string;
@@ -13,6 +19,9 @@ export type OrderItem = {
   sourceUrl: string;
   vendor: string;
   priceCents?: number;
+  status: ItemStatus;
+  statusNote?: string;
+  quotedCents?: number;
 };
 
 export type Order = {
@@ -127,6 +136,88 @@ export async function listOrders(orgId: string): Promise<Order[]> {
   return (data ?? []).map((r) => toOrder(r as OrderRow));
 }
 
+/**
+ * Move an order to a new lifecycle status. Service-role; org-scoped so a caller
+ * can only touch its own orders. Returns nothing — throws if the order is not
+ * found under this org.
+ */
+export async function setOrderStatus(
+  orderId: string,
+  orgId: string,
+  status: OrderStatus,
+): Promise<void> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from('orders')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .eq('org_id', orgId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('Order not found');
+}
+
+/**
+ * Move a single line item to a new coordination status. Verifies the item's
+ * parent order belongs to `orgId` before writing (a caller must not be able to
+ * flip another org's line by guessing an id). `note`/`quotedCents` are only
+ * written when explicitly provided.
+ */
+export async function setItemStatus(
+  orderItemId: string,
+  orgId: string,
+  status: ItemStatus,
+  opts?: { note?: string | null; quotedCents?: number | null },
+): Promise<void> {
+  const db = createAdminClient();
+
+  const { data: owned, error: checkError } = await db
+    .from('order_items')
+    .select('id, orders!inner(org_id)')
+    .eq('id', orderItemId)
+    .eq('orders.org_id', orgId)
+    .maybeSingle();
+
+  if (checkError) throw checkError;
+  if (!owned) throw new Error('Order item not found');
+
+  const patch: Record<string, unknown> = { status };
+  if (opts && 'note' in opts) patch.status_note = opts.note ?? null;
+  if (opts && 'quotedCents' in opts) patch.quoted_cents = opts.quotedCents ?? null;
+
+  const { error } = await db.from('order_items').update(patch).eq('id', orderItemId);
+  if (error) throw error;
+}
+
+export type VendorSummary = {
+  vendor: string;
+  total: number;
+  pending: number;
+  quoted: number;
+  confirmed: number;
+  unavailable: number;
+};
+
+/**
+ * Per-vendor line-item counts for an order — the data behind the §9.7 row copy
+ * ("Newel confirmed 4 of 6 items. 2 pending."). Derived, never stored.
+ */
+export function summarizeOrder(order: Order): VendorSummary[] {
+  const byVendor = new Map<string, VendorSummary>();
+  for (const item of order.items) {
+    let s = byVendor.get(item.vendor);
+    if (!s) {
+      s = { vendor: item.vendor, total: 0, pending: 0, quoted: 0, confirmed: 0, unavailable: 0 };
+      byVendor.set(item.vendor, s);
+    }
+    s.total += 1;
+    s[item.status] += 1;
+  }
+  return [...byVendor.values()].sort((a, b) => a.vendor.localeCompare(b.vendor));
+}
+
 export async function getCheckoutProfile(orgId: string): Promise<CheckoutProfile> {
   const db = createAdminClient();
   const { data, error } = await db
@@ -174,6 +265,9 @@ type OrderItemRow = {
   source_url: string;
   vendor: string;
   price_cents: number | null;
+  status: string;
+  status_note: string | null;
+  quoted_cents: number | null;
 };
 
 type OrderRow = {
@@ -200,6 +294,9 @@ function toOrderItem(r: OrderItemRow): OrderItem {
     sourceUrl: r.source_url,
     vendor: r.vendor,
     ...(r.price_cents !== null ? { priceCents: r.price_cents } : {}),
+    status: (r.status as ItemStatus) ?? 'pending',
+    ...(r.status_note ? { statusNote: r.status_note } : {}),
+    ...(r.quoted_cents !== null ? { quotedCents: r.quoted_cents } : {}),
   };
 }
 

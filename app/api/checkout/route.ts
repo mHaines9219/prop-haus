@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { createOrder, type CartLineInput } from '@/lib/orders';
 import { paymentProvider } from '@/lib/payments/provider';
+import { recordEvents } from '@/lib/analytics';
 
 type CheckoutBody = {
   lines: CartLineInput[];
@@ -35,6 +36,14 @@ export async function POST(req: Request) {
 
   // ── POST-CHECKOUT HOOKS ──────────────────────────────────────────────────
   // Non-fatal extension points for follow-on tasks.
+
+  const vendorCount = new Set(order.items.map((i) => i.vendor)).size;
+  await recordEvents({
+    orgId: session.orgId,
+    userId: session.userId,
+    type: 'order_placed',
+    payload: { orderId: order.id, itemCount: order.items.length, vendorCount },
+  });
 
   // MVP-4: COI issuance per vendor — wire when MVP-4 lands
   // await issueCoisForOrder(order);

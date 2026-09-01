@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { currentOrgId } from '@/lib/session';
+import { currentOrgId, currentSession } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
+import { recordEvents } from '@/lib/analytics';
 
 type RequestBody = {
   contractor_id: string;
@@ -9,10 +10,33 @@ type RequestBody = {
   notes?: string;
 };
 
-/** Create a crew request. Auth required; org comes from session, not body. */
-export async function POST(req: Request) {
+/** List the org's crew requests (with contractor name). Auth required. */
+export async function GET() {
   const orgId = await currentOrgId();
   if (!orgId) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('crew_requests')
+    .select(
+      'id, contractor_id, requested_dates, location, notes, status, created_at, updated_at, contractors(name, photo)',
+    )
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[crew/requests] list error', error);
+    return NextResponse.json({ error: 'Failed to load requests' }, { status: 500 });
+  }
+
+  return NextResponse.json({ requests: data ?? [] });
+}
+
+/** Create a crew request. Auth required; org comes from session, not body. */
+export async function POST(req: Request) {
+  const session = await currentSession();
+  if (!session) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
+  const orgId = session.orgId;
 
   let body: RequestBody;
   try {
@@ -44,6 +68,13 @@ export async function POST(req: Request) {
     console.error('[crew/requests] insert error', error);
     return NextResponse.json({ error: 'Failed to create request' }, { status: 500 });
   }
+
+  await recordEvents({
+    orgId,
+    userId: session.userId,
+    type: 'crew_requested',
+    payload: { crewRequestId: data.id, contractorId: contractor_id },
+  });
 
   return NextResponse.json({ id: data.id }, { status: 201 });
 }
