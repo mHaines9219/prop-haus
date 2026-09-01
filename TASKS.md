@@ -585,8 +585,9 @@ generates real, loadable photo-mapped boxes until then, and swapping it is one
 adapter file plus `SPACELAB_MODEL_PROVIDER` + `SPACELAB_ASSET_BUCKET`; (b) the
 cross-repo Spacelab change + deployment (remote catalog loading, absolute model
 URLs, `?room=` open) — spec'd as a concrete diff in
-docs/spacelab-integration.md. Until Spacelab is deployed the fallback is real:
-download the room file, open it with Spacelab's own "import room".
+docs/spacelab-integration.md §0, which is the standing list of what this needs
+from Matthew. Until Spacelab is deployed the fallback is real: download the
+room file, open it with Spacelab's own "import room".
 **Depends on:** MVP-3 (hooks into post-checkout), Spacelab deployment
 
 **Concept.** Spacelab is Matthew's separate project at

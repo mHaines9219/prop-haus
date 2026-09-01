@@ -10,6 +10,50 @@ side, and what has to happen before it is a real product surface.
 
 ---
 
+## 0. What this needs from Matthew (start here)
+
+Three decisions, in the order they unblock things. Nothing here blocks anything
+else in the repo — the flow is demoable today without any of them.
+
+**1. Pick an image-to-3D service.** Candidates to evaluate: Meshy, Tripo, or a
+self-hosted TRELLIS-class model. What to compare: cost per generation, quality
+on a single product photo (which is all our catalog has), turnaround, and
+whether the API is sync or job-based. Until then the mock ships real,
+photo-mapped boxes and everything downstream works.
+
+*When you have it:* write one adapter implementing `Model3dProvider`, register
+it in `getModel3dProvider()`, then set `SPACELAB_MODEL_PROVIDER=<name>`, its API
+key, **and `SPACELAB_ASSET_BUCKET`** (§2). Read the model contract in §2 first —
+it is the thing most likely to be gotten wrong.
+
+**2. Create a public Supabase Storage bucket for generated models**, and put its
+name in `SPACELAB_ASSET_BUCKET`. Not needed for the mock; **required** the
+moment a paid provider is wired, because without it every fetch of a mesh
+regenerates it and would re-bill the service. `getModelStore()` logs a warning
+when it sees that combination.
+
+**3. Make the Spacelab-side change and deploy it.** Two small, additive patches
+(§3, written out as diffs against the current Spacelab source) plus a host for
+the static Vite app. Then set `NEXT_PUBLIC_SPACELAB_URL` and
+`NEXT_PUBLIC_SITE_URL` here, and the order page becomes a one-click deep link.
+Until then the fallback is real and usable: download the room file from the
+order page, open it with Spacelab's own "import room" button.
+
+### Also worth a decision, but not blocking
+
+- **Whether checkout should pre-generate models at all** once generation costs
+  money. It does today (`SPACELAB_PREWARM=on`), which makes the first click
+  instant; flipping it to `off` makes generation user-initiated instead.
+- **The placeholder dimension table.** Most scraped listings publish no
+  dimensions, so items fall back to a per-category guess (§2). It is marked
+  `PLACEHOLDER` in `lib/spacelab/asset.ts` and wants a pass from someone who
+  knows what a prop-house sofa actually measures.
+- **Vendor posture.** Generated models carry vendor attribution into anyone's
+  Spacelab scene. Worth confirming the houses are comfortable with a 3D
+  derivative of their listing photos before this goes public.
+
+---
+
 ## 1. What runs today
 
 Everything below works with **zero secrets and no Spacelab deployment**:
