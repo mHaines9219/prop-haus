@@ -4,9 +4,16 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { getProject } from '@/lib/projects';
 import { requireOrgId } from '@/lib/session';
-import { SOURCE_META } from '@/lib/types';
+import { CLIP_SOURCE, SOURCE_META, type SavedSource, type Source } from '@/lib/types';
+import { safeExternalUrl } from '@/lib/safe-url';
+import { hostnameLabel } from '@/lib/clip/retailers';
 import { PageShell } from '@/components/ap/page-shell';
 import { RemoveItemButton } from './remove-item-button';
+import { ClipForm } from './clip-form';
+
+function isClip(source: SavedSource): boolean {
+  return source === CLIP_SOURCE;
+}
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,62 +44,115 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </p>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 border-t border-border">
+          <ClipForm
+            projectId={project.id}
+            existingItemIds={project.items.map((i) => i.itemId)}
+          />
+
           {project.items.length === 0 ? (
-            <div className="border-y border-border py-16 text-center">
+            <div className="py-16 text-center">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                 Nothing saved here yet
               </p>
               <p className="mt-2 text-[15px] text-text-secondary">
-                Browse the catalog and save pieces from any vendor into this folder.
+                Browse the catalog and save pieces from any vendor into this folder, or add a piece
+                from the web above.
               </p>
             </div>
           ) : (
-            <div className="border-t border-border">
+            <div>
               {project.items.map((item) => {
-                const detailHref = `/item/${item.source}/${encodeURIComponent(item.sourceId)}`;
-                const vendorName = SOURCE_META[item.source]?.name ?? item.source;
+                const clip = isClip(item.source);
+                // A clip has no internal /item page — its detail IS the retailer
+                // listing. Catalog items keep the internal detail link.
+                const externalHref = safeExternalUrl(item.sourceUrl);
+                const detailHref = clip
+                  ? undefined
+                  : `/item/${item.source}/${encodeURIComponent(item.sourceId)}`;
+                const vendorLabel = clip
+                  ? (item.meta?.retailer ?? hostnameLabel(item.sourceUrl))
+                  : (SOURCE_META[item.source as Source]?.name ?? item.source);
+
+                const thumb = item.image ? (
+                  <div className="relative h-20 w-20 overflow-hidden border border-border bg-plate">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      sizes="80px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <span className="block h-20 w-20 border border-border bg-plate" />
+                );
+
                 return (
                   <div
                     key={item.itemId}
                     className="flex min-h-[88px] items-center gap-5 border-b border-border py-4"
                   >
-                    <Link href={detailHref} className="shrink-0">
-                      {item.image ? (
-                        <div className="relative h-20 w-20 overflow-hidden border border-border bg-plate">
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            fill
-                            sizes="80px"
-                            className="object-cover"
-                          />
-                        </div>
+                    {clip ? (
+                      externalHref ? (
+                        <a
+                          href={externalHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0"
+                        >
+                          {thumb}
+                        </a>
                       ) : (
-                        <span className="block h-20 w-20 border border-border bg-plate" />
-                      )}
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={detailHref}
-                        className="block truncate text-[15px] font-medium leading-[22px] text-foreground transition-colors duration-150 hover:text-text-secondary"
-                      >
-                        {item.name}
+                        <span className="shrink-0">{thumb}</span>
+                      )
+                    ) : (
+                      <Link href={detailHref!} className="shrink-0">
+                        {thumb}
                       </Link>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      {clip ? (
+                        externalHref ? (
+                          <a
+                            href={externalHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block truncate text-[15px] font-medium leading-[22px] text-foreground transition-colors duration-150 hover:text-text-secondary"
+                          >
+                            {item.name}
+                          </a>
+                        ) : (
+                          <span className="block truncate text-[15px] font-medium leading-[22px] text-foreground">
+                            {item.name}
+                          </span>
+                        )
+                      ) : (
+                        <Link
+                          href={detailHref!}
+                          className="block truncate text-[15px] font-medium leading-[22px] text-foreground transition-colors duration-150 hover:text-text-secondary"
+                        >
+                          {item.name}
+                        </Link>
+                      )}
                       <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary">
-                        {vendorName}
+                        {vendorLabel}
+                        {clip ? ' · Web clip' : ''}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-4">
-                      <a
-                        href={item.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hidden items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:text-foreground sm:flex"
-                      >
-                        Vendor
-                        <ExternalLink size={12} strokeWidth={1.5} aria-hidden />
-                      </a>
+                      {externalHref && (
+                        <a
+                          href={externalHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hidden items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:text-foreground sm:flex"
+                        >
+                          {clip ? 'Retailer' : 'Vendor'}
+                          <ExternalLink size={12} strokeWidth={1.5} aria-hidden />
+                        </a>
+                      )}
                       <RemoveItemButton projectId={project.id} itemId={item.itemId} />
                     </div>
                   </div>

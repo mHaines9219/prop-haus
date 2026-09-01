@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { createOrder, type CartLineInput } from '@/lib/orders';
 import { paymentProvider } from '@/lib/payments/provider';
+import { recordEvents } from '@/lib/analytics';
+import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
 
 type CheckoutBody = {
   lines: CartLineInput[];
@@ -36,11 +38,24 @@ export async function POST(req: Request) {
   // ── POST-CHECKOUT HOOKS ──────────────────────────────────────────────────
   // Non-fatal extension points for follow-on tasks.
 
+  const vendorCount = new Set(order.items.map((i) => i.vendor)).size;
+  await recordEvents({
+    orgId: session.orgId,
+    userId: session.userId,
+    type: 'order_placed',
+    payload: { orderId: order.id, itemCount: order.items.length, vendorCount },
+  });
+
   // MVP-4: COI issuance per vendor — wire when MVP-4 lands
   // await issueCoisForOrder(order);
 
-  // FUT-2: Spacelab scene handoff — wire when FUT-2 lands
-  // await queueSpacelabHandoff(order);
+  // FUT-2: warm the Spacelab set preview — generate a 3D model per ordered item
+  // and write the room file, so "Build your set in 3D" is a click rather than a
+  // wait. `after()` rather than a bare floating promise: this runs on serverless,
+  // where work started but not awaited can be killed the moment the response is
+  // sent. It is non-fatal by construction (queueSpacelabHandoff swallows its own
+  // errors) and skippable with SPACELAB_PREWARM=off.
+  after(() => queueSpacelabHandoff(order, session.orgId));
 
   // Payment abstraction — NullProvider in MVP; swap for real rails later.
   if (order.totalCents) {

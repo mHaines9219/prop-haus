@@ -1,0 +1,162 @@
+[
+  {
+    "_note": "Representative items excerpted from an authenticated NY search response (~45 docs). Each item below was chosen to demonstrate a field variation; see notes.md for the full field inventory. Response shape: {docs: [{score, product}]}, score = cosine distance, ascending.",
+    "_demonstrates": "price + searchCategories(source:tags) + aiMetadata all-null + marketplace ingest (1stdibs)",
+    "score": 0.7574060644814467,
+    "product": {
+      "id": "699c9a36dd3cd303d4268d72",
+      "price": 950,
+      "vendor": "6792c477499574ee2e3e5184",
+      "quantity": 1,
+      "vendorId": "6792c477499574ee2e3e5184",
+      "cityId": "67797e9666c2efab565340a7",
+      "city": "67797e9666c2efab565340a7",
+      "dimensions": "H 12 in W 24 in D 8 in",
+      "imageUrl": "https://images.wegetset.com/b860879f6a673790.png",
+      "imageHash": "b860879f6a673790",
+      "sku": "f_41041582",
+      "title": "Koch & Lowy Brass Swing Table Lamp, Mid-Century Modern, USA, 1970s",
+      "description": "location: Moreno Valley, CA\ncreators: Koch & Lowy\nattributes: Late 20th Century American Mid-Century Modern Table Lamps\nmaterials: Brass\ndescription: Mid-Century Brass Swing Table or Desk Lamp by Koch & Lowy...",
+      "url": "https://www.1stdibs.com/furniture/lighting/table-lamps/koch-lowy-brass-swing-table-lamp-mid-century-modern-usa-1970s/id-f_41041582/",
+      "stagingOnly": false,
+      "searchCategories": [
+        { "id": "69aef8e91cebbb26394de1d3", "source": "tags", "category": "vintage-store" }
+      ],
+      "aiMetadata": { "quantity": null, "dimensions": null, "description": null }
+    }
+  },
+  {
+    "_demonstrates": "rentalPrice only (no price/period) + quantity 0 still indexed + proxied outbound url + aiMetadata dims parsed from tag-soup title + isOriginalOf duplicate linkage",
+    "score": 0.761806144606697,
+    "product": {
+      "id": "69e33aad04d3a77b9d99191f",
+      "rentalPrice": 49.67,
+      "vendor": "69e0d58aff7442a8ace1c42b",
+      "quantity": 0,
+      "vendorId": "69e0d58aff7442a8ace1c42b",
+      "cityId": "67797e9666c2efab565340a7",
+      "city": "67797e9666c2efab565340a7",
+      "dimensions": "",
+      "imageUrl": "https://images.wegetset.com/fac9ce08cb36c18e.png",
+      "imageHash": "fac9ce08cb36c18e",
+      "sku": "32115525",
+      "title": "Brushed Brass Swing Arm Table Lamp, Fixtures, Gold, Table Lamp, Lamps, Normal Wear And Tear, 10\"W, 14\"H, Ralph Lauren, Brass",
+      "description": "Brushed Brass Swing Arm Table Lamp, Fixtures, Gold, Table Lamp, Lamps, Normal Wear And Tear, 10\"W, 14\"H, Ralph Lauren, Brass\nSize: 10\"W x 14\"H",
+      "url": "https://app.wegetset.com/api/products/vr?s=32115525&v=uspd",
+      "stagingOnly": false,
+      "searchCategories": [],
+      "aiMetadata": {
+        "quantity": null,
+        "dimensions": { "width": "10\"", "height": "14\"" },
+        "description": "Brushed Brass Swing Arm Table Lamp, Fixtures, Gold, Table Lamp, Lamps, Normal Wear And Tear, Ralph Lauren, Brass"
+      },
+      "isOriginalOf": ["69e33ab104d3a77b9d9919c1"]
+    }
+  },
+  {
+    "_demonstrates": "price AND rentalPrice AND rentalPricePeriod together + multi-provenance searchCategories (ai + tags) + full w/h/d aiMetadata parse + cleaned description",
+    "score": 0.7733306898671796,
+    "product": {
+      "id": "6874fc71d907e6b35c90726a",
+      "price": 50,
+      "rentalPrice": 50,
+      "rentalPricePeriod": "week",
+      "vendor": "67799be9557a07d8f08142b3",
+      "quantity": 1,
+      "vendorId": "67799be9557a07d8f08142b3",
+      "cityId": "67797e9666c2efab565340a7",
+      "city": "67797e9666c2efab565340a7",
+      "dimensions": "16\" H x 5\" W x 5\" D",
+      "imageUrl": "https://images.wegetset.com/b2efdcc1f0dfadce8e7642b5b435ad05.png",
+      "imageHash": "ad6d6dce92929292",
+      "sku": "26426",
+      "title": "Gold Ball Anglepoise Desk Lamp",
+      "description": "<p>Details: Gold desk lamp with ball shaped shade and elbow hinged neck.</p>\n<p>Dimensions: 16\" H x 5\" W x 5\" D</p>",
+      "url": "https://www.gilandroyprops.tv/products/gold-ball-shade-desk-lamp",
+      "stagingOnly": false,
+      "searchCategories": [
+        { "id": "69853af2e176c1000379c6a3", "source": "ai", "category": "lighting" },
+        { "id": "69b0282764cd811364066574", "source": "tags", "category": "prop-house" }
+      ],
+      "aiMetadata": {
+        "quantity": null,
+        "dimensions": { "depth": "5\"", "width": "5\"", "height": "16\"" },
+        "description": "Gold desk lamp with ball shaped shade and elbow hinged neck."
+      }
+    }
+  },
+  {
+    "_demonstrates": "imageHash differing from imageUrl filename (content-hash dedupe of optimized variants) + empty sku + no price at all",
+    "score": 0.7849503563300093,
+    "product": {
+      "id": "6a1be35a01d3dbafa9abc819",
+      "rentalPrice": 15,
+      "vendor": "67a086edf7438ce07843e954",
+      "quantity": 1,
+      "vendorId": "67a086edf7438ce07843e954",
+      "cityId": "67797e9666c2efab565340a7",
+      "city": "67797e9666c2efab565340a7",
+      "dimensions": "",
+      "imageUrl": "https://images.wegetset.com/f64194909c88cd85be5e4196de71cd88.png",
+      "imageHash": "c8326d2a956db34d",
+      "sku": "",
+      "title": "ISS.123524",
+      "description": "DESK LAMP-N.D., METAL, BRONZE, 15.5\" TALL, 6.25\" ROUND BASE, NARROW BAR ANGLES TO 11\" STRIP OF LED LIGHTS, TOUCH SENSITIVE ON/OFF SWITCH, 3 BRIGHTNESS SETTINGS, AC POWER CORD, *NON-FUNCTIONAL*, MODERN, 01/2017",
+      "url": "https://props.issprops.com/?tags=&desc=ISS.123524#la",
+      "stagingOnly": false,
+      "searchCategories": [],
+      "aiMetadata": { "quantity": null, "dimensions": null, "description": null }
+    }
+  },
+  {
+    "_demonstrates": "competitor-platform ingest: outbound url points at propcart.com (aggregators indexing aggregators)",
+    "score": 0.7975928095093738,
+    "product": {
+      "id": "6a4bd8f2c97f4dddb863a6b6",
+      "price": 10,
+      "rentalPrice": 10,
+      "rentalPricePeriod": "week",
+      "vendor": "6a4650bc80dc937465a0f2e1",
+      "quantity": 6,
+      "vendorId": "6a4650bc80dc937465a0f2e1",
+      "cityId": "67797e9666c2efab565340a7",
+      "city": "67797e9666c2efab565340a7",
+      "dimensions": "5”H x 2.25”W x 2.25”D",
+      "imageUrl": "https://images.wegetset.com/d6e109fc8669f886.png",
+      "imageHash": "d6e109fc8669f886",
+      "sku": "00788",
+      "title": "Brass Pedestal table Lamp with Metal Base",
+      "description": "",
+      "url": "https://propcart.com/shop/brasstacksdecor?modalId=r83zoGL7w1VDhXfWQoZZ",
+      "stagingOnly": false,
+      "searchCategories": [],
+      "aiMetadata": { "quantity": null, "dimensions": null, "description": null }
+    }
+  },
+  {
+    "_demonstrates": "proxied vendor code v=wb (Warner Bros — a vendor blocked to our scrapers) + rentalPricePeriod week",
+    "score": 0.8000320106782925,
+    "product": {
+      "id": "698d23ab2367ea545809f9bc",
+      "rentalPrice": 55,
+      "rentalPricePeriod": "week",
+      "vendor": "67ae40a70665d3abd051a3bb",
+      "quantity": 1,
+      "vendorId": "67ae40a70665d3abd051a3bb",
+      "cityId": "67797e9666c2efab565340a7",
+      "city": "67797e9666c2efab565340a7",
+      "dimensions": "22\" x 9\"",
+      "imageUrl": "https://images.wegetset.com/c94dcc6036f2b333.png",
+      "imageHash": "c94dcc6036f2b333",
+      "sku": "07079961",
+      "title": "Office / Task / Desk Lamp",
+      "description": "Office / Task / Desk Lamp, Single Light, Square Tube Base, Brass, Metal, 22\", 9\", 1970's, Location: Fixtures",
+      "url": "https://app.wegetset.com/api/products/vr?s=07079961&v=wb",
+      "stagingOnly": false,
+      "searchCategories": [
+        { "id": "69ac365842862f34e26fc3e3", "source": "tags", "category": "prop-house" }
+      ],
+      "aiMetadata": { "quantity": null, "dimensions": null, "description": null }
+    }
+  }
+]
