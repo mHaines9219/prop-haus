@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createProject, listProjects, type ProjectItemInput } from '@/lib/projects';
+import { z } from 'zod';
+import { createProject, listProjects, ProjectItemInputSchema } from '@/lib/projects';
 import { currentOrgId } from '@/lib/session';
 
-type CreateBody = { name?: string; items?: ProjectItemInput[] };
+// Validate the optional seed items the same way the add-items route does — the
+// create-with-items path is a second writer of untrusted snapshots.
+const CreateBody = z.object({
+  name: z.string().trim().min(1).max(200),
+  items: z.array(ProjectItemInputSchema).max(100).optional(),
+});
 
 /** The signed-in org's folders — used by the "save to a folder" picker on the browse/cart flow. */
 export async function GET() {
@@ -16,15 +22,16 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as CreateBody;
-  const name = body.name?.trim();
-  if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  const parsed = CreateBody.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  }
 
   // Ownership comes from the session, never the body — accepting an org id from a
   // client would let a caller file a folder against someone else's organization.
   const orgId = await currentOrgId();
   if (!orgId) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
 
-  const project = await createProject(orgId, name, body.items ?? []);
+  const project = await createProject(orgId, parsed.data.name, parsed.data.items ?? []);
   return NextResponse.json({ id: project.id });
 }

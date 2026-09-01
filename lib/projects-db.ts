@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
-import type { Source } from './types';
+import type { ClipMeta, SavedSource } from './types';
 import type { Project, ProjectItem } from './projects';
 
 /**
@@ -14,12 +14,13 @@ import type { Project, ProjectItem } from './projects';
 
 type ProjectItemRow = {
   item_id: string;
-  source: Source;
+  source: SavedSource;
   source_id: string;
   name: string;
   image: string | null;
   source_url: string;
   category: string | null;
+  metadata: ClipMeta | null;
   added_at: string;
 };
 
@@ -37,6 +38,9 @@ type ProjectRow = {
 export const PROJECT_SELECT = '*, project_items(*)';
 
 function toProjectItem(r: ProjectItemRow): ProjectItem {
+  // `metadata` defaults to {} for catalog items; surface it as `meta` only when
+  // a clip actually put something there, so ProjectItem.meta reads as absent.
+  const meta = r.metadata && Object.keys(r.metadata).length > 0 ? r.metadata : undefined;
   return {
     itemId: r.item_id,
     source: r.source,
@@ -45,6 +49,7 @@ function toProjectItem(r: ProjectItemRow): ProjectItem {
     ...(r.image ? { image: r.image } : {}),
     sourceUrl: r.source_url,
     ...(r.category ? { category: r.category } : {}),
+    ...(meta ? { meta } : {}),
     addedAt: r.added_at,
   };
 }
