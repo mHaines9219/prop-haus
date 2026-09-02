@@ -755,7 +755,7 @@ simplification that follows from it.
 
 ### MVP-11 · OUTREACH — Pre-written, batched vendor emails, sent with the click
 
-**Status:** in progress — mhaines/mvp11-outreach (built 1–8; step 9 crew request emails left as follow-up: needs `contact_email` on contractors, a `crew` template, and `crew_request_id` on outbound_messages. Needs from Matthew: real vendor `orderEmail`s in lib/vendors.ts, RESEND_API_KEY + MAIL_FROM, and the MAIL_PROVIDER/RESEND_API_KEY/MAIL_FROM/OUTREACH_FALLBACK_TO/OUTREACH vars added to .env.local.example.)
+**Status:** done — PR #90 (built 1–8; step 9 crew request emails left as follow-up: needs `contact_email` on contractors, a `crew` template, and `crew_request_id` on outbound_messages. Needs from Matthew: real vendor `orderEmail`s in lib/vendors.ts, RESEND_API_KEY + MAIL_FROM, and the MAIL_PROVIDER/RESEND_API_KEY/MAIL_FROM/OUTREACH_FALLBACK_TO/OUTREACH vars added to .env.local.example.)
 **Priority:** high
 **Depends on:** MVP-10 (reads `order_profile` and the snapshotted order
 fields; extends its cart panel and checkout route). Coordinate with MVP-12 on
@@ -1263,7 +1263,7 @@ Token-burn guardrails:
 | MVP-8 | Jobs-in-progress dashboard | done | medium-high |
 | MVP-9 | Retire COI issuance, keep the data | done — PR #88 | high |
 | MVP-10 | Order profile (one-click readiness) | done — PR #89 | high |
-| MVP-11 | Vendor outreach emails (sent with the click) | in progress — mhaines/mvp11-outreach | high |
+| MVP-11 | Vendor outreach emails (sent with the click) | done — PR #90 | high |
 | MVP-12 | Vendor paperwork via Anvil | in progress — mhaines/mvp12-forms | high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
