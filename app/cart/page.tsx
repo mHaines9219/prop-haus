@@ -8,9 +8,16 @@ import { useCart } from '@/lib/cart-store';
 import { SOURCE_META, type Source } from '@/lib/types';
 import { SiteNav } from '@/components/ap/site-nav';
 import { SiteFooter } from '@/components/ap/site-footer';
-import { postJson } from '@/lib/api';
+import { ApiError, getJson, postJson } from '@/lib/api';
+import { formatAddress, type OrderDefaults } from '@/lib/order-profile';
 
-type CheckoutState = 'idle' | 'submitting' | 'error';
+type CheckoutState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
+
+type Readiness =
+  | { kind: 'loading' }
+  | { kind: 'anon' }
+  | { kind: 'ready'; defaults: OrderDefaults & { rentalWindowDays?: number } }
+  | { kind: 'incomplete'; missing: string[] };
 
 export default function CartPage() {
   const router = useRouter();
@@ -21,15 +28,27 @@ export default function CartPage() {
   const [rentalStart, setRentalStart] = useState('');
   const [rentalEnd, setRentalEnd] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [state, setState] = useState<CheckoutState>('idle');
+  const [override, setOverride] = useState(false);
+  const [state, setState] = useState<CheckoutState>({ kind: 'idle' });
+  const [readiness, setReadiness] = useState<Readiness>({ kind: 'loading' });
   // Stable key for the lifetime of this cart session — prevents double-submit.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+
+  useEffect(() => {
+    let cancelled = false;
+    loadReadiness().then((r) => {
+      if (!cancelled) setReadiness(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const vendors = Array.from(new Set(lines.map((l) => l.item.source)));
 
   async function handlePlaceOrder() {
-    if (state === 'submitting') return;
-    setState('submitting');
+    if (state.kind === 'submitting') return;
+    setState({ kind: 'submitting' });
 
     try {
       const { id } = await postJson<{ id: string }>('/api/checkout', {
@@ -50,8 +69,13 @@ export default function CartPage() {
 
       clear();
       router.push(`/orders/${id}`);
-    } catch {
-      setState('error');
+    } catch (err) {
+      const message =
+        err instanceof ApiError && err.status === 422
+          ? 'Your order profile is missing something.'
+          : 'Something went wrong — please try again.';
+      setState({ kind: 'error', message });
+      if (err instanceof ApiError && err.status === 422) setReadiness(await loadReadiness());
     }
   }
 
@@ -143,61 +167,142 @@ export default function CartPage() {
 
               {/* Checkout panel */}
               <div className="space-y-5">
-                <div className="rounded-md border border-border bg-surface-raised p-5 space-y-4">
+                <div className="rounded-md border border-border bg-surface-raised p-5">
                   <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-                    Rental window
+                    Order details
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
-                        Start
-                      </label>
-                      <input
-                        type="date"
-                        value={rentalStart}
-                        onChange={(e) => setRentalStart(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                      />
+
+                  {readiness.kind === 'ready' && (
+                    <dl className="mt-4 space-y-3 font-mono text-[13px]">
+                      <div>
+                        <dt className="text-text-tertiary">Rental window</dt>
+                        <dd className="mt-0.5 text-foreground">
+                          {rentalStart || rentalEnd
+                            ? formatWindow(rentalStart, rentalEnd)
+                            : readiness.defaults.rentalStart && readiness.defaults.rentalEnd
+                              ? `${formatWindow(readiness.defaults.rentalStart, readiness.defaults.rentalEnd)} · ${readiness.defaults.rentalWindowDays} days from the next business day`
+                              : 'No default window — set one for this order'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-tertiary">Deliver to</dt>
+                        <dd className="mt-0.5 text-foreground">
+                          {readiness.defaults.deliveryAddress
+                            ? formatAddress(readiness.defaults.deliveryAddress)
+                            : readiness.defaults.deliveryNotes ?? '—'}
+                        </dd>
+                        {readiness.defaults.deliveryAddress && readiness.defaults.deliveryNotes && !deliveryNotes && (
+                          <dd className="mt-0.5 text-text-secondary">{readiness.defaults.deliveryNotes}</dd>
+                        )}
+                        {deliveryNotes && <dd className="mt-0.5 text-text-secondary">{deliveryNotes}</dd>}
+                      </div>
+                    </dl>
+                  )}
+
+                  {readiness.kind === 'incomplete' && (
+                    <div className="mt-4">
+                      <p className="font-mono text-[13px] text-foreground">
+                        {readiness.missing.length} thing{readiness.missing.length !== 1 ? 's' : ''} missing before
+                        one-click
+                      </p>
+                      <ul className="mt-2 space-y-1 font-mono text-[12px] text-text-secondary">
+                        {readiness.missing.map((m) => (
+                          <li key={m}>· {m}</li>
+                        ))}
+                      </ul>
+                      <Link
+                        href="/account/profile"
+                        className="mt-4 inline-block font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4"
+                      >
+                        Complete your order profile →
+                      </Link>
                     </div>
-                    <div>
-                      <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
-                        End
-                      </label>
-                      <input
-                        type="date"
-                        value={rentalEnd}
-                        onChange={(e) => setRentalEnd(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                      />
+                  )}
+
+                  {readiness.kind === 'anon' && (
+                    <p className="mt-4 font-mono text-[13px] text-text-secondary">
+                      <Link href="/login?next=/cart" className="text-accent-text underline underline-offset-4">
+                        Sign in
+                      </Link>{' '}
+                      to place an order.
+                    </p>
+                  )}
+
+                  {readiness.kind === 'loading' && (
+                    <p className="mt-4 font-mono text-[13px] text-text-tertiary">Reading your profile…</p>
+                  )}
+
+                  {readiness.kind === 'ready' && (
+                    <div className="mt-4 border-t border-border pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setOverride((o) => !o)}
+                        className="font-mono text-[12px] text-text-tertiary underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        {override ? 'Use my defaults' : 'Change for this order'}
+                      </button>
+                      {override && (
+                        <div className="mt-4 space-y-4">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
+                                Start
+                              </label>
+                              <input
+                                type="date"
+                                value={rentalStart}
+                                onChange={(e) => setRentalStart(e.target.value)}
+                                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
+                                End
+                              </label>
+                              <input
+                                type="date"
+                                value={rentalEnd}
+                                onChange={(e) => setRentalEnd(e.target.value)}
+                                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
+                              Delivery notes
+                            </label>
+                            <textarea
+                              value={deliveryNotes}
+                              onChange={(e) => setDeliveryNotes(e.target.value)}
+                              rows={2}
+                              placeholder="Access instructions, who to ask for…"
+                              className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div>
-                    <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
-                      Delivery notes
-                    </label>
-                    <textarea
-                      value={deliveryNotes}
-                      onChange={(e) => setDeliveryNotes(e.target.value)}
-                      rows={2}
-                      placeholder="Address, contact, access instructions…"
-                      className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground"
-                    />
-                  </div>
+                  )}
                 </div>
 
-                {state === 'error' && (
-                  <p className="font-mono text-[12px] text-[#a8ff3e]">
-                    Something went wrong — please try again.
-                  </p>
+                <div className="flex items-baseline justify-between border-b border-border pb-3">
+                  <span className="text-[13px] text-text-tertiary">Estimate, pending vendor quotes</span>
+                  <span className="font-mono text-[13px] font-medium text-foreground">—</span>
+                </div>
+
+                {state.kind === 'error' && (
+                  <p className="font-mono text-[12px] text-[#a8ff3e]">{state.message}</p>
                 )}
 
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={state === 'submitting'}
-                  className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {state === 'submitting' ? 'Placing order…' : 'Place order'}
-                </button>
+                {readiness.kind === 'ready' && (
+                  <button
+                    onClick={handlePlaceOrder}
+                    disabled={state.kind === 'submitting'}
+                    className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {state.kind === 'submitting' ? 'Placing order…' : 'Place order'}
+                  </button>
+                )}
 
                 <p className="font-mono text-[11px] text-text-tertiary leading-relaxed">
                   Pricing is confirmed with each vendor after you place your order.
@@ -211,4 +316,30 @@ export default function CartPage() {
       <SiteFooter />
     </div>
   );
+}
+
+async function loadReadiness(): Promise<Readiness> {
+  try {
+    const r = await getJson<{
+      ready: boolean;
+      missing: string[];
+      defaults: OrderDefaults & { rentalWindowDays?: number };
+    }>('/api/checkout/readiness');
+    return r.ready ? { kind: 'ready', defaults: r.defaults } : { kind: 'incomplete', missing: r.missing };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return { kind: 'anon' };
+    return { kind: 'incomplete', missing: ['Order profile could not be read'] };
+  }
+}
+
+/** "Sep 3 – Sep 10, 2026" from two ISO dates; tolerates one side missing. */
+function formatWindow(start: string, end: string): string {
+  const fmt = (iso: string, year: boolean) =>
+    new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      ...(year ? { year: 'numeric' } : {}),
+    });
+  if (start && end) return `${fmt(start, false)} – ${fmt(end, true)}`;
+  return start ? `From ${fmt(start, true)}` : `Until ${fmt(end, true)}`;
 }

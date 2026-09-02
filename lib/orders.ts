@@ -1,4 +1,5 @@
 import type { Source } from './types';
+import type { Address } from './order-profile';
 import { createAdminClient } from './supabase/admin';
 
 export type OrderStatus = 'placed' | 'processing' | 'confirmed' | 'cancelled';
@@ -30,19 +31,13 @@ export type Order = {
   status: OrderStatus;
   rentalStart?: string;
   rentalEnd?: string;
+  /** Snapshotted at checkout so emails and forms read the order, not the live profile. */
+  deliveryAddress?: Address;
   deliveryNotes?: string;
   totalCents?: number;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
-};
-
-export type CheckoutProfile = {
-  productionName?: string;
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  defaultRentalWindowDays?: number;
 };
 
 export type CartLineInput = {
@@ -61,6 +56,7 @@ export type CreateOrderInput = {
   lines: CartLineInput[];
   rentalStart?: string;
   rentalEnd?: string;
+  deliveryAddress?: Address;
   deliveryNotes?: string;
   idempotencyKey: string;
 };
@@ -77,6 +73,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       status: 'placed',
       rental_start: input.rentalStart ?? null,
       rental_end: input.rentalEnd ?? null,
+      delivery_address: input.deliveryAddress ?? null,
       delivery_notes: input.deliveryNotes ?? null,
       idempotency_key: input.idempotencyKey,
     })
@@ -218,28 +215,6 @@ export function summarizeOrder(order: Order): VendorSummary[] {
   return [...byVendor.values()].sort((a, b) => a.vendor.localeCompare(b.vendor));
 }
 
-export async function getCheckoutProfile(orgId: string): Promise<CheckoutProfile> {
-  const db = createAdminClient();
-  const { data, error } = await db
-    .from('organizations')
-    .select('checkout_profile')
-    .eq('id', orgId)
-    .single();
-
-  if (error || !data) return {};
-  return ((data as { checkout_profile: CheckoutProfile }).checkout_profile) ?? {};
-}
-
-export async function updateCheckoutProfile(orgId: string, profile: CheckoutProfile): Promise<void> {
-  const db = createAdminClient();
-  const { error } = await db
-    .from('organizations')
-    .update({ checkout_profile: profile })
-    .eq('id', orgId);
-
-  if (error) throw error;
-}
-
 // ---- internal ----
 
 async function getOrderByIdempotencyKey(key: string, orgId: string): Promise<Order> {
@@ -276,6 +251,7 @@ type OrderRow = {
   status: string;
   rental_start: string | null;
   rental_end: string | null;
+  delivery_address: Address | null;
   delivery_notes: string | null;
   total_cents: number | null;
   created_at: string;
@@ -307,6 +283,7 @@ function toOrder(r: OrderRow): Order {
     status: r.status as OrderStatus,
     ...(r.rental_start ? { rentalStart: r.rental_start } : {}),
     ...(r.rental_end ? { rentalEnd: r.rental_end } : {}),
+    ...(r.delivery_address ? { deliveryAddress: r.delivery_address } : {}),
     ...(r.delivery_notes ? { deliveryNotes: r.delivery_notes } : {}),
     ...(r.total_cents !== null ? { totalCents: r.total_cents } : {}),
     items: (r.order_items ?? []).map(toOrderItem),

@@ -654,7 +654,7 @@ warning in the outreach preview).
 
 ### MVP-10 · ORDER-PROFILE — Everything the click needs, on the org
 
-**Status:** open
+**Status:** done — PR #89
 **Priority:** high
 **Depends on:** MVP-9 (edits `/account` too; land after it)
 
@@ -1259,7 +1259,7 @@ Token-burn guardrails:
 | MVP-7 | Web clipper v1 (paste a link) | in progress — asuncion | medium-high |
 | MVP-8 | Jobs-in-progress dashboard | done | medium-high |
 | MVP-9 | Retire COI issuance, keep the data | done — PR #88 | high |
-| MVP-10 | Order profile (one-click readiness) | open — after MVP-9 | high |
+| MVP-10 | Order profile (one-click readiness) | done — PR #89 | high |
 | MVP-11 | Vendor outreach emails (sent with the click) | open — after MVP-10 | high |
 | MVP-12 | Vendor paperwork via Anvil | open — after MVP-10 | high |
 | FUT-1 | Book all vendor categories | future | — |

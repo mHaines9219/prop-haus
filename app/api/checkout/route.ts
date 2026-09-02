@@ -1,6 +1,8 @@
 import { NextResponse, after } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { createOrder, type CartLineInput } from '@/lib/orders';
+import { normalizeAddress, orderDefaults, orderReadiness } from '@/lib/order-profile';
+import { getOrderProfile } from '@/lib/order-profile-store';
 import { paymentProvider } from '@/lib/payments/provider';
 import { recordEvents } from '@/lib/analytics';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
@@ -9,6 +11,7 @@ type CheckoutBody = {
   lines: CartLineInput[];
   rentalStart?: string;
   rentalEnd?: string;
+  deliveryAddress?: unknown;
   deliveryNotes?: string;
   idempotencyKey: string;
 };
@@ -26,12 +29,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'cart is empty' }, { status: 400 });
   }
 
+  // One-click-safe even without the UI: the profile fills whatever the body
+  // leaves out, and an incomplete profile refuses rather than placing a half
+  // order.
+  const profile = await getOrderProfile(session.orgId);
+  const readiness = orderReadiness(profile);
+  if (!readiness.ready) {
+    return NextResponse.json(
+      { error: 'order profile is incomplete', missing: readiness.missing },
+      { status: 422 },
+    );
+  }
+  const defaults = orderDefaults(profile);
+
   const order = await createOrder({
     orgId: session.orgId,
     lines: body.lines,
-    rentalStart: body.rentalStart,
-    rentalEnd: body.rentalEnd,
-    deliveryNotes: body.deliveryNotes,
+    rentalStart: body.rentalStart || defaults.rentalStart,
+    rentalEnd: body.rentalEnd || defaults.rentalEnd,
+    deliveryAddress: normalizeAddress(body.deliveryAddress) ?? defaults.deliveryAddress,
+    deliveryNotes: body.deliveryNotes?.trim() || defaults.deliveryNotes,
     idempotencyKey: body.idempotencyKey,
   });
 
