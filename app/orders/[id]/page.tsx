@@ -11,6 +11,7 @@ import { notFound } from 'next/navigation';
 import { getJobDetail } from '@/lib/jobs';
 import { getSceneForOrder } from '@/lib/spacelab/handoff';
 import type { OrderItem, VendorSummary } from '@/lib/orders';
+import { formatAddress } from '@/lib/order-profile';
 import { requireOrgId } from '@/lib/session';
 import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
@@ -76,7 +77,7 @@ export default async function OrderPage({ params }: Props) {
         </div>
 
         {/* Rental window */}
-        {(order.rentalStart || order.rentalEnd) && (
+        {(order.rentalStart || order.rentalEnd || order.deliveryAddress) && (
           <div className="mb-8 rounded-md border border-border bg-surface-raised p-5">
             <p className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
               Rental window
@@ -95,6 +96,12 @@ export default async function OrderPage({ params }: Props) {
                 </div>
               )}
             </div>
+            {order.deliveryAddress && (
+              <div className="mt-4 font-mono text-[13px]">
+                <p className="text-text-tertiary">Deliver to</p>
+                <p className="mt-1 font-medium">{formatAddress(order.deliveryAddress)}</p>
+              </div>
+            )}
             {order.deliveryNotes && (
               <p className="mt-4 font-mono text-[12px] text-text-secondary">{order.deliveryNotes}</p>
             )}

@@ -9,21 +9,28 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 
+/**
+ * The production's own coverage, as their broker issued it. Lives on the org's
+ * order profile (lib/order-profile.ts); every field is optional because the
+ * profile starts empty and insurance is never required to place an order.
+ */
 export type InsuranceProfile = {
-  /** Policy number or reference from the production's carrier. */
-  policyRef?: string;
-  /** Named insured — usually the production company / org name. */
-  namedInsured: string;
+  carrier?: string;
+  policyNumber?: string;
   /** General liability limit in dollars (e.g. 1_000_000). */
-  glLimit: number;
+  glLimit?: number;
   /** Aggregate limit in dollars (e.g. 2_000_000). */
-  aggregateLimit: number;
+  aggregateLimit?: number;
   /** Workers comp limit, if applicable. */
   workersCompLimit?: number;
   /** Additional insured endorsement available? */
-  additionalInsuredAvailable: boolean;
+  additionalInsuredAvailable?: boolean;
   /** ISO date string of policy expiry. */
   expiresAt?: string;
+  /** The production's broker — who a COI request form is forwarded to. */
+  broker?: { name?: string; email?: string; phone?: string };
+  /** The COI PDF the production uploaded, in the private paperwork bucket. */
+  coiDocument?: { storagePath: string; name: string; uploadedAt: string };
 };
 
 export type VendorInsuranceMinimum = {
@@ -55,15 +62,18 @@ export function checkCompatibility(
 ): CompatibilityResult {
   const gaps: string[] = [];
 
-  if (profile.glLimit < min.glLimit) {
+  const gl = profile.glLimit ?? 0;
+  const aggregate = profile.aggregateLimit ?? 0;
+
+  if (gl < min.glLimit) {
     gaps.push(
-      `GL limit too low: org has $${profile.glLimit.toLocaleString()}, vendor requires $${min.glLimit.toLocaleString()}`
+      `GL limit too low: org has $${gl.toLocaleString()}, vendor requires $${min.glLimit.toLocaleString()}`
     );
   }
 
-  if (profile.aggregateLimit < min.aggregateLimit) {
+  if (aggregate < min.aggregateLimit) {
     gaps.push(
-      `Aggregate limit too low: org has $${profile.aggregateLimit.toLocaleString()}, vendor requires $${min.aggregateLimit.toLocaleString()}`
+      `Aggregate limit too low: org has $${aggregate.toLocaleString()}, vendor requires $${min.aggregateLimit.toLocaleString()}`
     );
   }
 
