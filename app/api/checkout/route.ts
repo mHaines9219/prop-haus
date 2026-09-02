@@ -46,9 +46,6 @@ export async function POST(req: Request) {
     payload: { orderId: order.id, itemCount: order.items.length, vendorCount },
   });
 
-  // MVP-4: COI issuance per vendor — wire when MVP-4 lands
-  // await issueCoisForOrder(order);
-
   // FUT-2: warm the Spacelab set preview — generate a 3D model per ordered item
   // and write the room file, so "Build your set in 3D" is a click rather than a
   // wait. `after()` rather than a bare floating promise: this runs on serverless,

@@ -2,9 +2,8 @@
  * /orders/[id] — the job detail view (MVP-8).
  *
  * An order enriched into a job: line items grouped by vendor with per-vendor
- * rollups and per-item StatusTokens, the COIs issued for the order, and an
- * order-level status header. /jobs rows link here; there is no separate
- * /jobs/[id].
+ * rollups and per-item StatusTokens, and an order-level status header. /jobs
+ * rows link here; there is no separate /jobs/[id].
  */
 
 import Link from 'next/link';
@@ -20,7 +19,6 @@ import {
   StatusToken,
   orderStatusSpec,
   itemStatusSpec,
-  coiStatusSpec,
 } from '@/components/ap/status-token';
 
 type Props = { params: Promise<{ id: string }> };
@@ -37,7 +35,7 @@ export default async function OrderPage({ params }: Props) {
   // 3D preview could not be read is a worse trade than a missing panel.
   const scene = await getSceneForOrder(id, orgId).catch(() => null);
 
-  const { order, vendorSummaries, certificates } = detail;
+  const { order, vendorSummaries } = detail;
 
   const vendorCount = vendorSummaries.length;
   const placedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -124,41 +122,6 @@ export default async function OrderPage({ params }: Props) {
             </div>
           );
         })}
-
-        {/* Certificates */}
-        {certificates.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-baseline justify-between border-b border-border pb-2">
-              <h2 className="font-heading text-[15px] font-bold tracking-[-0.02em]">Certificates</h2>
-              <Link
-                href="/account/insurance"
-                className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-secondary underline-offset-2 hover:text-foreground hover:underline"
-              >
-                Ledger
-              </Link>
-            </div>
-            <div className="divide-y divide-border">
-              {certificates.map((cert) => (
-                <div key={cert.id} className="flex items-center gap-4 py-3">
-                  <span className="min-w-0 flex-1 truncate font-sans text-[14px]">
-                    {cert.vendorName}
-                  </span>
-                  <StatusToken {...coiStatusSpec(cert.status)} />
-                  {cert.documentUrl && (
-                    <a
-                      href={cert.documentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 font-mono text-[11px] uppercase tracking-[0.06em] text-text-secondary underline-offset-2 hover:text-foreground hover:underline"
-                    >
-                      PDF
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* FUT-2 — Spacelab set preview */}
         <SpacelabPanel orderId={order.id} initialScene={scene} />

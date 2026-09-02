@@ -2,8 +2,8 @@
  * /jobs — the jobs-in-progress dashboard (MVP-8).
  *
  * One surface showing everything a signed-in user has in flight: orders moving
- * through vendor confirmation, crew requests, and the COIs attached to each
- * order. A "job" here IS an order, enriched (see lib/jobs.ts). List view only,
+ * through vendor confirmation and crew requests. A "job" here IS an order,
+ * enriched (see lib/jobs.ts). List view only,
  * never a card grid (DESIGN.md §9.7).
  */
 
@@ -90,7 +90,7 @@ function StatBand({ stats }: { stats: Awaited<ReturnType<typeof getJobsOverview>
     { label: 'Items quoted', value: stats.itemsQuoted },
     { label: 'Items confirmed', value: stats.itemsConfirmed },
     { label: 'Crew pending', value: stats.crewPending },
-    { label: 'COIs issued', value: stats.coisIssued },
+    { label: 'Vendors notified', value: stats.vendorsNotified },
   ];
 
   return (
@@ -112,8 +112,6 @@ function StatBand({ stats }: { stats: Awaited<ReturnType<typeof getJobsOverview>
 function JobRow({ job }: { job: Job }) {
   const thumbs = job.items.filter((i) => i.image).slice(0, 3);
   const updated = formatDate(job.updatedAt);
-  const coiCount = job.certificates.length;
-  const coisIssued = job.certificates.filter((c) => c.status === 'issued').length;
 
   return (
     <Link
@@ -151,10 +149,7 @@ function JobRow({ job }: { job: Job }) {
         <p className="font-mono text-[12px] tabular-nums text-text-secondary">
           {job.items.length} item{job.items.length !== 1 ? 's' : ''}
         </p>
-        <p className="mt-1 font-mono text-[11px] tabular-nums text-text-tertiary">
-          {coiCount > 0 ? `${coisIssued}/${coiCount} COIs · ` : ''}
-          {updated}
-        </p>
+        <p className="mt-1 font-mono text-[11px] tabular-nums text-text-tertiary">{updated}</p>
       </div>
     </Link>
   );
@@ -192,7 +187,7 @@ function EmptyState() {
         Nothing in flight
       </p>
       <p className="mt-3 max-w-[420px] text-[15px] leading-[23px] text-text-secondary">
-        Build a cart and place an order to start tracking vendor confirmations, crew, and COIs here.
+        Build a cart and place an order to start tracking vendor confirmations and crew here.
       </p>
       <Link
         href="/search"

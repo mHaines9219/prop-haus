@@ -2,9 +2,9 @@
  * /account — the signed-in user's account dashboard.
  *
  * Surfaces what we hold on the user (profile + org) and a lifetime activity
- * band (orders placed, items rented, crew hired, COIs issued) so the account
- * icon leads somewhere that actually reflects the account, not just the
- * insurance sub-page.
+ * band (orders placed, items rented, crew hired, vendors notified) so the
+ * account icon leads somewhere that actually reflects the account, not just
+ * the insurance sub-page.
  */
 
 import Link from 'next/link';
@@ -75,7 +75,7 @@ export default async function AccountPage() {
     { label: 'Orders placed', value: jobs.length },
     { label: 'Items rented', value: itemsConfirmed },
     { label: 'Crew hired', value: crew.length },
-    { label: 'COIs issued', value: stats.coisIssued },
+    { label: 'Vendors notified', value: stats.vendorsNotified },
   ];
 
   return (
@@ -120,7 +120,7 @@ export default async function AccountPage() {
               href="/account/insurance"
               className="mt-5 inline-block font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4"
             >
-              Insurance & certificates →
+              Insurance on file →
             </Link>
           </div>
         </div>
