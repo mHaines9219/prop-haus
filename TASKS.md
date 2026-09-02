@@ -893,10 +893,14 @@ documents themselves (MVP-12 — this task only attaches what it finds in
 
 ### MVP-12 · FORMS — Vendor paperwork filled from the profile via Anvil
 
-**Status:** in progress — mhaines/mvp12-forms (needs from Matthew: Anvil
-API key + webhook token in `.env.local`, real templates uploaded to Anvil
-with their eids pasted into `vendor_forms.anvil_template_eid`, and the
-placeholder field maps / additional-insured wording verified per vendor)
+**Status:** done — PR #90 (built 1–9: filler seam with mock + Anvil adapter,
+`vendor_forms` / `order_documents` migration with placeholder seeds, mapper,
+packet builder, checkout hook, webhook + mock sign page, read/act API, order
+page Paperwork section, events. Needs from Matthew: ANVIL_API_KEY +
+ANVIL_WEBHOOK_SECRET in `.env.local`, real templates uploaded to Anvil with
+their eids pasted into `vendor_forms.anvil_template_eid`, the placeholder
+field maps / additional-insured wording verified per vendor, and the
+FORMS_PROVIDER/FORMS/ANVIL_* vars added to `.env.local.example`.)
 **Priority:** high
 **Depends on:** MVP-10 (profile data). Coordinate with MVP-11 on the
 checkout `after()` block and the order page — one fenced block each.
@@ -1264,7 +1268,7 @@ Token-burn guardrails:
 | MVP-9 | Retire COI issuance, keep the data | done — PR #88 | high |
 | MVP-10 | Order profile (one-click readiness) | done — PR #89 | high |
 | MVP-11 | Vendor outreach emails (sent with the click) | done — PR #90 | high |
-| MVP-12 | Vendor paperwork via Anvil | in progress — mhaines/mvp12-forms | high |
+| MVP-12 | Vendor paperwork via Anvil | done — PR #90 | high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
 | FUT-3 | Chrome extension web clipper | future | — |
