@@ -1,25 +1,35 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ExternalLink } from 'lucide-react';
-import { getProject } from '@/lib/projects';
+import { ChevronLeft, FileText } from 'lucide-react';
+import {
+  getProject,
+  paperworkFolder,
+  projectDocumentCount,
+  projectItemCount,
+  sceneFolders,
+  type ProjectFolder,
+} from '@/lib/projects';
 import { requireOrgId } from '@/lib/session';
-import { CLIP_SOURCE, SOURCE_META, type SavedSource, type Source } from '@/lib/types';
-import { safeExternalUrl } from '@/lib/safe-url';
-import { hostnameLabel } from '@/lib/clip/retailers';
 import { PageShell } from '@/components/ap/page-shell';
-import { RemoveItemButton } from './remove-item-button';
-import { ClipForm } from './clip-form';
+import { LightWell } from '@/components/ap/light-well';
+import { FolderActions } from './folder-actions';
+import { NewFolderForm } from './new-folder-form';
 
-function isClip(source: SavedSource): boolean {
-  return source === CLIP_SOURCE;
-}
-
+/**
+ * /projects/[id] — one production. Its scene folders (any number, user-named)
+ * are listed first, then the single paperwork folder. Each row links into the
+ * folder; rename/delete are quiet inline controls.
+ */
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const orgId = await requireOrgId(`/projects/${id}`);
   const project = await getProject(orgId, id);
   if (!project) notFound();
+
+  const scenes = sceneFolders(project);
+  const paperwork = paperworkFolder(project);
+  const itemCount = projectItemCount(project);
+  const docCount = projectDocumentCount(project);
 
   return (
     <PageShell>
@@ -29,139 +39,133 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
         >
           <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
-          Folders
+          Dashboard
         </Link>
 
         <div className="mt-6">
           <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
-            Folder
+            Project
           </p>
           <h1 className="mt-2 text-[28px] font-bold leading-[34px] tracking-[-0.01em] text-foreground [font-family:var(--font-display)]">
             {project.name}
           </h1>
           <p className="mt-1 font-mono text-[13px] leading-[18px] text-text-tertiary">
-            {project.items.length} item{project.items.length === 1 ? '' : 's'}
+            {plural(scenes.length, 'scene')} · {plural(itemCount, 'item')} ·{' '}
+            {plural(docCount, 'document')}
           </p>
         </div>
 
-        <div className="mt-8 border-t border-border">
-          <ClipForm
-            projectId={project.id}
-            existingItemIds={project.items.map((i) => i.itemId)}
-          />
+        {/* Scenes */}
+        <section className="mt-10">
+          <h2 className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+            Scenes
+          </h2>
+          <div className="border-t border-border">
+            {scenes.length === 0 && (
+              <div className="border-b border-border py-10 text-center">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                  No scenes yet
+                </p>
+                <p className="mt-2 text-[15px] text-text-secondary">
+                  Add a scene below to start pulling for it.
+                </p>
+              </div>
+            )}
+            {scenes.map((folder) => (
+              <SceneRow key={folder.id} projectId={project.id} folder={folder} />
+            ))}
+            <NewFolderForm projectId={project.id} suggestedName={`Scene ${scenes.length + 1}`} />
+          </div>
+        </section>
 
-          {project.items.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-                Nothing saved here yet
-              </p>
-              <p className="mt-2 text-[15px] text-text-secondary">
-                Browse the catalog and save pieces from any vendor into this folder, or add a piece
-                from the web above.
-              </p>
-            </div>
-          ) : (
-            <div>
-              {project.items.map((item) => {
-                const clip = isClip(item.source);
-                // A clip has no internal /item page — its detail IS the retailer
-                // listing. Catalog items keep the internal detail link.
-                const externalHref = safeExternalUrl(item.sourceUrl);
-                const detailHref = clip
-                  ? undefined
-                  : `/item/${item.source}/${encodeURIComponent(item.sourceId)}`;
-                const vendorLabel = clip
-                  ? (item.meta?.retailer ?? hostnameLabel(item.sourceUrl))
-                  : (SOURCE_META[item.source as Source]?.name ?? item.source);
-
-                const thumb = item.image ? (
-                  <div className="relative h-20 w-20 overflow-hidden border border-border bg-plate">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      sizes="80px"
-                      className="object-cover"
-                    />
+        {/* Paperwork */}
+        {paperwork && (
+          <section className="mt-10">
+            <h2 className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+              Paperwork
+            </h2>
+            <div className="border-t border-border">
+              <div className="flex min-h-[64px] items-center gap-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
+                <Link
+                  href={`/projects/${project.id}/folders/${paperwork.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-4 py-3"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-surface-inset text-text-secondary">
+                    <FileText size={16} strokeWidth={1.5} aria-hidden />
                   </div>
-                ) : (
-                  <span className="block h-20 w-20 border border-border bg-plate" />
-                );
-
-                return (
-                  <div
-                    key={item.itemId}
-                    className="flex min-h-[88px] items-center gap-5 border-b border-border py-4"
-                  >
-                    {clip ? (
-                      externalHref ? (
-                        <a
-                          href={externalHref}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0"
-                        >
-                          {thumb}
-                        </a>
-                      ) : (
-                        <span className="shrink-0">{thumb}</span>
-                      )
-                    ) : (
-                      <Link href={detailHref!} className="shrink-0">
-                        {thumb}
-                      </Link>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      {clip ? (
-                        externalHref ? (
-                          <a
-                            href={externalHref}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block truncate text-[15px] font-medium leading-[22px] text-foreground transition-colors duration-150 hover:text-text-secondary"
-                          >
-                            {item.name}
-                          </a>
-                        ) : (
-                          <span className="block truncate text-[15px] font-medium leading-[22px] text-foreground">
-                            {item.name}
-                          </span>
-                        )
-                      ) : (
-                        <Link
-                          href={detailHref!}
-                          className="block truncate text-[15px] font-medium leading-[22px] text-foreground transition-colors duration-150 hover:text-text-secondary"
-                        >
-                          {item.name}
-                        </Link>
-                      )}
-                      <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary">
-                        {vendorLabel}
-                        {clip ? ' · Web clip' : ''}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-4">
-                      {externalHref && (
-                        <a
-                          href={externalHref}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="hidden items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:text-foreground sm:flex"
-                        >
-                          {clip ? 'Retailer' : 'Vendor'}
-                          <ExternalLink size={12} strokeWidth={1.5} aria-hidden />
-                        </a>
-                      )}
-                      <RemoveItemButton projectId={project.id} itemId={item.itemId} />
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-medium leading-[22px] text-foreground">
+                      {paperwork.name}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                      {paperwork.documents.length === 0
+                        ? 'COIs, W9s, invoices, call sheets'
+                        : plural(paperwork.documents.length, 'document')}
+                    </p>
                   </div>
-                );
-              })}
+                </Link>
+                <div className="shrink-0 py-3">
+                  <FolderActions
+                    projectId={project.id}
+                    folderId={paperwork.id}
+                    name={paperwork.name}
+                    kind="paperwork"
+                    itemCount={paperwork.documents.length}
+                  />
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </section>
+        )}
       </div>
     </PageShell>
   );
+}
+
+function SceneRow({ projectId, folder }: { projectId: string; folder: ProjectFolder }) {
+  const thumbs = folder.items.filter((i) => i.image).slice(0, 3);
+  const slots = [...thumbs, ...Array<null>(Math.max(0, 3 - thumbs.length)).fill(null)];
+
+  // Link and row controls are siblings — a button inside an anchor is invalid markup.
+  return (
+    <div className="flex min-h-[64px] items-center gap-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
+      <Link
+        href={`/projects/${projectId}/folders/${folder.id}`}
+        className="flex min-w-0 flex-1 items-center gap-4 py-3"
+      >
+        <div className="flex shrink-0 items-center">
+          {slots.map((item, i) => (
+            <div
+              key={item ? item.itemId : `empty-${i}`}
+              className="h-10 w-10 overflow-hidden border border-border bg-surface-inset"
+              style={{ marginLeft: i === 0 ? 0 : -8, zIndex: slots.length - i }}
+            >
+              {item && <LightWell src={item.image} alt={item.name} fill />}
+            </div>
+          ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-medium leading-[22px] text-foreground">
+            {folder.name}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary">
+            {plural(folder.items.length, 'item')}
+          </p>
+        </div>
+      </Link>
+      <div className="shrink-0 py-3">
+        <FolderActions
+          projectId={projectId}
+          folderId={folder.id}
+          name={folder.name}
+          kind="scene"
+          itemCount={folder.items.length}
+        />
+      </div>
+    </div>
+  );
+}
+
+function plural(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`;
 }

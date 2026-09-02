@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 /**
  * "Add from the web" (MVP-7). Paste a product listing URL → the server fetches
  * and parses it (/api/clip) → confirm the preview → the item saves into this
- * folder through the existing items route. Clipped items are reference material
+ * scene folder through the folder items route. Clipped items are reference material
  * the user sourced themselves; they never enter the catalog, search, or cart.
  */
 
@@ -49,9 +49,11 @@ function formatPrice(price?: { amount: number; currency: string }): string | nul
 
 export function ClipForm({
   projectId,
+  folderId,
   existingItemIds,
 }: {
   projectId: string;
+  folderId: string;
   existingItemIds: string[];
 }) {
   const router = useRouter();
@@ -134,7 +136,7 @@ export function ClipForm({
     setPhase('saving');
     setMessage('');
     try {
-      const res = await fetch(`/api/projects/${projectId}/items`, {
+      const res = await fetch(`/api/projects/${projectId}/folders/${folderId}/items`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ items: [toSave] }),

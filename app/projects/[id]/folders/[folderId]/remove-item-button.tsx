@@ -4,11 +4,21 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { deleteJson } from '@/lib/api';
 
-export function RemoveItemButton({ projectId, itemId }: { projectId: string; itemId: string }) {
+export function RemoveItemButton({
+  projectId,
+  folderId,
+  itemId,
+}: {
+  projectId: string;
+  folderId: string;
+  itemId: string;
+}) {
   const router = useRouter();
   const mutation = useMutation({
     mutationFn: () =>
-      deleteJson(`/api/projects/${projectId}/items?itemId=${encodeURIComponent(itemId)}`),
+      deleteJson(
+        `/api/projects/${projectId}/folders/${folderId}/items?itemId=${encodeURIComponent(itemId)}`,
+      ),
     onSuccess: () => router.refresh(),
   });
 
