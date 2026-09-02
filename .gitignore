@@ -29,3 +29,9 @@ data/*.before
 # prompt ("set this to true or false"). It is not our config and has been one
 # commit away from being committed twice.
 pnpm-workspace.yaml
+
+# test output
+coverage
+playwright-report
+test-results
+e2e/.auth

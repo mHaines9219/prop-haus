@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUTHORIZATION_SENTENCE,
   EMPTY_ORDER_PROFILE,
   defaultRentalWindow,
   formatAddress,
+  isCompleteAddress,
+  normalizeAddress,
   normalizeOrderProfile,
   orderDefaults,
   orderReadiness,
@@ -114,5 +117,106 @@ describe('formatAddress', () => {
       '4100 W Alameda Ave Bldg 2, Burbank, CA 91505',
     );
     expect(formatAddress(undefined)).toBe('');
+  });
+
+  it('skips missing parts without stray separators', () => {
+    expect(formatAddress({ city: 'Burbank' })).toBe('Burbank');
+    expect(formatAddress({ line1: '1 Stage Rd', zip: '90028' })).toBe('1 Stage Rd, 90028');
+    expect(formatAddress({})).toBe('');
+  });
+});
+
+describe('normalizeAddress', () => {
+  it('trims, drops blanks and unknown keys', () => {
+    expect(normalizeAddress({ line1: ' 1 Stage Rd ', line2: '', city: 'LA', country: 'US', zip: 90028 })).toEqual({
+      line1: '1 Stage Rd',
+      city: 'LA',
+    });
+  });
+
+  it('is undefined for nothing usable', () => {
+    expect(normalizeAddress(undefined)).toBeUndefined();
+    expect(normalizeAddress(null)).toBeUndefined();
+    expect(normalizeAddress('4100 W Alameda')).toBeUndefined();
+    expect(normalizeAddress(['4100 W Alameda'])).toBeUndefined();
+    expect(normalizeAddress({ line1: '   ', zip: null })).toBeUndefined();
+  });
+
+  it('bounds every field at 500 characters', () => {
+    expect(normalizeAddress({ line1: 'x'.repeat(600) })?.line1).toHaveLength(500);
+  });
+});
+
+describe('isCompleteAddress', () => {
+  it('needs line1, city, state and zip', () => {
+    expect(isCompleteAddress(READY.defaults.deliveryAddress)).toBe(true);
+    expect(isCompleteAddress({ ...READY.defaults.deliveryAddress, line2: undefined })).toBe(true);
+    expect(isCompleteAddress({ line1: '1 Stage Rd', city: 'LA', state: 'CA' })).toBe(false);
+    expect(isCompleteAddress({ line1: '', city: 'LA', state: 'CA', zip: '90028' })).toBe(false);
+    expect(isCompleteAddress(undefined)).toBe(false);
+  });
+});
+
+describe('normalizeOrderProfile edges', () => {
+  it('is the empty profile for non-object input', () => {
+    expect(normalizeOrderProfile(null)).toEqual(EMPTY_ORDER_PROFILE);
+    expect(normalizeOrderProfile('x')).toEqual(EMPTY_ORDER_PROFILE);
+    expect(normalizeOrderProfile([READY])).toEqual(EMPTY_ORDER_PROFILE);
+  });
+
+  it('keeps a known entity type, a complete coi pointer, and the authorization audit fields', () => {
+    const p = normalizeOrderProfile({
+      company: { legalName: 'N', entityType: 'llc' },
+      insurance: {
+        additionalInsuredAvailable: false,
+        coiDocument: { storagePath: 'org/coi/x.pdf', name: 'coi.pdf', uploadedAt: '2026-09-01T00:00:00Z', extra: 1 },
+        broker: { name: 'B', email: 'b@x.example', phone: '' },
+      },
+      authorization: { formsOnBehalf: true, acceptedAt: '2026-09-02T00:00:00Z', acceptedByUserId: 'u1' },
+    });
+    expect(p.company).toEqual({ legalName: 'N', entityType: 'llc' });
+    expect(p.insurance).toEqual({
+      additionalInsuredAvailable: false,
+      coiDocument: { storagePath: 'org/coi/x.pdf', name: 'coi.pdf', uploadedAt: '2026-09-01T00:00:00Z' },
+      broker: { name: 'B', email: 'b@x.example' },
+    });
+    expect(p.authorization).toEqual({ formsOnBehalf: true, acceptedAt: '2026-09-02T00:00:00Z', acceptedByUserId: 'u1' });
+  });
+
+  it('drops an incomplete coi pointer', () => {
+    expect(normalizeOrderProfile({ insurance: { coiDocument: { storagePath: 'x', name: 'coi.pdf' } } }).insurance).toEqual({});
+  });
+
+  it('rounds numeric strings and refuses zero, negatives, NaN and Infinity', () => {
+    expect(normalizeOrderProfile({ defaults: { rentalWindowDays: '7.6' } }).defaults).toEqual({ rentalWindowDays: 8 });
+    expect(normalizeOrderProfile({ defaults: { rentalWindowDays: 0 } }).defaults).toEqual({});
+    expect(normalizeOrderProfile({ insurance: { glLimit: -1, aggregateLimit: 'NaN', workersCompLimit: Infinity } }).insurance).toEqual({});
+  });
+
+  it('only ever records formsOnBehalf as a real true', () => {
+    expect(normalizeOrderProfile({ authorization: { formsOnBehalf: 1 } }).authorization.formsOnBehalf).toBe(false);
+    expect(normalizeOrderProfile({ authorization: { formsOnBehalf: 'true' } }).authorization.formsOnBehalf).toBe(false);
+  });
+});
+
+describe('defaultRentalWindow weekends', () => {
+  it('skips to Monday from Saturday and Sunday', () => {
+    expect(defaultRentalWindow(READY, new Date(2026, 8, 5, 10))).toMatchObject({ rentalStart: '2026-09-07' });
+    expect(defaultRentalWindow(READY, new Date(2026, 8, 6, 10))).toMatchObject({ rentalStart: '2026-09-07' });
+  });
+
+  it('runs a one-day window to the next calendar day, weekend or not', () => {
+    expect(defaultRentalWindow({ ...READY, defaults: { rentalWindowDays: 1 } }, new Date(2026, 8, 3, 10))).toEqual({
+      rentalStart: '2026-09-04',
+      rentalEnd: '2026-09-05',
+    });
+  });
+});
+
+describe('AUTHORIZATION_SENTENCE', () => {
+  it('is the exact copy the checkbox shows', () => {
+    expect(AUTHORIZATION_SENTENCE).toBe(
+      'Prop Haus may complete vendor forms and send vendor requests using the information above. I sign anything that needs a signature.',
+    );
   });
 });

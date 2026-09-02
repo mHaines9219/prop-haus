@@ -126,3 +126,63 @@ describe('parseCatalogItemsStrict', () => {
     expect(() => parseCatalogItemsStrict('not json', 'merge:omega')).toThrow(/not an array/);
   });
 });
+
+describe('rejection keys', () => {
+  it('files a non-object record under the root', () => {
+    const report = parseCatalogItems(['a string', null, 42]);
+    expect(report.dropped).toBe(3);
+    expect(report.reasons).toEqual([{ reason: '<root>: invalid_type', count: 3 }]);
+  });
+
+  it('names the dotted path of the first failing field', () => {
+    const report = parseCatalogItems([
+      validItem({ vendor: { ...validItem().vendor, city: 'NYC' } }),
+      validItem({ images: ['not a url'] }),
+    ]);
+    expect(report.reasons).toEqual([
+      { reason: 'vendor.city: invalid_literal', count: 1 },
+      { reason: 'images.0: invalid_string', count: 1 },
+    ]);
+  });
+
+  it('treats a non-string source as a type error, not an unknown vendor', () => {
+    const report = parseCatalogItems([validItem({ source: 42 })]);
+    expect(report.reasons).toEqual([{ reason: 'source: invalid_type', count: 1 }]);
+  });
+
+  it('prefers the unknown-source reason even when it is not the first issue', () => {
+    const report = parseCatalogItems([validItem({ id: 7, source: 'formdecor' })]);
+    expect(report.reasons).toEqual([{ reason: 'unknown source "formdecor"', count: 1 }]);
+  });
+});
+
+describe('describeRejections for a malformed file', () => {
+  it('reports the shape problem without a dropped-of-total clause', () => {
+    expect(describeRejections(parseCatalogItems(null), 'catalog')).toBe(
+      '[catalog] 1x input is not an array — got object',
+    );
+    expect(describeRejections(parseCatalogItems('x'), 'catalog')).toBe(
+      '[catalog] 1x input is not an array — got string',
+    );
+  });
+
+  it('joins several reasons with semicolons, most frequent first', () => {
+    const summary = describeRejections(
+      parseCatalogItems([validItem({ name: 1 }), validItem({ source: 'x' }), validItem({ source: 'x' })]),
+      'embed',
+    );
+    expect(summary).toBe('[embed] dropped 3 of 3 invalid items — 2x unknown source "x"; 1x name: invalid_type');
+  });
+});
+
+describe('parseCatalogItemsStrict on the empty cases', () => {
+  it('accepts an empty array', () => {
+    expect(parseCatalogItemsStrict([], 'embed')).toEqual([]);
+  });
+
+  it('names the counts it refused to work with', () => {
+    expect(() => parseCatalogItemsStrict([validItem(), validItem(), validItem({ name: 1 })], 'load')).toThrow(
+      /processes 2 of 3 items/,
+    );
+  });
+});
