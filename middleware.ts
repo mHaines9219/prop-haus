@@ -93,7 +93,6 @@ export const config = {
     "/account/:path*",
     "/api/checkout",
     "/api/crew/:path*",
-    "/api/coi/:path*",
     "/api/orders/:path*",
   ],
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import type { InsuranceProfile } from '@/lib/coi/provider';
+import type { InsuranceProfile } from '@/lib/insurance/minimums';
 import { saveInsuranceProfile } from './actions';
 
 type Props = {
@@ -134,8 +134,7 @@ export function InsuranceProfileForm({ orgId, orgName, initialProfile }: Props) 
       </div>
 
       <p className="mt-4 font-mono text-[11px] leading-[16px] text-text-disabled">
-        Coverage is issued by our licensed insurance partner — not by Prop Haus.
-        Prop Haus stores this data to coordinate certificate requests on your behalf.
+        Your broker issues coverage, not Prop Haus. These details fill your vendor requests and forms.
       </p>
     </form>
   );

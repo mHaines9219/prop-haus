@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
  *
  * A 6px semantic dot + 11px mono uppercase label inside a hairline pill. Dots
  * exist ONLY inside a token, never free-floating. Every status surface (orders,
- * line items, crew requests, COIs) maps its domain status onto one of the four
+ * line items, crew requests) maps its domain status onto one of the four
  * canonical tones with the helpers below, so the color language stays uniform.
  *
  * The four tones read from the live `--status-*` tokens in globals.css
@@ -88,19 +88,5 @@ export function crewStatusSpec(status: string): TokenSpec {
       return { tone: 'unavailable', label: 'DECLINED' };
     default:
       return { tone: 'pending', label: 'REQUESTED' };
-  }
-}
-
-/** certificates.status — pending/issued/failed/expired. */
-export function coiStatusSpec(status: string): TokenSpec {
-  switch (status) {
-    case 'issued':
-      return { tone: 'confirmed', label: 'ISSUED' };
-    case 'failed':
-      return { tone: 'unavailable', label: 'FAILED' };
-    case 'expired':
-      return { tone: 'unavailable', label: 'EXPIRED' };
-    default:
-      return { tone: 'pending', label: 'PENDING' };
   }
 }

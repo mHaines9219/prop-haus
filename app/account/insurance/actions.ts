@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { currentOrgId } from '@/lib/session';
-import type { InsuranceProfile } from '@/lib/coi/provider';
+import type { InsuranceProfile } from '@/lib/insurance/minimums';
 
 export async function saveInsuranceProfile(
   orgId: string,

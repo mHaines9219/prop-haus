@@ -16,7 +16,7 @@ import type { PlanTier } from './accounts';
 
 export type Entitlements = {
   // capabilities (boolean)
-  coiAutomation: boolean;
+  outreachAutomation: boolean;
   paperworkGeneration: boolean;
   consolidatedInvoicing: boolean;
   // metered allowances — counted in usage_counters; null = unlimited
@@ -31,7 +31,8 @@ export type Entitlements = {
 
 export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
   free: {
-    coiAutomation: false,
+    // Free during MVP validation; gating comes later.
+    outreachAutomation: true,
     paperworkGeneration: false,
     consolidatedInvoicing: false,
     visionSearches: 3, // 3 lifetime trial uses, then paywall
@@ -42,7 +43,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     savedItems: 50,
   },
   pro: {
-    coiAutomation: true,
+    outreachAutomation: true,
     paperworkGeneration: true,
     consolidatedInvoicing: true,
     visionSearches: null,

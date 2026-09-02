@@ -1,27 +1,18 @@
 /**
  * The jobs aggregation seam (MVP-8).
  *
- * A "job" in Phase 1 IS an order, enriched with the certificates issued for it
- * and read alongside the org's crew requests. There is no `jobs` table — this
- * module is the single place that joins the three org-scoped, status-carrying
- * tables (orders/order_items, certificates, crew_requests) into the shape the
- * /jobs dashboard and the /orders/[id] job detail render. When a real `jobs`
- * grouping entity arrives (FUT-4), it slots in here without UI rework.
+ * A "job" in Phase 1 IS an order, read alongside the org's crew requests.
+ * There is no `jobs` table — this module is the single place that joins the
+ * org-scoped, status-carrying tables (orders/order_items, crew_requests) into
+ * the shape the /jobs dashboard and the /orders/[id] job detail render. When a
+ * real `jobs` grouping entity arrives (FUT-4), it slots in here without UI
+ * rework.
  *
  * Server-only: uses the service-role client like the rest of the order reads.
  */
 
 import { createAdminClient } from './supabase/admin';
 import { getOrderById, listOrders, summarizeOrder, type Order, type VendorSummary } from './orders';
-
-export type CertificateSummary = {
-  id: string;
-  vendorId: string;
-  vendorName: string;
-  status: 'pending' | 'issued' | 'failed' | 'expired';
-  documentUrl: string | null;
-  expiryDate: string | null;
-};
 
 export type CrewRequestRow = {
   id: string;
@@ -36,10 +27,9 @@ export type CrewRequestRow = {
   updatedAt: string;
 };
 
-/** An order enriched into a job: its per-vendor rollup and issued COIs. */
+/** An order enriched into a job: its per-vendor rollup. */
 export type Job = Order & {
   vendorSummaries: VendorSummary[];
-  certificates: CertificateSummary[];
 };
 
 export type JobsStats = {
@@ -48,24 +38,18 @@ export type JobsStats = {
   itemsQuoted: number;
   itemsConfirmed: number;
   crewPending: number;
-  coisIssued: number;
-  coisPending: number;
+  /** Distinct vendors across in-flight orders. */
+  vendorsNotified: number;
+  // MVP-11 fills this from outbound_messages.
+  messagesSent: number;
+  // MVP-12 fills this from order_documents (awaiting_signature + manual).
+  documentsPending: number;
 };
 
 export type JobsOverview = {
   jobs: Job[];
   crew: CrewRequestRow[];
   stats: JobsStats;
-};
-
-type CertRow = {
-  id: string;
-  order_id: string | null;
-  vendor_id: string;
-  vendor_name: string;
-  status: string;
-  document_url: string | null;
-  expiry_date: string | null;
 };
 
 type CrewRow = {
@@ -79,17 +63,6 @@ type CrewRow = {
   updated_at: string;
   contractors: { name: string; photo: string | null } | { name: string; photo: string | null }[] | null;
 };
-
-function toCert(r: CertRow): CertificateSummary {
-  return {
-    id: r.id,
-    vendorId: r.vendor_id,
-    vendorName: r.vendor_name,
-    status: r.status as CertificateSummary['status'],
-    documentUrl: r.document_url,
-    expiryDate: r.expiry_date,
-  };
-}
 
 function toCrew(r: CrewRow): CrewRequestRow {
   // PostgREST embeds a to-one as an object, but the loose type allows an array;
@@ -118,24 +91,6 @@ function isInFlight(order: Order): boolean {
   return order.status !== 'cancelled';
 }
 
-async function fetchCertificates(orgId: string): Promise<Map<string, CertificateSummary[]>> {
-  const db = createAdminClient();
-  const { data } = await db
-    .from('certificates')
-    .select('id, order_id, vendor_id, vendor_name, status, document_url, expiry_date')
-    .eq('org_id', orgId)
-    .order('created_at', { ascending: false });
-
-  const byOrder = new Map<string, CertificateSummary[]>();
-  for (const row of (data ?? []) as CertRow[]) {
-    if (!row.order_id) continue;
-    const list = byOrder.get(row.order_id) ?? [];
-    list.push(toCert(row));
-    byOrder.set(row.order_id, list);
-  }
-  return byOrder;
-}
-
 async function fetchCrewRequests(orgId: string): Promise<CrewRequestRow[]> {
   const db = createAdminClient();
   const { data } = await db
@@ -151,26 +106,23 @@ async function fetchCrewRequests(orgId: string): Promise<CrewRequestRow[]> {
 
 /** Everything a signed-in user has in flight, for the /jobs dashboard. */
 export async function getJobsOverview(orgId: string): Promise<JobsOverview> {
-  const [orders, certsByOrder, crew] = await Promise.all([
-    listOrders(orgId),
-    fetchCertificates(orgId),
-    fetchCrewRequests(orgId),
-  ]);
+  const [orders, crew] = await Promise.all([listOrders(orgId), fetchCrewRequests(orgId)]);
 
   const jobs: Job[] = orders.filter(isInFlight).map((order) => ({
     ...order,
     vendorSummaries: summarizeOrder(order),
-    certificates: certsByOrder.get(order.id) ?? [],
   }));
 
+  const vendors = new Set<string>();
   const stats: JobsStats = {
     ordersInFlight: jobs.filter((j) => j.status !== 'confirmed').length,
     itemsPending: 0,
     itemsQuoted: 0,
     itemsConfirmed: 0,
     crewPending: crew.filter((c) => c.status === 'requested').length,
-    coisIssued: 0,
-    coisPending: 0,
+    vendorsNotified: 0,
+    messagesSent: 0,
+    documentsPending: 0,
   };
 
   for (const job of jobs) {
@@ -179,11 +131,9 @@ export async function getJobsOverview(orgId: string): Promise<JobsOverview> {
       else if (item.status === 'quoted') stats.itemsQuoted += 1;
       else if (item.status === 'confirmed') stats.itemsConfirmed += 1;
     }
-    for (const cert of job.certificates) {
-      if (cert.status === 'issued') stats.coisIssued += 1;
-      else if (cert.status === 'pending') stats.coisPending += 1;
-    }
+    for (const v of job.vendorSummaries) vendors.add(v.vendor);
   }
+  stats.vendorsNotified = vendors.size;
 
   return { jobs, crew, stats };
 }
@@ -191,13 +141,10 @@ export async function getJobsOverview(orgId: string): Promise<JobsOverview> {
 export type JobDetail = {
   order: Order;
   vendorSummaries: VendorSummary[];
-  certificates: CertificateSummary[];
 };
 
 /** One order enriched into its job detail view (/orders/[id]). */
 export async function getJobDetail(orderId: string, orgId: string): Promise<JobDetail | null> {
-  const db = createAdminClient();
-
   let order: Order;
   try {
     order = await getOrderById(orderId, orgId);
@@ -205,17 +152,9 @@ export async function getJobDetail(orderId: string, orgId: string): Promise<JobD
     return null;
   }
 
-  const { data: certData } = await db
-    .from('certificates')
-    .select('id, order_id, vendor_id, vendor_name, status, document_url, expiry_date')
-    .eq('org_id', orgId)
-    .eq('order_id', orderId)
-    .order('created_at', { ascending: false });
-
   return {
     order,
     vendorSummaries: summarizeOrder(order),
-    certificates: ((certData ?? []) as CertRow[]).map(toCert),
   };
 }
 

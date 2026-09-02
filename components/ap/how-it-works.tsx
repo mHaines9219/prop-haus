@@ -37,7 +37,7 @@ const STEPS = [
   {
     n: '04',
     label: 'Get on set',
-    copy: 'We handle COIs, delivery notes, and invoices, so the truck arrives loaded and you show up ready.',
+    copy: 'We write the vendor emails and fill the paperwork from your profile, so the truck arrives loaded and you show up ready.',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
         <rect x="2" y="7" width="12" height="9" rx="1.5" />
