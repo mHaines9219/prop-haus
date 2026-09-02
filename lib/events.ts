@@ -32,6 +32,9 @@ export const EVENT_TYPES = [
   'document_filled', // payload: { orderId, documentId, vendorId, kind, status, missing }
   'document_signed', // payload: { orderId, documentId, vendorId, kind }
   'document_failed', // payload: { orderId, documentId, vendorId, kind, error }
+  'project_intake', // payload: { projectId, provider, fieldsLearned, open }
+  'requirement_status_changed', // payload: { projectId, requirementId, action }
+  'template_used', // payload: { projectId, requirementId, templateId, missing }
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 

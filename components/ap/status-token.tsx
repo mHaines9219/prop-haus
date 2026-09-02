@@ -109,6 +109,35 @@ export function crewStatusSpec(status: string): TokenSpec {
   }
 }
 
+/**
+ * Paperwork checklist items — status × how the document comes to exist. Missing
+ * reads as what to do next (upload, template ready, external, at checkout);
+ * complete is CONFIRMED; needs information and a ready template stand by.
+ */
+export function checklistStatusSpec(status: string, fulfillment: string): TokenSpec {
+  switch (status) {
+    case 'complete':
+      return { tone: 'confirmed', label: 'COMPLETE' };
+    case 'not_applicable':
+      return { tone: 'pending', label: 'N/A' };
+    case 'needs_information':
+      return { tone: 'quoted', label: 'NEEDS INFO' };
+    case 'awaiting':
+      return { tone: 'pending', label: 'REQUESTED' };
+    default:
+      switch (fulfillment) {
+        case 'template':
+          return { tone: 'quoted', label: 'TEMPLATE READY' };
+        case 'external':
+          return { tone: 'pending', label: 'EXTERNAL' };
+        case 'track':
+          return { tone: 'pending', label: 'AT CHECKOUT' };
+        default:
+          return { tone: 'pending', label: 'UPLOAD' };
+      }
+  }
+}
+
 /** outbound_messages.status — sending/sent/failed. */
 export function messageStatusSpec(status: string): TokenSpec {
   switch (status) {

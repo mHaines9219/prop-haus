@@ -1038,6 +1038,66 @@ per-vendor negotiated terms, storing tax IDs, anything that produces a COI.
 
 ---
 
+### MVP-13 · PAPERWORK-CHECKLIST — Project paperwork recommendations from a described production
+
+**Status:** in progress — mhaines/paperwork-checklist (needs from Matthew:
+the real template catalog and prices in `lib/templates/catalog.ts`, Anvil
+eids for each template once uploaded, and a decision on when
+`TEMPLATES_INCLUDED_ON_FREE` flips; `OPENROUTER_API_KEY` turns the mock
+intake into the model with no code change)
+**Priority:** high
+**Depends on:** MVP-10 (org profile feeds template prefill), MVP-12 (vendor
+form rows and the filler seam are reused as-is)
+
+**Context.** A user starting a project should be able to describe it in
+their own words and get a personalized paperwork checklist: what they need,
+why, and the fastest way to close each row (upload their own, use a Prop
+Haus template, or request it from the party that issues it). The model
+understands the description; deterministic rules decide what is required.
+
+**Shape (built):**
+- `lib/project-profile.ts` — the structured Project Profile
+  (`projects.profile` jsonb). Tri-state fields: absent means unknown.
+  `profileGaps()` is the deterministic list of what to ask next.
+- `lib/requirements/library.ts` — the requirements library as data: id,
+  category, stage, triggers (a small condition DSL over the profile), level
+  (`required | recommended | conditional | informational`), basis
+  (`vendor | venue | insurer | client | common | recommended |
+  verify_locally`), fulfillment (`upload | template | external | track`),
+  who provides it, template id, jurisdiction flag, prerequisites/feeds.
+  Never says "legally required".
+- `lib/requirements/evaluate.ts` — pure engine: profile + vendor
+  requirements + user state + account documents → checklist with the
+  trigger's own reason on every row, plus advisories (broker review,
+  minors, specialists). `lib/requirements/vendor.ts` turns `vendor_forms`
+  and `vendor_insurance_minimums` rows into vendor requirements for the
+  vendors on the pull, so "COI, required by Omega" comes from data.
+- `lib/intake/` — the intake seam: `MockIntakeExtractor` (keyword
+  heuristics, zero secrets) and `OpenRouterIntakeExtractor` (JSON mode,
+  same pattern as moodboard.ts). Short yes/no/number answers are routed to
+  the last question in code, never by the model. `runIntakeTurn` saves the
+  profile, appends the transcript, re-evaluates.
+- `lib/templates/catalog.ts` — template library with standard field ids
+  and packs; `prefillTemplate()` fills from project + org profile;
+  `templateAccess()` is the single/pack purchase seam (included on every
+  plan during the MVP).
+- Persistence: `20260902200000_project_paperwork.sql` (`projects.profile`,
+  `project_intake_messages`, `project_requirements`).
+- API: `POST /api/projects` accepts `description` and runs the first turn;
+  `POST /api/projects/[id]/intake`; `PATCH /api/projects/[id]/profile`;
+  `POST /api/projects/[id]/requirements/[requirementId]` (multipart upload
+  or `{ action }`).
+- UI: "Start a new project" takes a description; `/projects/[id]/paperwork`
+  is the workspace (intake + profile readout on the left, grouped checklist
+  with reasons and actions on the right); the project page links to it.
+
+**Out of scope for v1:** template checkout/payment rails, per-vendor
+requirement comparison beyond what `vendor_forms` already holds, editing
+the profile field-by-field in the UI (the PATCH route exists), document
+prefill through real Anvil templates (the mock filler produces the PDF).
+
+---
+
 ## Future tasks (not MVP — do not start unless assigned)
 
 ### FUT-1 · VENDOR-EXPAND — Book all vendor categories
