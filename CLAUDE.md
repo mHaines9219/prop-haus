@@ -43,33 +43,48 @@ decision, then keep building. (Full rules at the top of TASKS.md.)
 
 ---
 
-# MVP Scope (updated Aug 2026)
+# MVP Scope (reworked Sep 2026)
+
+STRATEGY CHANGE (Sep 2026): COI issuance is OUT of the MVP. The insurance
+API partnership did not work out, and Prop Haus will NOT white-label,
+issue, bind, or broker certificates of insurance. Productions bring their
+own coverage; Prop Haus moves the paperwork and the requests.
 
 The MVP is focused on:
 
 1. Inventory aggregation
 2. AI-assisted search and discovery (search completion is an active task —
    missing catalog data is being resolved)
-3. Multi-vendor cart with ONE-CLICK CHECKOUT
-4. Crew/contractor hiring (extra hands on set, delivery-type jobs)
-5. COI ISSUANCE via a licensed insurance API partner
-6. Site redesign (Answer Print migration + design iteration)
+3. Multi-vendor cart with a TRUE ONE-CLICK CHECKOUT — the click places the
+   order AND does everything a coordinator would do next
+4. Vendor outreach automation: per-vendor emails pre-written from the cart
+   and the org profile, sent as a batch by the same click — editable
+   beforehand, never required
+5. Paperwork automation via Anvil: every vendor form we can lawfully
+   complete on the production's behalf is filled from the org profile; the
+   user only signs
+6. Crew/contractor hiring (extra hands on set, delivery-type jobs)
+7. Site redesign (Answer Print migration + design iteration)
 
 The MVP DOES NOT:
 - handle physical logistics
 - own warehouses
 - provide trucking
-- underwrite or bind insurance itself (a licensed API partner issues COIs;
-  Prop Haus is the workflow and integration layer)
+- issue, bind, underwrite, broker, or white-label insurance or COIs (the
+  production's own broker issues certificates; Prop Haus stores the COI on
+  file, attaches it, and fills the vendor's COI *request* form)
 - provide financing
 - guarantee payments
 - manage returns
 - act as a regulated insurer or lender
+- sign anything for the user (signatures are always the user's own, via
+  Anvil e-sign)
 
 The goal is to validate:
 - productions want a centralized workflow
 - vendors are willing to receive requests through the platform
 - users value operational abstraction more than direct vendor relationships
+- "one click and the emails and forms are handled" is the thing people pay for
 
 ---
 
@@ -82,14 +97,18 @@ Users can:
 - Build carts from multiple vendors simultaneously
 - Check out in ONE CLICK (order details live on the org profile, so checkout
   has nothing to ask)
+- Have the per-vendor request emails written and sent for them with the
+  same click — and open any draft first to read or edit it, if they want
+- Have vendor paperwork (rental agreements, account applications, COI
+  requests) filled from their profile through Anvil, and sign in-product
 - Hire crew/contractors for extra hands on set and delivery-type jobs
-- Get COIs issued per vendor through an insurance API partner
 - Manage production sourcing in one place
 
 The product should feel like:
 - procurement software
 - production workflow software
 - sourcing infrastructure
+- a coordinator who already sent the emails
 
 NOT:
 - Amazon
@@ -138,20 +157,27 @@ not a multi-step ecommerce funnel, and not a mere inquiry form.
 ## 3. One-Click Checkout
 
 Checkout is a single action. Everything an order needs lives on the org's
-profile ahead of time:
-- production/company details
-- contact info
-- rental date defaults
-- (later) payment method and insurance profile
+ORDER PROFILE ahead of time (see TASKS.md · MVP-10):
+- production/company details (legal name, DBA, entity, addresses)
+- contact info (ordering contact, accounts payable)
+- rental date defaults and default delivery address
+- insurance on file: the production's OWN COI (uploaded PDF), carrier,
+  policy limits, expiry, and broker contact
+- a recorded authorization for Prop Haus to complete vendor forms with this
+  information on the org's behalf
+- (later) payment method
+
+If the profile is incomplete, the cart says exactly what is missing and
+links to the profile. It never grows a checkout form of its own.
 
 User clicks once → an order is created with all cart items snapshotted.
 
-The backend then:
+The backend then, without further input:
 - records the order and per-vendor line items
-- coordinates vendor availability/confirmation (initially manual or
-  email-driven)
-- triggers COI issuance per vendor (see section 5)
-- tracks item statuses
+- sends the pre-written outreach email to each vendor (section 3c)
+- fills every vendor form we have a template for and stages anything that
+  needs the user's signature (section 5)
+- tracks item statuses as vendors respond
 
 Payment capture is stubbed behind a provider interface in the MVP — the flow
 is real, the payment rails come later.
@@ -173,16 +199,37 @@ self-signup yet. This is the seed of booking ALL vendor categories later
 
 ---
 
+## 3c. Vendor Outreach (pre-written, batched, sent with the click)
+
+The email a coordinator would write after placing an order is written by the
+platform instead (TASKS.md · MVP-11):
+- one message per vendor in the cart: the items (with links and photos),
+  rental window, production name, contact, delivery address, the
+  production's COI attached when it is on file, and any forms filled for
+  that vendor
+- the drafts exist BEFORE the click: the cart has a quiet "Review the
+  emails" disclosure that shows each one
+- the user CAN review: open a draft, read it, edit the subject or body
+- the user never HAS to review: the click sends the batch exactly as
+  drafted. There is no timer, no hold, no second "send" step.
+
+Sending is behind a mail-provider interface with a logging mock, so the
+flow demos with zero secrets. Vendor replies come back to the production's
+contact email with an order-tagged reply-to; status updates on the order
+are still recorded manually or by the simulation script in the MVP.
+
+---
+
 ## 4. Vendor Coordination Layer
 
 The platform automates:
-- availability inquiries
-- hold requests
+- availability inquiries and hold requests (the outreach batch)
 - quote coordination
-- vendor communication
+- vendor onboarding paperwork (the Anvil packet)
 - invoice aggregation
 
-This can initially be:
+Beyond the outreach batch and the paperwork packet, coordination can
+initially be:
 - manual
 - semi-automated
 - email-driven
@@ -191,27 +238,39 @@ The MVP does NOT require vendor APIs.
 
 ---
 
-## 5. COI Issuance (via insurance API partner)
+## 5. Paperwork Automation via Anvil (no insurance issuance)
 
-STRATEGY CHANGE (Aug 2026): COI issuance is IN the MVP. Prop Haus partners
-with a licensed insurance API to issue COIs directly in-product — this
-replaces the old "coordination-only" stance.
+STRATEGY CHANGE (Sep 2026): COI issuance via an insurance API partner is
+DROPPED. What replaces it is paperwork automation (TASKS.md · MVP-12):
 
-The flow:
-- store the production's insurance profile on the org
-- store per-vendor COI requirements as data
-- evaluate coverage compatibility against each vendor's requirements
-- issue COIs per vendor through the partner API (triggered at checkout or
-  manually)
-- track issued certificates (status, expiry, documents)
+- store the production's "paperwork profile" on the org (company, contacts,
+  addresses, tax details where a form needs them, insurance on file)
+- store per-vendor form requirements as data: which forms a vendor needs
+  (rental agreement, new-account / credit application, COI request, W-9
+  request), the Anvil PDF template for each, and a field map
+- at checkout (or manually from the order page), fill each form through the
+  Anvil PDF fill API with the profile data, store the PDF with the order, and
+  attach it to that vendor's outreach email
+- forms that need the user's signature become an Anvil Etch e-sign packet
+  with the USER as the signer; the order page shows "Sign" and the signed
+  copy is stored when Anvil calls back
+- evaluate the production's COI on file against each vendor's stated
+  minimums and surface gaps as a warning in the outreach preview (never a
+  blocker, never an offer to fix it for them)
 
-Division of responsibility — this matters for legal/copy:
-- The PARTNER underwrites, binds, and issues coverage.
-- Prop Haus is the workflow, data, and integration layer.
-- UI copy must never claim Prop Haus is the insurer or broker.
+Legal guardrails — these matter for code and copy:
+- Prop Haus fills DATA fields the user has supplied and authorized. It never
+  applies a signature, initial, or date-of-signature on anyone's behalf.
+- Prop Haus never produces a certificate of insurance. An ACORD 25 comes
+  from the production's broker; we may fill the vendor's COI REQUEST form
+  and forward it to the broker.
+- Forms needing a wet signature or notarization are marked `manual` and
+  handed to the user with the data pre-filled where Anvil allows it.
+- UI copy must never say Prop Haus is an insurer, broker, or agent. It says
+  "filled from your profile" and "you sign".
 
-Until the partner API is selected, the flow is built behind a provider
-interface with a mock implementation (see TASKS.md · MVP-4).
+Until an Anvil key is present, the flow is built behind a form-filler
+interface with a mock implementation that produces stub PDFs.
 
 ---
 
@@ -255,7 +314,7 @@ Potential early revenue streams:
 ## Long-Term
 - financing / NET terms
 - payment guarantees
-- embedded insurance coordination
+- insurance coordination (workflow only; never issuance)
 - underwriting/risk systems
 
 The MVP should NOT optimize for monetization complexity yet.
@@ -300,11 +359,15 @@ Potential future layer:
 NOT part of MVP.
 
 ## Insurance Infrastructure
-COI issuance via API partner is NOW PART OF THE MVP (see MVP Scope).
-Still future:
-- broker integrations
-- deeper embedded insurance products
-- underwriting/risk systems
+COI issuance via an API partner was tried in Aug 2026 and DROPPED in Sep
+2026: Prop Haus will not white-label, issue, or broker certificates. What
+the MVP keeps is the workflow side only: the production's own COI on file,
+vendor minimums as data, COI request forms filled and forwarded to the
+production's broker (see MVP Scope §5).
+Still future, and only ever as coordination, never as the insurer:
+- broker integrations (request/receive certificates programmatically)
+- expiry tracking and renewal reminders
+- underwriting/risk data products for partners
 
 ## Vendor Category Expansion (FUT-1 in TASKS.md)
 Book every production vendor category, not just props and crew:
