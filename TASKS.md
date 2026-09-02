@@ -574,7 +574,7 @@ Hard rules for every task in this group:
 
 ### MVP-9 · RETIRE-COI — Remove COI issuance, keep the data that still matters
 
-**Status:** in progress — mhaines/mvp9-retire-coi
+**Status:** done — PR #88
 **Priority:** high (unblocks MVP-11/12's copy and jobs surfaces)
 **Depends on:** nothing. Land BEFORE MVP-10 to avoid both tasks editing
 `/account`.
@@ -1258,7 +1258,7 @@ Token-burn guardrails:
 | MVP-6 | Backend optimization (competitor API) | BLOCKED — awaiting direct-API access decision; #1 shipped | medium (paused) |
 | MVP-7 | Web clipper v1 (paste a link) | in progress — asuncion | medium-high |
 | MVP-8 | Jobs-in-progress dashboard | done | medium-high |
-| MVP-9 | Retire COI issuance, keep the data | in progress — mhaines/mvp9-retire-coi | high |
+| MVP-9 | Retire COI issuance, keep the data | done — PR #88 | high |
 | MVP-10 | Order profile (one-click readiness) | open — after MVP-9 | high |
 | MVP-11 | Vendor outreach emails (sent with the click) | open — after MVP-10 | high |
 | MVP-12 | Vendor paperwork via Anvil | open — after MVP-10 | high |
