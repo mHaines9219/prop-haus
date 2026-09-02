@@ -47,6 +47,73 @@ Build every task to a PLUG-AND-PLAY state:
 
 ---
 
+## THINGS_MATT_NEEDS_TO_PROVIDE (audit — Sep 2, 2026)
+
+Everything below is a real blocker or an open ask that no agent can resolve.
+Nothing here stops a demo: every flow runs with zero secrets behind a mock.
+Each item names the task, what is needed, where it lands, and what stays
+mocked or wrong until it arrives. When you close one, delete the line here
+and update the task's Status line.
+
+### Datasets and real data
+
+| # | Task | What | Where it lands | Until then |
+|---|------|------|----------------|------------|
+| D1 | MVP-1 | The missing catalog data — you said you would specify what is absent. This is the primary search gap. | `scrapers/`, `catalog.catalog_items`, then `pnpm embed` / `pnpm enrich` | Search runs against ~90k items from 14 vendors; 9 vendors blocked. No agent restructures the search pipeline until this lands. |
+| D2 | MVP-6 | Competitor API captures (network responses) — only if #2–5 unfreeze. | Handed to the agent; not committed | Backend-opt items #2–5 stay frozen (see D-blocker Q3 below). |
+| D3 | MVP-2 | Real contractor rows (names, photos, skills, rates, bios). | Replace `20260830120001_crew_seed.sql` rows via admin or CSV import | `/crew` shows 6 invented placeholder contractors. |
+| D4 | MVP-11 | Confirmed vendor order emails. Every `orderEmail` in `lib/vendors.ts` is a guessed `orders@<domain>` placeholder. | `lib/vendors.ts` (`PLACEHOLDER` comment at line 18) | Outreach is logged, not sent. Do not flip `MAIL_PROVIDER=resend` before this. |
+| D5 | MVP-12 | Each vendor's real forms: which forms each house actually requires, the PDFs, and the correct field names. The seed rows for omega, hpr, ec, heritage, propheaven, universal are invented. | `vendor_forms` rows in `20260902171000_vendor_forms.sql` | Mock filler produces stub PDFs against placeholder field maps. |
+| D6 | MVP-12 | Each vendor's real additional-insured wording and COI minimums. The wording seeded for hpr and universal is generic. | `vendor_insurance_minimums.additional_insured_wording` and limits | COI gap warnings compare against placeholder minimums. |
+| D7 | MVP-13 | The real template catalog: which templates Prop Haus sells, descriptions, and prices. | `lib/templates/catalog.ts` (`PLACEHOLDER` at lines 63 and 75) | Checklist offers placeholder templates with invented prices. |
+| D8 | FUT-1 | Real vendor data per category (catering, HMU, styling, equipment, locations). | New seed migration when FUT-1 is picked up | Category rows were seeded then retired; `/crew` is the only directory. |
+| D9 | FUT-2 | A dimensions pass on the per-category placeholder table from someone who knows what a prop-house sofa measures. | `lib/spacelab/asset.ts` (`PLACEHOLDER` at line 58) | Items with no scraped dimensions get a category guess. |
+
+### API keys and env vars
+
+`.env.local.example` is permission-locked for agents, so every var below must
+be added there by you. Set the real values in `.env.local` (gitignored).
+
+| # | Task | Var(s) | What it unlocks | Until then |
+|---|------|--------|-----------------|------------|
+| K1 | MVP-11 | `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `MAIL_FROM`, `OUTREACH_FALLBACK_TO`, `OUTREACH` | Real vendor emails on the click. Needs D4 first. | Logging mail provider; nothing leaves the box. |
+| K2 | MVP-12 | `FORMS_PROVIDER=anvil`, `FORMS`, `ANVIL_API_KEY`, `ANVIL_WEBHOOK_SECRET`, `ANVIL_ETCH_TEST` | Real PDF fill and e-sign. Needs D5 and the template eids (Q5). | Mock filler and mock sign page. |
+| K3 | MVP-13 | `INTAKE_PROVIDER`, `INTAKE_MODEL`, `OPENROUTER_API_KEY` | The model reads the project description instead of keyword heuristics. No code change. | `MockIntakeExtractor`. |
+| K4 | MVP-7 | `CLIP_IMAGE_BUCKET=clips` plus the Supabase Storage bucket itself | Snapshotting clipped images into our bucket. Gated on Q4. | `PassthroughStore` hotlinks retailer images. |
+| K5 | FUT-2 | `SPACELAB_MODEL_PROVIDER`, `MESHY_API_KEY` or `TRIPO_API_KEY`, `SPACELAB_ASSET_BUCKET` (a public Supabase Storage bucket), `SPACELAB_PREWARM`, `NEXT_PUBLIC_SPACELAB_URL`, `NEXT_PUBLIC_SITE_URL` | Real image-to-3D and the one-click "Open in Spacelab" link. Needs Q7 and X1. | Mock provider ships photo-mapped boxes; user downloads the room file. |
+| K6 | all | Document the remaining vars code already reads: `PAPERWORK_BUCKET`, `CATALOG_DATABASE_URL`, `DATABASE_URL`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `OPENROUTER_SITE_URL`, `OPENROUTER_APP_NAME`, `OPENROUTER_MODEL`, `OPENROUTER_EMBED_MODEL`, `OPENROUTER_ENRICH_MODEL`, `EVAL_QUERY_MODEL`, `ALLOW_SKIP_DB_TESTS`, `ALLOW_PRIVILEGED_LOAD` | A complete example file. Agents cannot verify which of these are already documented. | Diff the list against the file. |
+
+### Decisions and answers
+
+| # | Task | Question | Unblocks |
+|---|------|----------|----------|
+| Q1 | MVP-5B | What specifically is unsatisfying about Answer Print? The sofia punch list (docs/design-direction-mvp5b.md §61) needs nothing to build; after it ships, react to it. If the language itself is wrong, changes go through DESIGN.md first. | The next design iteration. |
+| Q2 | MVP-6 | Which prop houses will grant direct API access, and roughly what those APIs expose? | Re-scoping backend-opt #2–5 against the hybrid ingest model. |
+| Q3 | MVP-6 | Do #2–5 unfreeze at all, or is scraping-era hardening cancelled? | Whether D2 is needed. |
+| Q4 | MVP-7 | Sign-off: copy retailer images into our bucket, or hotlink only? Also confirm reusing the existing `project_items.metadata` column instead of a new `meta` column. | K4. |
+| Q5 | MVP-12 / MVP-13 | Upload each vendor PDF and each Prop Haus template to Anvil and paste the eids into `vendor_forms.anvil_template_eid` and `lib/templates/catalog.ts`. | Real fill; K2. |
+| Q6 | MVP-13 | When does `TEMPLATES_INCLUDED_ON_FREE` flip to false? Templates are free on every plan during the MVP. | Template commerce. |
+| Q7 | FUT-2 | Pick an image-to-3D service: Meshy, Tripo, or self-hosted TRELLIS-class. Compare cost per generation, quality on a single product photo, turnaround, sync vs job-based. | K5, one adapter file. |
+| Q8 | FUT-2 | Should checkout pre-generate models once generation costs money (`SPACELAB_PREWARM`)? Are vendors comfortable with 3D derivatives of their listing photos? | Going public with Spacelab. |
+| Q9 | FUT-1 | Equipment and location-support categories; per-category request fields (head count, kit fees); more filters on `/crew` or their own directories; ezCater partnership vs MealMe pilot for catering. | Scoping FUT-1. |
+| Q10 | FUT-3 | Extension auth: deployed session cookie with CORS scoped to the extension origin, or a per-org API token? | Scoping FUT-3. |
+| Q11 | MVP-11 | Crew request emails (step 9 follow-up): approve adding `contact_email` to contractors, a `crew` template, and `crew_request_id` on outbound messages. | The follow-up PR. |
+
+### Cross-repo and deployment
+
+| # | Task | What | Unblocks |
+|---|------|------|----------|
+| X1 | FUT-2 | Apply the two Spacelab patches (remote catalog loading with absolute blob URLs, `?room=` open) from docs/spacelab-integration.md §3 and deploy the static Vite app. | K5's `NEXT_PUBLIC_SPACELAB_URL`. |
+| X2 | FUT-3 | Deploy Prop Haus somewhere the Chrome extension can reach. | FUT-3 start. |
+| X3 | MVP-11 | A sending domain in Resend with the `orders+<orderId>@<domain>` reply-to address. FUT-5 needs its inbound webhook on the same domain. | K1 and FUT-5. |
+
+### Board housekeeping
+
+- MVP-7's Status line says in progress, but PR #79 merged Sep 1. Update it
+  once Q4 is answered.
+
+---
+
 ## MVP tasks
 
 ### MVP-1 · SEARCH — Finish the search function
