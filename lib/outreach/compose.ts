@@ -116,7 +116,7 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
   if (forms.length) paperwork.push(`Completed ${joinNames(forms.map((f) => f.name))} attached.`);
 
   const address = formatAddress(input.deliveryAddress);
-  const where = [address, input.deliveryNotes].filter(Boolean);
+  const where = [address, input.deliveryNotes].filter((s): s is string => Boolean(s));
 
   const signature = [
     contact.name,
