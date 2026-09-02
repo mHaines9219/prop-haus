@@ -1,6 +1,9 @@
-// /projects dashboard: session gate, archived toggle, empty states, and one row per production.
+// /projects dashboard: session gate, archived toggle, empty states, and the
+// sortable, searchable table with one row per production.
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { nav, resetNavigation } from '@/test/mocks/next-navigation';
 import { signIn, signOut, ORG_ID } from '@/test/mocks/session';
 import type { Project, ProjectDocument, ProjectFolder, ProjectItem } from '@/lib/projects';
 import ProjectsPage from './page';
@@ -80,6 +83,7 @@ function props(archived?: string) {
 beforeEach(() => {
   projects.listProjects.mockReset();
   projects.listProjects.mockResolvedValue([]);
+  resetNavigation();
 });
 
 describe('ProjectsPage', () => {
@@ -126,17 +130,46 @@ describe('ProjectsPage', () => {
     ]);
     render(await ProjectsPage(props('1')));
 
-    const row = screen.getByRole('link', { name: /Nocturne/ });
-    expect(row).toHaveAttribute('href', '/projects/p-1');
-    expect(row).toHaveTextContent('2 scenes · 3 items · 1 document');
+    expect(screen.getByRole('link', { name: 'Nocturne' })).toHaveAttribute('href', '/projects/p-1');
+    const row = screen.getByRole('link', { name: 'Nocturne' }).closest('tr')!;
+    const cells = within(row).getAllByRole('cell').map((c) => c.textContent);
+    expect(cells.slice(1, 4)).toEqual(['2', '3', '1']);
     expect(within(row).getAllByRole('img')).toHaveLength(2);
-    expect(screen.getByTestId('archive-p-1')).toHaveTextContent('Archive');
+    expect(within(row).getByTestId('archive-p-1')).toHaveTextContent('Archive');
 
-    const archived = screen.getByRole('link', { name: /Archived Short/ });
-    expect(archived).toHaveTextContent('1 scene · 0 items · 0 documents');
+    const archived = screen.getByRole('link', { name: 'Archived Short' }).closest('tr')!;
+    expect(within(archived).getAllByRole('cell').map((c) => c.textContent).slice(1, 4)).toEqual(['1', '0', '0']);
     expect(within(archived).queryAllByRole('img')).toHaveLength(0);
-    expect(screen.getByText('Archived')).toBeInTheDocument();
-    expect(screen.getByTestId('archive-p-2')).toHaveTextContent('Restore');
+    expect(within(archived).getByText('Archived')).toBeInTheDocument();
+    expect(within(archived).getByTestId('archive-p-2')).toHaveTextContent('Restore');
     expect(screen.getAllByText(/Sep \d+$/)).toHaveLength(2);
+
+    // Column headers are the sort controls; the archive column has no visible label.
+    expect(screen.getAllByRole('button', { name: /^(Project|Scenes|Items|Documents|Updated)$/ })).toHaveLength(5);
+  });
+
+  it('sorts by last update, re-sorts by name on demand, searches by name and opens a row on click', async () => {
+    signIn();
+    projects.listProjects.mockResolvedValue([
+      project({ id: 'p-1', name: 'Nocturne', updatedAt: '2026-08-10T00:00:00.000Z' }),
+      project({ id: 'p-2', name: 'Aurora', updatedAt: '2026-09-01T00:00:00.000Z' }),
+      project({ id: 'p-3', name: 'Meridian', updatedAt: '2026-08-20T00:00:00.000Z' }),
+    ]);
+    render(await ProjectsPage(props()));
+    const names = () => screen.getAllByRole('link', { name: /Nocturne|Aurora|Meridian/ }).map((l) => l.textContent);
+
+    expect(names()).toEqual(['Aurora', 'Meridian', 'Nocturne']);
+    await userEvent.click(screen.getByRole('button', { name: 'Project' }));
+    expect(names()).toEqual(['Aurora', 'Meridian', 'Nocturne']);
+    await userEvent.click(screen.getByRole('button', { name: 'Project' }));
+    expect(names()).toEqual(['Nocturne', 'Meridian', 'Aurora']);
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'meri');
+    expect(names()).toEqual(['Meridian']);
+
+    await userEvent.click(screen.getByRole('link', { name: 'Meridian' }).closest('tr')!.querySelectorAll('td')[1]!);
+    expect(nav.router.push).toHaveBeenCalledWith('/projects/p-3');
+    await userEvent.click(screen.getByTestId('archive-p-3'));
+    expect(nav.router.push).toHaveBeenCalledTimes(1);
   });
 });

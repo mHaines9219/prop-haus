@@ -85,10 +85,7 @@ export function documentStoragePath(orgId: string, orderId: string, vendorId: st
   return `orgs/${orgId}/orders/${orderId}/${vendorId}/${kind}${suffix}.pdf`;
 }
 
-/** Where the mock (and the real provider's iframe) sign page lives. */
-export function signPagePath(orderId: string, documentId: string): string {
-  return `/orders/${orderId}/sign/${documentId}`;
-}
+export { signPagePath } from './paths';
 
 export async function listOrderDocuments(orderId: string, orgId: string): Promise<OrderDocument[]> {
   const { data, error } = await createAdminClient()

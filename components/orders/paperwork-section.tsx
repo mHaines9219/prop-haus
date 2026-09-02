@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { OrderDocument } from '@/lib/forms/documents';
-import { signPagePath } from '@/lib/forms/documents';
+import { signPagePath } from '@/lib/forms/paths';
 import { StatusToken, documentStatusSpec } from '@/components/ap/status-token';
 
 /**
