@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, FileText } from 'lucide-react';
+import { ChevronLeft, ClipboardList, FileText } from 'lucide-react';
 import {
   getProject,
   paperworkFolder,
@@ -9,6 +9,7 @@ import {
   sceneFolders,
   type ProjectFolder,
 } from '@/lib/projects';
+import { evaluate } from '@/lib/requirements/evaluate';
 import { requireOrgId } from '@/lib/session';
 import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
@@ -30,6 +31,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const paperwork = paperworkFolder(project);
   const itemCount = projectItemCount(project);
   const docCount = projectDocumentCount(project);
+  // Profile-only count for the row; the workspace page runs the full build.
+  const checklistTotal = evaluate({ profile: project.profile }).summary.total;
 
   return (
     <PageShell>
@@ -85,6 +88,26 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               Paperwork
             </h2>
             <div className="border-t border-border">
+              <div className="flex min-h-[64px] items-center gap-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
+                <Link
+                  href={`/projects/${project.id}/paperwork`}
+                  className="flex min-w-0 flex-1 items-center gap-4 py-3"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-surface-inset text-text-secondary">
+                    <ClipboardList size={16} strokeWidth={1.5} aria-hidden />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-medium leading-[22px] text-foreground">
+                      Paperwork checklist
+                    </p>
+                    <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                      {checklistTotal === 0
+                        ? 'Describe the production to build it'
+                        : `${plural(checklistTotal, 'item')} from what you have described`}
+                    </p>
+                  </div>
+                </Link>
+              </div>
               <div className="flex min-h-[64px] items-center gap-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
                 <Link
                   href={`/projects/${project.id}/folders/${paperwork.id}`}

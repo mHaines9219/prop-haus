@@ -221,4 +221,22 @@ describe('POST /api/projects', () => {
     await POST(jsonRequest('/api/projects', { name: 'Night Shoot' }));
     expect(db.rows('events')).toEqual([expect.objectContaining({ org_id: ORG_ID, type: 'project_created' })]);
   });
+
+  it('runs the first intake turn when a description is given', async () => {
+    process.env.INTAKE_PROVIDER = 'mock';
+    db.relation('project_documents', 'project_requirements', 'document_id');
+    const res = await POST(jsonRequest('/api/projects', { name: 'Nocturne', description: 'A 3-day film in Brooklyn with 6 crew' }));
+    expect(res.status).toBe(200);
+    const body = await readJson<{ id: string; intake: boolean }>(res);
+    expect(body.intake).toBe(true);
+    expect(db.rows('projects').find((p) => p.id === body.id)?.profile).toMatchObject({ productionType: 'film', crew: { count: 6 } });
+    expect(db.rows('project_intake_messages').map((m) => m.role)).toEqual(['user', 'assistant']);
+  });
+
+  it('creates the project without intake when there is no description', async () => {
+    const res = await POST(jsonRequest('/api/projects', { name: 'Nocturne' }));
+    const body = await readJson<{ intake: boolean }>(res);
+    expect(body.intake).toBe(false);
+    expect(db.rows('project_intake_messages')).toHaveLength(0);
+  });
 });

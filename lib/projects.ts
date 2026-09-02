@@ -8,6 +8,7 @@ import {
   checkPaperworkFile,
   paperworkBucket,
 } from './paperwork';
+import type { ProjectProfile } from './project-profile';
 
 /**
  * A project is a production. It owns folders:
@@ -33,6 +34,8 @@ export type Project = {
   updatedAt: string;
   /** Soft-hidden from the project list when set. */
   archivedAt?: string;
+  /** What intake has learned about the production (lib/project-profile.ts). Empty until described. */
+  profile: ProjectProfile;
   /** Scene folders in display order, then the paperwork folder. */
   folders: ProjectFolder[];
 };

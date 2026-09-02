@@ -59,6 +59,7 @@ function project(over: Partial<Project> = {}): Project {
   return {
     id: 'p-1',
     orgId: ORG_ID,
+    profile: {},
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-02T12:00:00.000Z',
@@ -116,9 +117,13 @@ describe('ProjectPage', () => {
     expect(kitchen).toHaveTextContent('0 items');
     expect(screen.queryByText('No scenes yet')).not.toBeInTheDocument();
 
-    const paperwork = screen.getByRole('link', { name: /Paperwork/ });
+    const paperwork = screen.getByRole('link', { name: /COIs, W9s/ });
     expect(paperwork).toHaveAttribute('href', '/projects/p-1/folders/f-pw');
     expect(paperwork).toHaveTextContent('COIs, W9s, invoices, call sheets');
+
+    const checklist = screen.getByRole('link', { name: /Paperwork checklist/ });
+    expect(checklist).toHaveAttribute('href', '/projects/p-1/paperwork');
+    expect(checklist).toHaveTextContent('Describe the production to build it');
   });
 
   it('shows the document count once paperwork has been uploaded', async () => {
@@ -139,7 +144,7 @@ describe('ProjectPage', () => {
     );
     render(await ProjectPage(props()));
     expect(screen.getByText('1 scene · 0 items · 2 documents')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Paperwork/ })).toHaveTextContent('2 documents');
+    expect(screen.getByRole('link', { name: /2 documents/ })).toHaveAttribute('href', '/projects/p-1/folders/f-pw');
   });
 
   it('shows the empty scenes state and omits the paperwork section without that folder', async () => {

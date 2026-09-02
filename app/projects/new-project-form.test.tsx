@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nav, resetNavigation } from '@/test/mocks/next-navigation';
-import { NewProjectForm } from './new-project-form';
+import { DESCRIPTION_PLACEHOLDER, NewProjectForm } from './new-project-form';
 
 // "Start a new project" row: opens inline, posts the trimmed name, lands on
 // the new project.
@@ -159,5 +159,19 @@ describe('NewProjectForm', () => {
     expect(screen.queryByPlaceholderText(PLACEHOLDER)).not.toBeInTheDocument();
     await user.click(toggle());
     expect(screen.queryByText('Give the production a name.')).not.toBeInTheDocument();
+  });
+
+  it('posts the description too and lands on the paperwork checklist', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubFetch(() => json({ id: 'p1', intake: true }, 201));
+    render(<NewProjectForm />);
+    await user.click(toggle());
+    await user.type(screen.getByPlaceholderText(PLACEHOLDER), 'Nocturne');
+    await user.type(screen.getByPlaceholderText(DESCRIPTION_PLACEHOLDER), ' A 10-day film in Brooklyn ');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/projects/p1/paperwork'));
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Nocturne', description: 'A 10-day film in Brooklyn' });
   });
 });

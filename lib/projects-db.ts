@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
 import type { ClipMeta, SavedSource } from './types';
 import type { FolderKind, Project, ProjectDocument, ProjectFolder, ProjectItem } from './projects';
+import { normalizeProjectProfile } from './project-profile';
 
 /**
  * Row <-> object mapping for the projects schema, kept apart from the
@@ -57,6 +58,7 @@ type ProjectRow = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  profile?: unknown;
   project_folders: ProjectFolderRow[] | null;
 };
 
@@ -120,6 +122,7 @@ export function toProject(r: ProjectRow): Project {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     ...(r.archived_at ? { archivedAt: r.archived_at } : {}),
+    profile: normalizeProjectProfile(r.profile),
     // Scene folders in their display order, paperwork last.
     folders: (r.project_folders ?? []).map(toProjectFolder).sort(compareFolders),
   };

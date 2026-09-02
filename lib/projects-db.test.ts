@@ -94,7 +94,7 @@ describe('toProjectFolder', () => {
 describe('toProject', () => {
   it('maps the project and omits archivedAt when null', () => {
     const p = toProject(projectRow());
-    expect(p).toEqual({ id: 'p1', orgId: 'o1', name: 'Nocturne', createdAt: '2026-09-01T00:00:00Z', updatedAt: '2026-09-02T00:00:00Z', folders: [] });
+    expect(p).toEqual({ id: 'p1', orgId: 'o1', name: 'Nocturne', createdAt: '2026-09-01T00:00:00Z', updatedAt: '2026-09-02T00:00:00Z', profile: {}, folders: [] });
     expect(toProject(projectRow({ archived_at: '2026-09-05T00:00:00Z' })).archivedAt).toBe('2026-09-05T00:00:00Z');
   });
 

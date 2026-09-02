@@ -52,6 +52,7 @@ function project(folders: ProjectFolder[]): Project {
   return {
     id: 'p1',
     orgId: 'o1',
+    profile: {},
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z',
