@@ -158,8 +158,9 @@ with real order records, with payment capture stubbed behind an interface.
   `supabase/migrations/20260829130000_strip_workflow_to_folders.sql` — read it
   to see what was dropped; do not resurrect it wholesale. Orders are a new,
   simpler model.
-- "Projects" (`lib/projects.ts`, `app/api/projects/*`) are saved-item folders,
-  NOT orders. Leave them alone.
+- "Projects" (`lib/projects.ts`, `app/api/projects/*`) are productions that
+  own scene folders of saved items plus one paperwork folder — the Dashboard
+  tab (`/projects`). NOT orders. Leave them alone.
 
 **Build:**
 1. Migration: `orders` (org_id, status: `placed` → `processing` →
@@ -386,10 +387,17 @@ reference material the user sourced themselves — they are NOT catalog
 inventory, don't enter search/embeddings, and can't be checked out.
 
 **Current state (the survey — don't re-derive it):**
-- "Projects" are saved-item folders: `lib/projects.ts` (types + CRUD),
-  `lib/projects-db.ts` (row mapping), UI at `app/projects/page.tsx` and
-  `app/projects/[id]/page.tsx`, APIs at `app/api/projects/route.ts` and
-  `app/api/projects/[id]/items/route.ts`.
+- "Projects" are productions with folders (since
+  `20260902120000_project_folders.sql`): any number of SCENE folders holding
+  saved items, plus ONE PAPERWORK folder holding uploaded documents.
+  `lib/projects.ts` (types + CRUD), `lib/projects-db.ts` (row mapping),
+  `lib/paperwork.ts` (upload validation). UI: `app/projects/page.tsx`
+  (Dashboard), `app/projects/[id]/page.tsx` (folder list),
+  `app/projects/[id]/folders/[folderId]/page.tsx` (scene items / paperwork
+  documents). APIs: `app/api/projects/route.ts`,
+  `app/api/projects/[id]/folders/*`, and the pre-folders
+  `app/api/projects/[id]/items/route.ts` (optional `folderId`; defaults to
+  the first scene folder — the FUT-3 extension contract).
 - `ProjectItem` is already a snapshot (itemId, source, sourceId, name,
   image?, sourceUrl, category?) — exactly the shape a clip needs. The DB
   column `project_items.source` is plain `text`
