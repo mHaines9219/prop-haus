@@ -120,7 +120,7 @@ function AuthControl() {
 
   return (
     <Link
-      href="/account/insurance"
+      href="/account"
       aria-label="Your account"
       className="text-text-secondary transition-colors duration-150 hover:text-foreground"
     >
