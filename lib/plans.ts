@@ -33,7 +33,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
   free: {
     // Free during MVP validation; gating comes later.
     outreachAutomation: true,
-    paperworkGeneration: false,
+    paperworkGeneration: true, // MVP-12: free while validating; flip to false when the paywall goes live
     consolidatedInvoicing: false,
     visionSearches: 3, // 3 lifetime trial uses, then paywall
     aiSearchesPerDay: 5,

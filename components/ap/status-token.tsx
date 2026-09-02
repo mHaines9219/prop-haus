@@ -79,6 +79,24 @@ export function orderStatusSpec(status: string): TokenSpec {
   }
 }
 
+/** order_documents.status — filled/awaiting_signature/signed/manual/failed/skipped. */
+export function documentStatusSpec(status: string): TokenSpec {
+  switch (status) {
+    case 'filled':
+      return { tone: 'confirmed', label: 'FILLED' };
+    case 'awaiting_signature':
+      return { tone: 'quoted', label: 'SIGN NEEDED' };
+    case 'signed':
+      return { tone: 'confirmed', label: 'SIGNED' };
+    case 'manual':
+      return { tone: 'pending', label: 'MANUAL' };
+    case 'failed':
+      return { tone: 'unavailable', label: 'UNAVAILABLE' };
+    default:
+      return { tone: 'pending', label: 'PENDING' };
+  }
+}
+
 /** crew_requests.status — requested/confirmed/declined. */
 export function crewStatusSpec(status: string): TokenSpec {
   switch (status) {
@@ -88,5 +106,17 @@ export function crewStatusSpec(status: string): TokenSpec {
       return { tone: 'unavailable', label: 'DECLINED' };
     default:
       return { tone: 'pending', label: 'REQUESTED' };
+  }
+}
+
+/** outbound_messages.status — sending/sent/failed. */
+export function messageStatusSpec(status: string): TokenSpec {
+  switch (status) {
+    case 'sent':
+      return { tone: 'confirmed', label: 'SENT' };
+    case 'failed':
+      return { tone: 'unavailable', label: 'FAILED' };
+    default:
+      return { tone: 'pending', label: 'SENDING' };
   }
 }

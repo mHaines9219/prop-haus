@@ -4,14 +4,21 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCart } from '@/lib/cart-store';
+import { ChevronRight } from 'lucide-react';
+import { useCart, type CartLine } from '@/lib/cart-store';
 import { SOURCE_META, type Source } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { SiteNav } from '@/components/ap/site-nav';
 import { SiteFooter } from '@/components/ap/site-footer';
+import { OutreachDrawer } from '@/components/ap/outreach-drawer';
 import { ApiError, getJson, postJson } from '@/lib/api';
 import { formatAddress, type OrderDefaults } from '@/lib/order-profile';
+import type { Draft } from '@/lib/outreach/compose';
 
 type CheckoutState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
+
+type Drafts = { loading: boolean; list: Draft[] | null; error?: boolean };
+type Edit = { subject: string; bodyText: string };
 
 type Readiness =
   | { kind: 'loading' }
@@ -34,6 +41,13 @@ export default function CartPage() {
   // Stable key for the lifetime of this cart session — prevents double-submit.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
+  // The vendor emails the click will send. Drafted server-side from the same
+  // input as checkout; edits live here and ride along with the click.
+  const [emailsOpen, setEmailsOpen] = useState(false);
+  const [drafts, setDrafts] = useState<Drafts>({ loading: false, list: null });
+  const [edits, setEdits] = useState<Record<string, Edit>>({});
+  const [openVendor, setOpenVendor] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     loadReadiness().then((r) => {
@@ -45,6 +59,51 @@ export default function CartPage() {
   }, []);
 
   const vendors = Array.from(new Set(lines.map((l) => l.item.source)));
+  const linesKey = lines.map((l) => l.item.id).join('|');
+
+  useEffect(() => {
+    if (!emailsOpen || readiness.kind !== 'ready' || lines.length === 0) return;
+    let cancelled = false;
+    setDrafts((d) => ({ ...d, loading: true, error: false }));
+    postJson<{ drafts: Draft[] }>('/api/checkout/preview', {
+      lines: toLineInputs(lines),
+      rentalStart: rentalStart || undefined,
+      rentalEnd: rentalEnd || undefined,
+      deliveryNotes: deliveryNotes.trim() || undefined,
+    })
+      .then((r) => {
+        if (!cancelled) setDrafts({ loading: false, list: r.drafts });
+      })
+      .catch(() => {
+        if (!cancelled) setDrafts({ loading: false, list: null, error: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // linesKey stands in for `lines` so a re-render with the same cart does not refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emailsOpen, readiness.kind, linesKey, rentalStart, rentalEnd, deliveryNotes]);
+
+  const openDraft = drafts.list?.find((d) => d.vendorId === openVendor) ?? null;
+  const openEdit = openDraft ? edits[openDraft.vendorId] : undefined;
+
+  function editDraft(draft: Draft, patch: Partial<Edit>) {
+    setEdits((e) => {
+      const current = e[draft.vendorId] ?? { subject: draft.subject, bodyText: draft.bodyText };
+      const next = { ...current, ...patch };
+      const { [draft.vendorId]: _, ...rest } = e;
+      // Back to the draft's own words is not an edit.
+      if (next.subject === draft.subject && next.bodyText === draft.bodyText) return rest;
+      return { ...rest, [draft.vendorId]: next };
+    });
+  }
+
+  function resetDraft(vendorId: string) {
+    setEdits((e) => {
+      const { [vendorId]: _, ...rest } = e;
+      return rest;
+    });
+  }
 
   async function handlePlaceOrder() {
     if (state.kind === 'submitting') return;
@@ -52,18 +111,11 @@ export default function CartPage() {
 
     try {
       const { id } = await postJson<{ id: string }>('/api/checkout', {
-        lines: lines.map((l) => ({
-          itemId: l.item.id,
-          source: l.item.source,
-          sourceId: l.item.sourceId,
-          name: l.item.name,
-          image: l.item.images[0] ?? null,
-          sourceUrl: l.item.sourceUrl,
-          vendor: SOURCE_META[l.item.source as Source]?.name ?? l.item.source,
-        })),
+        lines: toLineInputs(lines),
         rentalStart: rentalStart || undefined,
         rentalEnd: rentalEnd || undefined,
         deliveryNotes: deliveryNotes.trim() || undefined,
+        messages: Object.entries(edits).map(([vendorId, e]) => ({ vendorId, ...e })),
         idempotencyKey,
       });
 
@@ -285,6 +337,71 @@ export default function CartPage() {
                   )}
                 </div>
 
+                {readiness.kind === 'ready' && (
+                  <div className="border-b border-border">
+                    <button
+                      type="button"
+                      onClick={() => setEmailsOpen((o) => !o)}
+                      aria-expanded={emailsOpen}
+                      className="flex w-full items-center justify-between py-3 font-mono text-[12px] text-text-secondary transition-colors hover:text-foreground"
+                    >
+                      <span>Review the emails</span>
+                      <ChevronRight
+                        size={14}
+                        strokeWidth={1.5}
+                        className={cn('transition-transform duration-150', emailsOpen && 'rotate-90')}
+                      />
+                    </button>
+                    {emailsOpen && (
+                      <div className="pb-3">
+                        {drafts.list === null && drafts.loading && (
+                          <p className="font-mono text-[12px] text-text-tertiary">Writing the drafts…</p>
+                        )}
+                        {drafts.error && (
+                          <p className="font-mono text-[12px] text-accent-text">The drafts did not load. Try again.</p>
+                        )}
+                        {drafts.list && (
+                          <ul className="divide-y divide-border border-t border-border">
+                            {drafts.list.map((d) => {
+                              const e = edits[d.vendorId];
+                              return (
+                                <li key={d.vendorId}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenVendor(d.vendorId)}
+                                    className="w-full py-3 text-left transition-colors hover:bg-surface-raised"
+                                  >
+                                    <div className="flex items-baseline justify-between gap-3">
+                                      <span className="text-[14px] font-medium">{d.vendorName}</span>
+                                      <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-tertiary">
+                                        {e ? 'Edited' : 'Draft'}
+                                      </span>
+                                    </div>
+                                    <p className="mt-0.5 truncate font-mono text-[12px] text-text-tertiary">
+                                      {d.to || 'No address on file'}
+                                    </p>
+                                    <p className="mt-0.5 truncate text-[13px] text-text-secondary">
+                                      {e?.subject ?? d.subject}
+                                    </p>
+                                    {d.warnings.map((w) => (
+                                      <p key={w} className="mt-1 font-mono text-[12px] text-accent-text">
+                                        {w}
+                                      </p>
+                                    ))}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        <p className="mt-2 font-mono text-[11px] leading-relaxed text-text-tertiary">
+                          Sent as written with the click. Open one to read or change it.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-baseline justify-between border-b border-border pb-3">
                   <span className="text-[13px] text-text-tertiary">Estimate, pending vendor quotes</span>
                   <span className="font-mono text-[13px] font-medium text-foreground">—</span>
@@ -300,7 +417,9 @@ export default function CartPage() {
                     disabled={state.kind === 'submitting'}
                     className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {state.kind === 'submitting' ? 'Placing order…' : 'Place order'}
+                    {state.kind === 'submitting'
+                      ? 'Placing order and sending…'
+                      : `Place order and send to ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}`}
                   </button>
                 )}
 
@@ -314,8 +433,48 @@ export default function CartPage() {
         </div>
       </main>
       <SiteFooter />
+
+      <OutreachDrawer
+        message={
+          openDraft
+            ? {
+                vendorName: openDraft.vendorName,
+                to: openDraft.to,
+                cc: openDraft.cc,
+                replyTo: openDraft.replyTo,
+                subject: openEdit?.subject ?? openDraft.subject,
+                bodyText: openEdit?.bodyText ?? openDraft.bodyText,
+                attachments: openDraft.attachments,
+                warnings: openDraft.warnings,
+              }
+            : null
+        }
+        onClose={() => setOpenVendor(null)}
+        editing={
+          openDraft
+            ? {
+                edited: Boolean(openEdit),
+                onChange: (patch) => editDraft(openDraft, patch),
+                onReset: () => resetDraft(openDraft.vendorId),
+              }
+            : undefined
+        }
+      />
     </div>
   );
+}
+
+/** The cart, in the shape both /api/checkout and /api/checkout/preview take. */
+function toLineInputs(lines: CartLine[]) {
+  return lines.map((l) => ({
+    itemId: l.item.id,
+    source: l.item.source,
+    sourceId: l.item.sourceId,
+    name: l.item.name,
+    image: l.item.images[0] ?? null,
+    sourceUrl: l.item.sourceUrl,
+    vendor: SOURCE_META[l.item.source as Source]?.name ?? l.item.source,
+  }));
 }
 
 async function loadReadiness(): Promise<Readiness> {
