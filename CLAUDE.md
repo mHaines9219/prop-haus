@@ -57,8 +57,9 @@ The MVP is focused on:
    missing catalog data is being resolved)
 3. Multi-vendor cart with a TRUE ONE-CLICK CHECKOUT — the click places the
    order AND does everything a coordinator would do next
-4. Vendor outreach automation: per-vendor emails pre-written from the order
-   and the org profile, batched, and sent — reviewable, never required
+4. Vendor outreach automation: per-vendor emails pre-written from the cart
+   and the org profile, sent as a batch by the same click — editable
+   beforehand, never required
 5. Paperwork automation via Anvil: every vendor form we can lawfully
    complete on the production's behalf is filled from the org profile; the
    user only signs
@@ -96,8 +97,8 @@ Users can:
 - Build carts from multiple vendors simultaneously
 - Check out in ONE CLICK (order details live on the org profile, so checkout
   has nothing to ask)
-- Have the per-vendor request emails written, batched, and sent for them —
-  and open any of them to review, edit, hold, or send now
+- Have the per-vendor request emails written and sent for them with the
+  same click — and open any draft first to read or edit it, if they want
 - Have vendor paperwork (rental agreements, account applications, COI
   requests) filled from their profile through Anvil, and sign in-product
 - Hire crew/contractors for extra hands on set and delivery-type jobs
@@ -173,7 +174,7 @@ User clicks once → an order is created with all cart items snapshotted.
 
 The backend then, without further input:
 - records the order and per-vendor line items
-- writes one outreach email per vendor and queues the batch (section 3c)
+- sends the pre-written outreach email to each vendor (section 3c)
 - fills every vendor form we have a template for and stages anything that
   needs the user's signature (section 5)
 - tracks item statuses as vendors respond
@@ -198,18 +199,19 @@ self-signup yet. This is the seed of booking ALL vendor categories later
 
 ---
 
-## 3c. Vendor Outreach (pre-written, batched, sent)
+## 3c. Vendor Outreach (pre-written, batched, sent with the click)
 
 The email a coordinator would write after placing an order is written by the
 platform instead (TASKS.md · MVP-11):
-- one message per vendor in the order: the items (with links and photos),
-  rental window, production name, contact, delivery address, and the
-  production's COI attached when it is on file
-- the whole batch is queued at checkout and sent together after a short
-  review window (configurable; "Send now" skips it)
-- the user CAN review: the order page lists every message with its status;
-  each opens to a preview where the user may edit, hold, or send now
-- the user never HAS to review: an untouched batch goes out on schedule
+- one message per vendor in the cart: the items (with links and photos),
+  rental window, production name, contact, delivery address, the
+  production's COI attached when it is on file, and any forms filled for
+  that vendor
+- the drafts exist BEFORE the click: the cart has a quiet "Review the
+  emails" disclosure that shows each one
+- the user CAN review: open a draft, read it, edit the subject or body
+- the user never HAS to review: the click sends the batch exactly as
+  drafted. There is no timer, no hold, no second "send" step.
 
 Sending is behind a mail-provider interface with a logging mock, so the
 flow demos with zero secrets. Vendor replies come back to the production's

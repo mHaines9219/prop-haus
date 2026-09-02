@@ -540,15 +540,15 @@ everything a coordinator would do next. After MVP-9 through MVP-12 land, one
 click on the cart:
 
 1. creates the order (MVP-3, exists);
-2. writes one email per vendor from the order + org profile, queues the
-   batch, and sends it after a short review window unless the user holds or
-   edits it (MVP-11);
+2. sends one email per vendor, pre-written from the cart + org profile and
+   shown on the cart beforehand so the user can read or edit any of them
+   (MVP-11);
 3. fills every vendor form we have an Anvil template for from the org
    profile, stores the PDFs on the order, attaches them to that vendor's
    email, and stages anything that needs the user's signature as an Anvil
    e-sign packet (MVP-12);
-4. shows all of it on the order page: messages with statuses and a preview
-   each, documents with a "Sign" action where needed (MVP-11 + MVP-12).
+4. shows all of it on the order page: sent messages with statuses,
+   documents with a "Sign" action where needed (MVP-11 + MVP-12).
 
 Sequencing: MVP-9 and MVP-10 first (they are disjoint and both small); then
 MVP-11 and MVP-12 in parallel (disjoint files; they meet only at the
@@ -564,8 +564,9 @@ Hard rules for every task in this group:
   handle COIs". It says "filled from your profile", "you sign", "your COI on
   file". Search `how-it-works.tsx` and the order/account pages before
   merging.
-- Review is optional, never a gate. An order whose user never opens the
-  review still goes out.
+- Review is optional, never a gate, and never a timer. The drafts are
+  visible and editable on the cart before the click; the click sends them
+  as they stand. No hold, no send-later, no second send step.
 - Everything demoable with zero secrets: `LogMailer` and `MockFormFiller`
   are the defaults.
 
@@ -729,8 +730,10 @@ simplification that follows from it.
    checked). Retire `/account/insurance` into this page (redirect the old
    path). `/account` gets a readiness row: "Ready to order" token, or "2
    things missing before one-click" linking here.
-5. Cart: remove the date inputs and notes box from the default state. The
-   panel shows the defaults it will use (rental window computed from
+5. Cart: remove the date inputs and notes box from the default state
+   (MVP-11 adds the email disclosure under this panel and renames the
+   button; keep the panel self-contained). The panel shows the defaults it
+   will use (rental window computed from
    `defaults.rentalWindowDays` starting the next business day, delivery
    address) in mono, with a quiet "Change for this order" disclosure that
    reveals the existing inputs. If `orderReadiness` fails, the button is
@@ -750,20 +753,23 @@ simplification that follows from it.
 
 ---
 
-### MVP-11 · OUTREACH — Pre-written, batched, reviewable vendor emails
+### MVP-11 · OUTREACH — Pre-written, batched vendor emails, sent with the click
 
 **Status:** open
 **Priority:** high
 **Depends on:** MVP-10 (reads `order_profile` and the snapshotted order
-fields). Coordinate with MVP-12 on `app/api/checkout/route.ts` and
-`app/orders/[id]/page.tsx` — each task adds ONE clearly-fenced block to each.
+fields; extends its cart panel and checkout route). Coordinate with MVP-12 on
+`app/api/checkout/route.ts` and `app/orders/[id]/page.tsx` — each task adds
+ONE clearly-fenced block to each.
 
 **Context.** After the click, a coordinator would email each prop house:
 here is who we are, here is what we want to hold, for these dates,
 delivering here, COI attached, please quote and confirm. The platform
-writes those emails, queues them as one batch per order, and sends them
-after a short review window. The user can open any message to review, edit,
-hold, or send now; a batch nobody touches still goes out.
+writes those emails before the click, shows them on the cart if the user
+wants to look, lets them edit any body, and sends the whole batch when the
+order is placed. There is NO timer, NO hold, NO separate send step: the one
+click places the order and sends the requests. Review means "open the draft,
+read it, change it if you like" — nothing waits on it.
 
 **Current state:**
 - Nothing sends email anywhere in the repo. No mail dependency.
@@ -772,6 +778,9 @@ hold, or send now; a batch nobody touches still goes out.
   env). Order shape in `lib/orders.ts` (`Order`, `OrderItem` with
   `vendor`, `source`, `sourceUrl`, `image`), per-vendor grouping already
   done by `summarizeOrder`.
+- Cart: `app/cart/page.tsx` — after MVP-10, one "Place order" button over a
+  defaults panel with a "Change for this order" disclosure. Cart lines live
+  client-side in `lib/cart-store.ts` (Zustand, persisted).
 - Vendor config: `lib/vendors.ts` (`VENDORS` keyed by `Source`, with
   `website`, `notes`, and a `coiStatus` field that is now meaningless —
   remove it). No vendor email addresses exist anywhere.
@@ -781,8 +790,6 @@ hold, or send now; a batch nobody touches still goes out.
 - Events: `lib/events.ts` `EVENT_TYPES` (add types here; no migration).
 - Status transitions from vendors are still manual: `PATCH
   /api/orders/[id]/status` + `pnpm simulate:vendor`. Leave them.
-- Serverless: nothing can sleep. A review window needs a dispatcher that
-  runs later (see step 5).
 
 **Build:**
 1. Mail provider: `lib/mail/provider.ts` — interface
@@ -799,83 +806,88 @@ hold, or send now; a batch nobody touches still goes out.
    comment; Matthew replaces them. Add `OUTREACH_FALLBACK_TO` env: when a
    vendor has no address, the message goes there (ops mailbox) with a
    "[needs vendor address]" subject prefix instead of being dropped.
-3. Migration: `outbound_messages` (id, org_id, order_id, vendor_id,
+3. Composer: `lib/outreach/compose.ts` — pure function
+   `composeOutreach({ lines, rentalStart, rentalEnd, deliveryAddress,
+   profile, vendors }) → Draft[]`, one per vendor across the lines. It takes
+   cart-shaped input (not an `Order`) so the SAME function produces the
+   pre-click preview and the post-click send. Template (plain text first,
+   HTML second, same words), Copy Voice §11: sentence case, terse, no
+   exclamation points. Subject: `Hold request · <production name> · <rental
+   start>–<end>`. Body: who (company legal name / DBA, ordering contact),
+   what (each item as name + vendor item link, and the item photo in the
+   HTML version), when (rental window), where (delivery address), paperwork
+   ("COI on file attached" or "COI to follow from our broker <name>";
+   "Completed <form names> attached" is appended at send time from
+   `order_documents` when MVP-12 has produced any), ask ("Please confirm
+   availability and send a quote. Reply to this email."), signature
+   (contact name, phone, "Sent via Prop Haus on behalf of <company>").
+   Reply-to is the ordering contact; cc the AP contact when present. If the
+   vendor has minimums (`vendor_insurance_minimums`) and the profile's
+   insurance fails `checkCompatibility`, the draft carries
+   `warnings: string[]` for the preview (NOT included in the email body).
+   Unit-test the composer with vitest against a fixture: one vendor with
+   COI, one without, one with no address.
+4. Preview endpoint: `POST /api/checkout/preview` (auth) — body is the same
+   shape as `/api/checkout` (lines + optional date/address overrides);
+   returns `{ drafts: Draft[], readiness }` with the resolved defaults
+   applied. Pure read, writes nothing.
+5. Migration: `outbound_messages` (id, org_id, order_id, vendor_id,
    vendor_name, to_email, cc_emails text[], reply_to, subject, body_text,
    body_html, attachments jsonb [{ name, storagePath, contentType }],
-   status `queued|held|sending|sent|failed|skipped`, scheduled_for
-   timestamptz, sent_at, provider_message_id, error, edited boolean default
-   false, created_at, updated_at). Org-scoped SELECT via RLS like `orders`;
-   writes service-role only. Index on (status, scheduled_for).
-4. Composer: `lib/outreach/compose.ts` — pure function
-   `composeOrderOutreach(order, profile, vendorConfig) → DraftMessage[]`, one
-   per vendor in the order. Template (plain text first, HTML second, same
-   words), Copy Voice §11: sentence case, terse, no exclamation points.
-   Subject: `Hold request · <production name> · <rental start>–<end>`. Body:
-   who (company legal name / DBA, ordering contact), what (each item as
-   name + vendor item link, and the item photo in the HTML version), when
-   (rental window), where (delivery address), paperwork ("COI on file
-   attached" or "COI to follow from our broker <name>"; "Completed <form
-   names> attached" once MVP-12 lands — read from `order_documents` if the
-   table exists, else omit), ask ("Please confirm availability and send a
-   quote. Reply to this email."), signature (contact name, phone, "Sent via
-   Prop Haus on behalf of <company>"). Reply-to is the ordering contact;
-   cc the AP contact when present. If the vendor has minimums
-   (`vendor_insurance_minimums`) and the profile's insurance fails
-   `checkCompatibility`, the draft carries `warnings: string[]` for the
-   preview (NOT included in the email body). Unit-test the composer with
-   vitest against a fixture order: one vendor with COI, one without, one
-   with no address.
-5. Queue + dispatch: `lib/outreach/queue.ts` — `queueOrderOutreach(orderId,
-   orgId)` composes and inserts rows with `scheduled_for = now() +
-   OUTREACH_REVIEW_WINDOW_MINUTES` (default 15; `0` = send immediately from
-   the same `after()` call). `dispatchDue({ orderId?, orgId?, now })` selects
-   `queued` rows whose `scheduled_for <= now`, flips each to `sending`
-   (`update … where status = 'queued'` so two dispatchers can't double-send),
-   loads attachments from the paperwork bucket, calls the mailer, writes
-   `sent`/`failed`. Three callers, all thin: (a) `POST /api/outreach/dispatch`
-   guarded by `CRON_SECRET` header, with a `vercel.json` cron every 5 min
-   (note: 1-min crons need Vercel Pro — say so in the env comment);
-   (b) `pnpm outreach:dispatch` script for local demo; (c) the order page
-   itself calls `dispatchDue({ orderId })` on load when any row is overdue,
-   so the demo works with no cron at all. Record `outreach_queued`,
-   `outreach_sent`, `outreach_failed` events.
-6. Checkout hook: inside `after()` in `app/api/checkout/route.ts`, after the
-   Spacelab prewarm, `queueOrderOutreach(order.id, session.orgId)` wrapped
-   so it can never fail the response; skippable with `OUTREACH=off`.
-7. Review API (auth, org-scoped, all in `app/api/outreach/`):
-   `GET /api/outreach?orderId=` (list), `GET /api/outreach/[id]` (full
-   body), `PATCH /api/outreach/[id]` (edit subject/body while `queued|held`;
-   sets `edited`), `POST /api/outreach/[id]/hold`, `POST
-   /api/outreach/[id]/send` (send now → `dispatchDue` for that id, works from
-   `held` too), `POST /api/outreach/[id]/skip`. Add `/api/outreach/:path*`
-   to the middleware matcher.
-8. Order page UI (Answer Print, §9.7 rows, §9.10 tokens): a "Vendor
-   requests" section above the items. Header line: "Sending to 3 vendors in
-   12 min." / "Sent to 3 vendors." / "1 held." with a ghost "Send all now".
-   One row per message: vendor name, to-address in mono, StatusToken
-   (queued→PENDING, held→PENDING label HELD, sent→CONFIRMED label SENT,
-   failed→UNAVAILABLE label FAILED, skipped→UNAVAILABLE label SKIPPED —
-   extend `status-token.tsx` with `messageStatusSpec`), any composer
-   warning as a 12px mono line, and a "Review" link. Review is a right
-   drawer per §9.6 (440px, `surface-raised`, `rail` entrance): the full
-   message as rendered plain text in a `surface-inset` block, editable
-   subject + body (textarea, `hooks/use-auto-resize-textarea.ts`), the
-   attachment list, and three actions: Save, Hold, Send now. Sent messages
-   open read-only with the sent time. Fold `messagesSent` into `lib/jobs.ts`
-   and the `/jobs` per-row copy ("Sent to 3 vendors. Newel confirmed 4 of
-   6 items.").
-9. Crew requests get the same treatment in a trailing step, cheaply: when
-   `POST /api/crew/requests` succeeds, queue ONE message to the contractor's
-   `contact_email` (add to `contractors` if absent; PLACEHOLDER values) with
-   dates/location/notes, same queue and review UI keyed by
-   `crew_request_id` (nullable column alongside `order_id`). If this pushes
-   the task over budget, leave it as a documented follow-up in the Status
-   line rather than half-built.
+   status `sending|sent|failed`, sent_at, provider_message_id, error,
+   edited boolean default false, created_at, updated_at). Org-scoped
+   SELECT via RLS like `orders`; writes service-role only. No scheduling
+   columns — there is nothing to schedule.
+6. Checkout: `POST /api/checkout` accepts an optional
+   `messages?: { vendorId, subject, bodyText }[]` — the user's edited
+   drafts from the cart. In the route: create order (exists) → in
+   `after()`: MVP-12's paperwork block first (so attachments exist), then
+   `sendOrderOutreach(order, { overrides: body.messages })` in
+   `lib/outreach/send.ts`: recompose from the ORDER snapshot, apply
+   overrides by vendorId (an override replaces subject/body and sets
+   `edited`; the HTML version is regenerated from the edited text as
+   paragraphs), attach the COI on file and any `order_documents` for that
+   vendor, insert the row as `sending`, call the mailer, mark `sent` or
+   `failed` with the error. Never throws out of `after()`; skippable with
+   `OUTREACH=off`. Record `outreach_sent` / `outreach_failed` events.
+7. Cart UI (Answer Print): the button reads "Place order and send to 3
+   vendors" (count live from the lines). Under the defaults panel, a quiet
+   disclosure row "Review the emails" (mono, chevron) that, when opened,
+   fetches `/api/checkout/preview` and lists one row per vendor: vendor
+   name, to-address in mono, subject, any composer warning in 12px mono
+   `tally-text`. Each row expands (or opens a §9.6 right drawer, 440px,
+   `rail` entrance — pick one, drawer preferred on desktop) to the full
+   plain-text body in a `surface-inset` block that is directly editable
+   (textarea, `hooks/use-auto-resize-textarea.ts`) plus the subject and
+   the attachment names. Edits are held in cart page state and posted as
+   `messages` with the click; a "Reset to draft" ghost link discards an
+   edit. Nothing here is required: a user who never opens the disclosure
+   gets the drafts as written. No hold, no send-later, no per-message send.
+8. Order page: a "Vendor requests" section above the items. Header line:
+   "Sent to 3 vendors." or "Sent to 2 of 3 vendors. 1 failed." One row per
+   message (§9.7): vendor, to-address in mono, StatusToken
+   (`messageStatusSpec` added to `status-token.tsx`: sending→PENDING
+   SENDING, sent→CONFIRMED SENT, failed→UNAVAILABLE FAILED), sent time in
+   mono, and a "View" link opening the sent message read-only in the same
+   drawer. Failed rows get a ghost "Retry" calling `POST
+   /api/outreach/[id]/retry` (auth, org-scoped, re-sends the stored body;
+   the only outreach route besides the preview). Fold `messagesSent` into
+   `lib/jobs.ts` and the `/jobs` per-row copy ("Sent to 3 vendors. Newel
+   confirmed 4 of 6 items."). Matcher: `/api/outreach/:path*`,
+   `/api/checkout/:path*`.
+9. Crew requests get the same treatment in a trailing step, cheaply: the
+   contractor request form previews its one message inline (same composer
+   with a `crew` template), the submit sends it, keyed by `crew_request_id`
+   (nullable column alongside `order_id`). Contractors need a
+   `contact_email` (add if absent; PLACEHOLDER values). If this pushes the
+   task over budget, leave it as a documented follow-up in the Status line
+   rather than half-built.
 
 **Out of scope:** inbound email parsing / auto-updating item status from
 replies (FUT-5), vendor portal, SMS, per-vendor template customization,
-scheduling beyond the single review window, the Anvil documents themselves
-(MVP-12 — this task only attaches what it finds in `order_documents`).
+send-later or scheduling of any kind, editing after send, the Anvil
+documents themselves (MVP-12 — this task only attaches what it finds in
+`order_documents`).
 
 ---
 
@@ -979,12 +991,13 @@ completed at checkout and attached to that vendor's outreach email.
    function; per-document `failed` rows instead. Refuses to fill when
    `profile.authorization.formsOnBehalf` is false (records `skipped` with
    the reason).
-5. Checkout hook: in `after()`, after the outreach queue call,
-   `buildOrderPaperwork(order.id, session.orgId)` guarded by `FORMS=off`.
-   Ordering matters for attachments: run paperwork BEFORE
-   `queueOrderOutreach` when both are present (MVP-11's composer reads
-   `order_documents`), so agree on the block order in the route: paperwork,
-   then outreach. If MVP-11 lands first, MVP-12 moves its call above.
+5. Checkout hook: in `after()`, `buildOrderPaperwork(order.id,
+   session.orgId)` guarded by `FORMS=off`, placed BEFORE MVP-11's
+   `sendOrderOutreach` call (the emails attach whatever `order_documents`
+   exist when they go out). Agree on the block order in the route:
+   paperwork, then outreach. If MVP-11 lands first, MVP-12 inserts its call
+   above it. Filling must be quick for the mock; for Anvil, a slow fill
+   delays the email, which is acceptable — a missing attachment is not.
 6. Webhook: `POST /api/forms/webhook` — verify Anvil's signature
    (`ANVIL_WEBHOOK_SECRET`), on `etchPacketComplete` download the signed
    group, store as `signed_storage_path`, set `signed`, record
@@ -1216,7 +1229,7 @@ is the bottleneck.
 | MVP-8 | Sonnet | Research done (docs/jobs-dashboard-plan.md has the source analysis, schema, and file list); pure execution against a spec. |
 | MVP-9 | Sonnet | Deletion + renames against an explicit file list. |
 | MVP-10 | Sonnet | Schema + one form page + cart trim, fully specced. |
-| MVP-11 | Opus for the composer/template + review drawer, Sonnet for the rest | The email copy and the review UX are taste work; queue, dispatcher, and API are execution. |
+| MVP-11 | Opus for the composer/template + review drawer, Sonnet for the rest | The email copy and the cart review UX are taste work; the send path and API are execution. |
 | MVP-12 | Sonnet; Opus only if the Anvil field-map design needs rethinking | Interface + mock + mapper are specced; the Anvil adapter follows their docs. |
 | FUT-1/2/3/4 | Opus/Fable to scope, Sonnet to build | Cross-repo architecture (Spacelab) needs the strong model briefly, not for the whole build. |
 
@@ -1247,7 +1260,7 @@ Token-burn guardrails:
 | MVP-8 | Jobs-in-progress dashboard | done | medium-high |
 | MVP-9 | Retire COI issuance, keep the data | open | high |
 | MVP-10 | Order profile (one-click readiness) | open — after MVP-9 | high |
-| MVP-11 | Vendor outreach emails (batched, reviewable) | open — after MVP-10 | high |
+| MVP-11 | Vendor outreach emails (sent with the click) | open — after MVP-10 | high |
 | MVP-12 | Vendor paperwork via Anvil | open — after MVP-10 | high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
