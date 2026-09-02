@@ -93,7 +93,10 @@ data update arrives.
 
 ### MVP-2 · CREW — Contractor hiring page
 
-**Status:** done — PR #62
+**Status:** done — PR #62. Sep 2, 2026: `/crew` became the single directory
+with a role filter (production assistants, delivery) — see
+`lib/crew.ts` + `components/crew/crew-directory.tsx`. The `/book` category
+pages from the FUT-1 scaffold were removed (see FUT-1).
 **Priority:** high
 **Depends on:** nothing
 
@@ -565,8 +568,9 @@ task kanban, AI summaries, notifications, realtime (all Phase 2 — FUT-4).
 
 ### FUT-1 · VENDOR-EXPAND — Book all vendor categories
 
-**Status:** scaffolded (Sep 2026) — directories live with placeholder data;
-real vendor data comes from Matthew
+**Status:** future — the Sep 2026 `/book` scaffold was ROLLED BACK (Sep 2,
+2026): `/crew` is the only directory, filtered by role (production
+assistants, delivery). Do not reintroduce per-category pages unless assigned.
 **Depends on:** MVP-2 (extends its schema)
 
 Expand beyond props and crew to booking every production vendor category:
@@ -575,19 +579,19 @@ contractor model from MVP-2 generalizes: a `category` on the
 contractor/vendor record, per-category browse pages or a unified directory,
 same request-to-book flow.
 
-**Scaffolded so far:**
-- Category config: `lib/vendor-categories.ts` — adding a category is one
-  entry there plus seed rows; no schema change.
-- Shared directory page + card: `components/vendors/category-directory.tsx`,
-  `components/vendors/contractor-card.tsx` (moved from `app/crew/`, now
-  parameterized). `/crew` renders through the shared component and filters
-  `category = 'crew'`.
-- Routes: `/book` (category hub, linked in nav), `/book/hair-makeup`,
-  `/book/styling`, `/book/lighting-rigging` (dynamic `app/book/[category]`),
-  `/book/catering` (own page with a roadmap strip).
-- Seed: `supabase/migrations/20260901120000_vendor_categories_seed.sql` —
-  PLACEHOLDER people/vendors per category; swap for real data.
-- All categories reuse the MVP-2 request flow (`POST /api/crew/requests`).
+**What survives from the scaffold (reuse when this is picked up):**
+- Schema: `contractors.category` (default `'crew'`) is still in place; adding
+  a category is seed rows plus config, no schema change.
+- Directory + card: `components/crew/crew-directory.tsx` (client, filterable
+  list) and `components/crew/contractor-card.tsx`. Role/skill config in
+  `lib/crew.ts`. Generalizing these to other categories is the starting point.
+- Seed history: `20260901120000_vendor_categories_seed.sql` seeded placeholder
+  HMU / styling / lighting-rigging / catering rows;
+  `20260902120000_retire_vendor_categories.sql` deactivates and removes them.
+  Real vendor data still comes from Matthew.
+- Removed: `/book` hub and `/book/*` category routes, `lib/vendor-categories.ts`,
+  `components/vendors/`, the "Book" nav link.
+- All categories would reuse the MVP-2 request flow (`POST /api/crew/requests`).
 
 **Catering — integration notes (researched Sep 2026):**
 Catering is the one category that should outgrow request-to-book into
@@ -604,14 +608,15 @@ menu-level ordering. Don't build ordering ourselves; options, best-fit first:
 - **Uber Direct / DoorDash Drive** — white-label delivery-only APIs. No
   catalog/menus; only useful to move food from partner vendors we source
   ourselves.
-- **Fallback (current scaffold):** curated partner vendors in the
-  contractors table (`category = 'catering'`) with the request flow. This is
-  live now and may be the right long-term shape for craft services anyway,
-  since set catering is call-sheet-driven, not on-demand.
+- **Fallback (previous scaffold):** curated partner vendors in the
+  contractors table (`category = 'catering'`) with the request flow. This
+  shipped briefly and was rolled back; it may still be the right long-term
+  shape for craft services, since set catering is call-sheet-driven, not
+  on-demand.
 
 **Still open:** equipment and location-support categories; per-category
-request fields (head count for catering, kit fees for HMU); whether crew
-folds into /book permanently.
+request fields (head count for catering, kit fees for HMU); whether other
+categories live as more filters on `/crew` or as their own directories.
 
 ### FUT-2 · SPACELAB — 3D set preview from cart
 

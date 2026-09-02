@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LightWell } from '@/components/ap/light-well';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { CREW_COPY, CREW_SKILL_LABELS } from '@/lib/crew';
 
 export type Contractor = {
   id: string;
@@ -27,15 +28,7 @@ function formatRate(low: number | null, high: number | null): string {
 
 type Status = 'idle' | 'open' | 'submitting' | 'sent' | 'error';
 
-export function ContractorCard({
-  contractor,
-  skillLabels,
-  ctaLabel,
-}: {
-  contractor: Contractor;
-  skillLabels: Record<string, string>;
-  ctaLabel: string;
-}) {
+export function ContractorCard({ contractor }: { contractor: Contractor }) {
   const [status, setStatus] = useState<Status>('idle');
   const [dates, setDates] = useState('');
   const [location, setLocation] = useState('');
@@ -109,7 +102,7 @@ export function ContractorCard({
               key={s}
               className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[11px] uppercase leading-none tracking-[0.06em] text-text-tertiary"
             >
-              {skillLabels[s] ?? s}
+              {CREW_SKILL_LABELS[s] ?? s}
             </span>
           ))}
         </div>
@@ -147,7 +140,7 @@ export function ContractorCard({
                     : 'border-emerald-500 text-emerald-400 hover:bg-emerald-500/10',
                 )}
               >
-                {formOpen ? 'Cancel' : ctaLabel}
+                {formOpen ? 'Cancel' : CREW_COPY.ctaLabel}
               </button>
 
               <AnimatePresence initial={false}>
