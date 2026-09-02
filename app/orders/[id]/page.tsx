@@ -10,12 +10,17 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getJobDetail } from '@/lib/jobs';
 import { getSceneForOrder } from '@/lib/spacelab/handoff';
+import { listOrderMessages } from '@/lib/outreach/send';
 import type { OrderItem, VendorSummary } from '@/lib/orders';
 import { formatAddress } from '@/lib/order-profile';
 import { requireOrgId } from '@/lib/session';
+import { getOrderProfile } from '@/lib/order-profile-store';
+import { listOrderDocuments } from '@/lib/forms/documents';
+import { PaperworkSection } from '@/components/orders/paperwork-section';
 import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
 import { SpacelabPanel } from '@/components/ap/spacelab-panel';
+import { VendorRequests } from '@/components/ap/vendor-requests';
 import {
   StatusToken,
   orderStatusSpec,
@@ -36,7 +41,18 @@ export default async function OrderPage({ params }: Props) {
   // 3D preview could not be read is a worse trade than a missing panel.
   const scene = await getSceneForOrder(id, orgId).catch(() => null);
 
+  // MVP-11: the vendor requests this order sent. Same rule as the scene: never
+  // fatal to the page.
+  const messages = await listOrderMessages(id, orgId).catch(() => []);
+
+  // MVP-12: the paperwork packet. Never fatal to the page.
+  const [documents, profile] = await Promise.all([
+    listOrderDocuments(id, orgId).catch(() => []),
+    getOrderProfile(orgId),
+  ]);
+
   const { order, vendorSummaries } = detail;
+  const vendorNames = Object.fromEntries(order.items.map((i) => [i.source, i.vendor]));
 
   const vendorCount = vendorSummaries.length;
   const placedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -108,6 +124,10 @@ export default async function OrderPage({ params }: Props) {
           </div>
         )}
 
+        {/* ── MVP-11 — Vendor requests (what went out, to whom, did it land) ── */}
+        <VendorRequests initial={messages} />
+        {/* ── end MVP-11 ── */}
+
         {/* Items grouped by vendor */}
         {[...byVendor.entries()].map(([vendor, items]) => {
           const summary = summaryByVendor.get(vendor);
@@ -129,6 +149,14 @@ export default async function OrderPage({ params }: Props) {
             </div>
           );
         })}
+
+        {/* MVP-12 — Paperwork */}
+        <PaperworkSection
+          orderId={order.id}
+          documents={documents}
+          vendorNames={vendorNames}
+          authorized={profile.authorization.formsOnBehalf}
+        />
 
         {/* FUT-2 — Spacelab set preview */}
         <SpacelabPanel orderId={order.id} initialScene={scene} />

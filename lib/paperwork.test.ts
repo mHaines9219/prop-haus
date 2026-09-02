@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_PAPERWORK_BYTES,
+  PAPERWORK_SIGNED_URL_SECONDS,
   checkPaperworkFile,
   cleanFileName,
   documentTypeLabel,
   formatBytes,
+  paperworkBucket,
 } from './paperwork';
 
 describe('checkPaperworkFile', () => {
@@ -93,5 +95,86 @@ describe('labels', () => {
     expect(documentTypeLabel('application/pdf')).toBe('PDF');
     expect(documentTypeLabel('image/jpeg')).toBe('JPG');
     expect(documentTypeLabel('application/x-unknown')).toBe('FILE');
+  });
+});
+
+describe('checkPaperworkFile fallbacks', () => {
+  it('uses the extension only when the browser sent nothing or octet-stream', () => {
+    expect(checkPaperworkFile({ name: 'photo.jpeg', mime: 'application/octet-stream', size: 1 })).toMatchObject({
+      ok: true,
+      mime: 'image/jpeg',
+      ext: 'jpg',
+    });
+    expect(checkPaperworkFile({ name: 'scan.HEIC', mime: '', size: 1 })).toMatchObject({ ok: true, mime: 'image/heic', ext: 'heic' });
+    expect(checkPaperworkFile({ name: 'bundle.zip', mime: 'application/octet-stream', size: 1 })).toMatchObject({ ok: false });
+    expect(checkPaperworkFile({ name: 'noext', mime: 'application/octet-stream', size: 1 })).toMatchObject({ ok: false });
+  });
+
+  it('prefers a supported declared type over a misleading extension', () => {
+    expect(checkPaperworkFile({ name: 'really-a.png', mime: 'application/pdf', size: 1 })).toMatchObject({
+      ok: true,
+      mime: 'application/pdf',
+      ext: 'pdf',
+    });
+  });
+
+  it('treats NaN, Infinity and negative sizes as empty', () => {
+    for (const size of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      expect(checkPaperworkFile({ name: 'a.pdf', mime: 'application/pdf', size })).toEqual({ ok: false, reason: 'a.pdf is empty.' });
+    }
+  });
+
+  it('reports the cleaned name in the reason and refuses a name that cleans to nothing', () => {
+    expect(checkPaperworkFile({ name: '/tmp/"x".pdf', mime: 'application/pdf', size: 0 })).toEqual({ ok: false, reason: 'x.pdf is empty.' });
+    expect(checkPaperworkFile({ name: ' ', mime: 'application/pdf', size: 1 })).toEqual({ ok: false, reason: 'The file needs a name.' });
+  });
+});
+
+describe('cleanFileName edges', () => {
+  it('strips tabs, newlines and DEL but keeps unicode and inner spaces', () => {
+    expect(cleanFileName('call\tsheet\n v2.pdf')).toBe('callsheet v2.pdf');
+    expect(cleanFileName('  Déjà vu – día 1.pdf  ')).toBe('Déjà vu – día 1.pdf');
+  });
+
+  it('keeps only the last path segment on mixed separators', () => {
+    expect(cleanFileName('a/b\\c.pdf')).toBe('c.pdf');
+    expect(cleanFileName('trailing/')).toBe('');
+  });
+
+  it('is exactly 200 characters at the boundary', () => {
+    expect(cleanFileName('y'.repeat(200))).toHaveLength(200);
+    expect(cleanFileName('y'.repeat(201))).toHaveLength(200);
+  });
+});
+
+describe('formatBytes boundaries', () => {
+  it.each([
+    [0, '0 B'],
+    [1023, '1023 B'],
+    [1024, '1.0 KB'],
+    [10 * 1024 - 1, '10.0 KB'],
+    [10 * 1024, '10 KB'],
+    [1024 * 1024 - 1, '1024 KB'],
+    [1024 * 1024, '1.0 MB'],
+    [20 * 1024 * 1024, '20.0 MB'],
+  ])('%i → %s', (n, label) => {
+    expect(formatBytes(n)).toBe(label);
+  });
+});
+
+describe('bucket config', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('defaults the bucket name and honours the override', () => {
+    vi.stubEnv('PAPERWORK_BUCKET', '');
+    expect(paperworkBucket()).toBe('paperwork');
+    vi.stubEnv('PAPERWORK_BUCKET', 'docs-staging');
+    expect(paperworkBucket()).toBe('docs-staging');
+  });
+
+  it('signs links for one minute', () => {
+    expect(PAPERWORK_SIGNED_URL_SECONDS).toBe(60);
   });
 });

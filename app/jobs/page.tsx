@@ -91,10 +91,11 @@ function StatBand({ stats }: { stats: Awaited<ReturnType<typeof getJobsOverview>
     { label: 'Items confirmed', value: stats.itemsConfirmed },
     { label: 'Crew pending', value: stats.crewPending },
     { label: 'Vendors notified', value: stats.vendorsNotified },
+    { label: 'To sign', value: stats.documentsPending },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4 lg:grid-cols-7">
       {tiles.map((t) => (
         <div key={t.label} className="bg-background px-4 py-5">
           <p className="font-mono text-[28px] font-medium leading-none tabular-nums text-foreground">

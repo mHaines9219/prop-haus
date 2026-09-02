@@ -95,5 +95,9 @@ export const config = {
     "/api/checkout/:path*",
     "/api/crew/:path*",
     "/api/orders/:path*",
+    "/api/outreach/:path*",
+    // MVP-12: forms routes read the session; the Anvil webhook does not.
+    "/api/forms",
+    "/api/forms/((?!webhook).*)",
   ],
 };

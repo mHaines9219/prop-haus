@@ -13,6 +13,8 @@
 
 import { createAdminClient } from './supabase/admin';
 import { getOrderById, listOrders, summarizeOrder, type Order, type VendorSummary } from './orders';
+import { countPendingDocuments } from './forms/documents';
+import { sentCountsByOrder } from './outreach/send';
 
 export type CrewRequestRow = {
   id: string;
@@ -30,6 +32,8 @@ export type CrewRequestRow = {
 /** An order enriched into a job: its per-vendor rollup. */
 export type Job = Order & {
   vendorSummaries: VendorSummary[];
+  /** Vendor request emails that landed (outbound_messages.status = sent). */
+  messagesSent: number;
 };
 
 export type JobsStats = {
@@ -40,9 +44,9 @@ export type JobsStats = {
   crewPending: number;
   /** Distinct vendors across in-flight orders. */
   vendorsNotified: number;
-  // MVP-11 fills this from outbound_messages.
+  /** Vendor request emails sent across in-flight orders. */
   messagesSent: number;
-  // MVP-12 fills this from order_documents (awaiting_signature + manual).
+  /** order_documents still waiting on the user: awaiting_signature + manual. */
   documentsPending: number;
 };
 
@@ -106,11 +110,17 @@ async function fetchCrewRequests(orgId: string): Promise<CrewRequestRow[]> {
 
 /** Everything a signed-in user has in flight, for the /jobs dashboard. */
 export async function getJobsOverview(orgId: string): Promise<JobsOverview> {
-  const [orders, crew] = await Promise.all([listOrders(orgId), fetchCrewRequests(orgId)]);
+  const [orders, crew, sentCounts, documentsPending] = await Promise.all([
+    listOrders(orgId),
+    fetchCrewRequests(orgId),
+    sentCountsByOrder(orgId).catch(() => new Map<string, number>()),
+    countPendingDocuments(orgId).catch(() => 0),
+  ]);
 
   const jobs: Job[] = orders.filter(isInFlight).map((order) => ({
     ...order,
     vendorSummaries: summarizeOrder(order),
+    messagesSent: sentCounts.get(order.id) ?? 0,
   }));
 
   const vendors = new Set<string>();
@@ -122,7 +132,7 @@ export async function getJobsOverview(orgId: string): Promise<JobsOverview> {
     crewPending: crew.filter((c) => c.status === 'requested').length,
     vendorsNotified: 0,
     messagesSent: 0,
-    documentsPending: 0,
+    documentsPending,
   };
 
   for (const job of jobs) {
@@ -132,6 +142,7 @@ export async function getJobsOverview(orgId: string): Promise<JobsOverview> {
       else if (item.status === 'confirmed') stats.itemsConfirmed += 1;
     }
     for (const v of job.vendorSummaries) vendors.add(v.vendor);
+    stats.messagesSent += job.messagesSent;
   }
   stats.vendorsNotified = vendors.size;
 
@@ -160,10 +171,16 @@ export async function getJobDetail(orderId: string, orgId: string): Promise<JobD
 
 /**
  * The §9.7 row copy for an order, in set-life voice (no exclamation, no
- * em-dash). Single vendor: "Newel confirmed 4 of 6 items. 2 pending." Multiple:
- * a vendor count plus the same confirmed/pending rollup.
+ * em-dash). Leads with the requests that went out when any did: "Sent to 3
+ * vendors. Newel confirmed 4 of 6 items. 2 pending."
  */
 export function jobRollupCopy(job: Job): string {
+  const sent =
+    job.messagesSent > 0 ? `Sent to ${job.messagesSent} vendor${job.messagesSent !== 1 ? 's' : ''}. ` : '';
+  return sent + itemRollupCopy(job, sent !== '');
+}
+
+function itemRollupCopy(job: Job, afterSentLine: boolean): string {
   const totals = job.vendorSummaries.reduce(
     (acc, v) => ({
       total: acc.total + v.total,
@@ -186,5 +203,6 @@ export function jobRollupCopy(job: Job): string {
     return `${v.vendor} confirmed ${v.confirmed} of ${v.total} items.${tailCopy}`;
   }
 
+  if (afterSentLine) return `${totals.confirmed} of ${totals.total} items confirmed.${tailCopy}`;
   return `${job.vendorSummaries.length} vendors, ${totals.confirmed} of ${totals.total} items confirmed.${tailCopy}`;
 }

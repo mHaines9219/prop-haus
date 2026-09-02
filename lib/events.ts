@@ -27,6 +27,11 @@ export const EVENT_TYPES = [
   'item_status_changed', // payload: { orderId, orderItemId, status }
   'crew_requested', // payload: { crewRequestId, contractorId }
   'crew_status_changed', // payload: { crewRequestId, status }
+  'outreach_sent', // payload: { orderId, messageId, vendorId }
+  'outreach_failed', // payload: { orderId, messageId, vendorId, error }
+  'document_filled', // payload: { orderId, documentId, vendorId, kind, status, missing }
+  'document_signed', // payload: { orderId, documentId, vendorId, kind }
+  'document_failed', // payload: { orderId, documentId, vendorId, kind, error }
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 

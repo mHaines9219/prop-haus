@@ -24,10 +24,19 @@
     "eval:enrichment": "tsx --env-file=.env.local scripts/eval-enrichment-lift.ts",
     "eval:relevance": "tsx --env-file=.env.local scripts/eval-relevance.ts",
     "eval:keyword": "tsx --env-file=.env.local scripts/eval-keyword-ranking.ts",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit --project ui",
+    "test:watch": "vitest --project unit --project ui",
+    "test:unit": "vitest run --project unit",
+    "test:ui": "vitest run --project ui",
+    "test:integration": "vitest run --project integration",
+    "test:coverage": "vitest run --project unit --project ui --coverage",
+    "test:e2e": "playwright test",
+    "test:all": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
+    "@anvilco/anvil": "^3.3.2",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "@tanstack/react-query": "^5.101.1",
@@ -47,15 +56,24 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "4.1.10",
+    "jsdom": "^30.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^4.1.10"
-  }
+  },
+  "packageManager": "pnpm@10.27.0"
 }

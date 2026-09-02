@@ -6,6 +6,9 @@ import { getOrderProfile } from '@/lib/order-profile-store';
 import { paymentProvider } from '@/lib/payments/provider';
 import { recordEvents } from '@/lib/analytics';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
+import { formsEnabled } from '@/lib/forms/filler';
+import { buildOrderPaperwork } from '@/lib/forms/packet';
+import { normalizeOverrides, sendOrderOutreach } from '@/lib/outreach/send';
 
 type CheckoutBody = {
   lines: CartLineInput[];
@@ -13,6 +16,8 @@ type CheckoutBody = {
   rentalEnd?: string;
   deliveryAddress?: unknown;
   deliveryNotes?: string;
+  /** Vendor emails the user edited on the cart: { vendorId, subject?, bodyText? }[]. */
+  messages?: unknown;
   idempotencyKey: string;
 };
 
@@ -70,6 +75,25 @@ export async function POST(req: Request) {
   // sent. It is non-fatal by construction (queueSpacelabHandoff swallows its own
   // errors) and skippable with SPACELAB_PREWARM=off.
   after(() => queueSpacelabHandoff(order, session.orgId));
+
+  // ── MVP-12 PAPERWORK ─────────────────────────────────────────────────────
+  // Every vendor form we have a template for, filled from the order profile
+  // and stored on the order so the outreach below can attach it. Runs before
+  // outreach by registration order. buildOrderPaperwork never throws;
+  // FORMS=off skips it.
+  after(async () => {
+    if (formsEnabled()) await buildOrderPaperwork(order.id, session.orgId, session.plan);
+  });
+  // ── end MVP-12 ───────────────────────────────────────────────────────────
+
+  // ── MVP-11 OUTREACH ──────────────────────────────────────────────────────
+  // The pre-written vendor requests go out with this same click. MVP-12's
+  // paperwork block belongs ABOVE this one so its filled forms exist to
+  // attach. Non-fatal (sendOrderOutreach swallows its own errors); OUTREACH=off
+  // skips it.
+  const overrides = normalizeOverrides(body.messages);
+  after(() => sendOrderOutreach(order, { overrides }));
+  // ── end MVP-11 ───────────────────────────────────────────────────────────
 
   // Payment abstraction — NullProvider in MVP; swap for real rails later.
   if (order.totalCents) {
