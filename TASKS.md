@@ -17,7 +17,8 @@ without further briefing.
   parallel agents.
 - Shared-file hotspots — coordinate or expect merge conflicts:
   `lib/types.ts`, `app/globals.css`, `components/ap/site-nav.tsx`,
-  `lib/accounts.ts`.
+  `lib/accounts.ts`, and for the Sep 2026 rework `app/api/checkout/route.ts`
+  (the `after()` hook block) and `app/orders/[id]/page.tsx`.
 - Fresh worktrees have no catalog data (`data/catalog.json` is gitignored).
   Rehydrate with `npm run db:dump` (pulls from Supabase).
 - Repo conventions: Next.js App Router, TypeScript, Tailwind v4, Zustand,
@@ -140,10 +141,10 @@ extend to it).
 
 ### MVP-3 · CHECKOUT — One-click checkout scaffold
 
-**Status:** done
+**Status:** done — PR #63. Sep 2026: the cart still asks for dates/notes at
+checkout; MVP-10 removes that and MVP-11/12 fill the post-checkout hooks.
 **Priority:** high
-**Depends on:** nothing (coordinate with MVP-4: checkout will later trigger
-COI issuance)
+**Depends on:** nothing
 
 **Context.** One-click checkout is back in the MVP. The target experience: a
 user with a cart clicks once and the order is placed — no multi-step checkout
@@ -194,60 +195,18 @@ availability checks, email notifications, pricing/quote negotiation.
 
 ---
 
-### MVP-4 · COI — COI issuance flow via insurance API partner
+### MVP-4 · COI — COI issuance via insurance API partner
 
-**Status:** done — PR pending · needs: COI_PROVIDER env var once partner chosen (add to .env.local.example)
-**Priority:** medium-high
-**Depends on:** nothing. The partner API is not chosen yet, but that does not
-block this task: build the entire flow behind the provider interface with the
-mock provider, fully demoable end-to-end. The real adapter is a one-file
-follow-up once Matthew picks the partner.
-
-**Context.** Strategy change: Prop Haus will partner with an insurance API to
-ISSUE COIs (certificates of insurance) directly in-product, instead of only
-coordinating documents. The licensed partner underwrites/binds; Prop Haus is
-the workflow and integration layer. Vendors require COIs before releasing
-rentals, so this slots directly into the checkout flow: order placed → COIs
-issued per vendor per that vendor's requirements.
-
-**Current state:**
-- `lib/insurance.ts` exists as unwired ghost code from a previous iteration:
-  a `VENDOR_COI` requirements table (per-vendor coverage requirements) and
-  `checkCompatibility()` logic evaluating an org's coverage against vendor
-  requirements. Zero call sites. Reuse what's useful.
-- The old documents/COI schema was DROPPED in
-  `20260829130000_strip_workflow_to_folders.sql` (`documents`,
-  `vendor_requests` tables, `organizations.insurance` column). Reference
-  `20260627181123_init_accounts.sql` for the original shapes.
-- No Anvil/e-signature integration exists in this repo.
-
-**Build:**
-1. Provider interface: `lib/coi/provider.ts` — operations roughly:
-   `getOrCreatePolicy(org)`, `issueCertificate({ org, vendor, requirements,
-   dates })` → certificate record with PDF URL, `getCertificate(id)`. Ship a
-   `MockCoiProvider` that generates a fake certificate record. The real
-   partner adapter is a follow-up once the partner is chosen.
-2. Migration: restore an insurance profile on the org
-   (`organizations.insurance` jsonb or a dedicated table) and add
-   `certificates` (org_id, vendor id, order_id nullable, status: `pending` →
-   `issued`/`failed`, coverage snapshot, document URL, expiry). Org-scoped
-   RLS.
-3. Vendor requirements: move/confirm per-vendor COI requirements as data
-   (seed from `VENDOR_COI` in `lib/insurance.ts`; decide whether it lives in
-   `lib/vendors.ts` config or a table — prefer a table so ops can edit).
-4. Flow: from an order (MVP-3's post-checkout extension point) or manually
-   from a vendor/org page — request COIs for each vendor in the order,
-   evaluate the org's coverage vs requirements (`checkCompatibility` logic),
-   issue via provider, store certificate.
-5. UI (Answer Print): an insurance section in account/settings showing the
-   org's coverage profile and issued certificates (status, vendor, expiry,
-   download). Certificate rows are camera-report style data rows per
-   DESIGN.md, not cards.
-6. Copy discipline: the PARTNER issues/binds coverage. UI copy must not claim
-   Prop Haus is the insurer.
-
-**Out of scope:** choosing the partner (Matthew decides), real partner API
-wiring, claims handling, broker workflows, W9/general document management.
+**Status:** RETIRED (Sep 2, 2026). The insurance API partnership did not work
+out; Prop Haus will not white-label, issue, or broker COIs. The code from
+PR #65 (`lib/coi/*`, `/api/coi/*`, `certificates`, `/account/insurance`) is
+removed by MVP-9. What survives, re-homed by MVP-10 and MVP-12: the org's
+insurance data (now "insurance on file", with the production's OWN COI PDF),
+per-vendor coverage minimums as data, and `checkCompatibility()` as a
+warning in the outreach preview. Do not build on `lib/coi/` — pick up MVP-9
+instead.
+**Priority:** —
+**Depends on:** —
 
 ---
 
@@ -536,7 +495,8 @@ source analysis is in the plan doc, so do NOT clone or survey
 dashboard-ui; everything needed is written down.
 
 **The shape.** A "job" in Phase 1 IS an order, enriched with its crew
-requests and COIs. No new `jobs` table, and no workflow columns back on
+requests and COIs. (Sep 2026: COIs are gone — MVP-9 swaps them for
+outreach messages and paperwork documents from MVP-11/12.) No new `jobs` table, and no workflow columns back on
 `projects` (they were deliberately stripped to folders —
 `supabase/migrations/20260829130000_strip_workflow_to_folders.sql`).
 
@@ -569,6 +529,492 @@ requests and COIs. No new `jobs` table, and no workflow columns back on
 
 **Out of scope:** vendor portal/emails, payments, the module system and
 task kanban, AI summaries, notifications, realtime (all Phase 2 — FUT-4).
+
+---
+
+## MVP rework (Sep 2026) — the one-click order pipeline
+
+**Why.** The COI white-label partnership is off (see CLAUDE.md "MVP Scope").
+The new center of gravity is the click itself: placing an order must also do
+everything a coordinator would do next. After MVP-9 through MVP-12 land, one
+click on the cart:
+
+1. creates the order (MVP-3, exists);
+2. writes one email per vendor from the order + org profile, queues the
+   batch, and sends it after a short review window unless the user holds or
+   edits it (MVP-11);
+3. fills every vendor form we have an Anvil template for from the org
+   profile, stores the PDFs on the order, attaches them to that vendor's
+   email, and stages anything that needs the user's signature as an Anvil
+   e-sign packet (MVP-12);
+4. shows all of it on the order page: messages with statuses and a preview
+   each, documents with a "Sign" action where needed (MVP-11 + MVP-12).
+
+Sequencing: MVP-9 and MVP-10 first (they are disjoint and both small); then
+MVP-11 and MVP-12 in parallel (disjoint files; they meet only at the
+checkout route's `after()` block and the order page, both of which each task
+touches in one clearly-marked region).
+
+Hard rules for every task in this group:
+- Prop Haus never signs, initials, or dates a signature block for anyone.
+  Signatures are the user's own via Anvil Etch, or the form is `manual`.
+- Prop Haus never produces a certificate of insurance. The production's
+  broker does. We store, attach, and request.
+- Copy never says "insured by", "covered by", "issued by Prop Haus", "we
+  handle COIs". It says "filled from your profile", "you sign", "your COI on
+  file". Search `how-it-works.tsx` and the order/account pages before
+  merging.
+- Review is optional, never a gate. An order whose user never opens the
+  review still goes out.
+- Everything demoable with zero secrets: `LogMailer` and `MockFormFiller`
+  are the defaults.
+
+---
+
+### MVP-9 · RETIRE-COI — Remove COI issuance, keep the data that still matters
+
+**Status:** open
+**Priority:** high (unblocks MVP-11/12's copy and jobs surfaces)
+**Depends on:** nothing. Land BEFORE MVP-10 to avoid both tasks editing
+`/account`.
+
+**Context.** MVP-4 built a full mock COI issuance pipeline. The partnership
+is off and the product must not look like it issues certificates. Remove the
+issuance path; keep the org's insurance data (it feeds the outreach email
+and the Anvil COI request form) and the per-vendor minimums (they become a
+warning in the outreach preview).
+
+**Current state (the survey — don't re-derive it):**
+- Issuance: `lib/coi/provider.ts` (interface + `MockCoiProvider`),
+  `lib/coi/post-checkout.ts` (`triggerCoiIssuance`, never wired — the
+  checkout route only has a commented-out call), `lib/coi/requirements.ts`
+  (`VendorCoiRequirement`, `checkCompatibility`).
+- Routes: `app/api/coi/route.ts` (POST issue), `app/api/coi/certificates/route.ts`
+  (GET list). Both in `middleware.ts`'s matcher (`/api/coi/:path*`).
+- Schema: `20260830140000_coi_issuance.sql` — `organizations.insurance_profile`
+  jsonb, `vendor_coi_requirements` table (seeded, PLACEHOLDER values),
+  `certificates` table.
+- UI: `app/account/insurance/{page,actions,insurance-profile-form,certificate-ledger}.tsx`;
+  `app/account/page.tsx` links to it and shows a "COIs issued" tile;
+  `app/jobs/page.tsx` shows a "COIs issued" stat tile, a per-job
+  "n/m COIs" fragment (lines ~93, ~115–155) and empty-state copy naming
+  COIs (~195); `app/orders/[id]/page.tsx` renders a "Certificates" section;
+  `components/ap/status-token.tsx` exports `coiStatusSpec`;
+  `components/ap/how-it-works.tsx:40` says "We handle COIs".
+- Aggregation: `lib/jobs.ts` joins `certificates` into `Job.certificates`
+  and `JobsStats.coisIssued/coisPending`.
+- Plans: `lib/plans.ts` entitlement `coiAutomation`.
+- Docs: `docs/jobs-dashboard-plan.md` references COIs (historical; leave).
+
+**Build:**
+1. Migration (timestamped now): drop `public.certificates`; rename
+   `vendor_coi_requirements` → `vendor_insurance_minimums` (same columns; it
+   is now "what this vendor's COI must show", not "what we will issue").
+   Keep `organizations.insurance_profile`; MVP-10 reshapes it. Comment the
+   migration with the strategy change.
+2. Delete `lib/coi/provider.ts`, `lib/coi/post-checkout.ts`, `app/api/coi/`,
+   `app/account/insurance/certificate-ledger.tsx`. Remove `/api/coi/:path*`
+   from the middleware matcher and the commented `issueCoisForOrder` line
+   from `app/api/checkout/route.ts`.
+3. Move `lib/coi/requirements.ts` → `lib/insurance/minimums.ts` with the
+   `InsuranceProfile` type moved in from the deleted provider file (MVP-10
+   extends it). `checkCompatibility` stays; rename the table reader to match
+   the new table name.
+4. `app/account/insurance/` becomes a plain "Insurance on file" page: the
+   existing profile form (named insured, limits, expiry) minus any
+   "certificates are generated at checkout" copy. MVP-10 folds it into the
+   order profile; keep this step minimal (copy + delete the ledger column).
+5. `lib/jobs.ts`: drop `certificates` from `Job`/`JobDetail` and
+   `coisIssued/coisPending` from `JobsStats`. Replace with placeholders MVP-11
+   and MVP-12 will fill: `messagesSent: number`, `documentsPending: number`
+   (both 0 for now, computed from tables that don't exist yet is NOT
+   required — hardcode 0 with a `// MVP-11 / MVP-12 fill this` comment).
+6. UI: remove the Certificates section from `/orders/[id]`; swap the "COIs
+   issued" tiles on `/account` and `/jobs` for "Vendors notified" (count of
+   distinct vendors across in-flight orders — derivable today from
+   `summarizeOrder`); drop the "n/m COIs" fragment and the COI mention in the
+   jobs empty state ("Build a cart and place an order to start tracking
+   vendor confirmations and crew here."); delete `coiStatusSpec`; rewrite
+   `how-it-works.tsx:40` to "We write the vendor emails and fill the
+   paperwork from your profile, so the truck arrives loaded and you show up
+   ready." (no COI claim).
+7. `lib/plans.ts`: rename `coiAutomation` → `outreachAutomation` (free:
+   true in MVP — gating comes later; leave a comment), keep
+   `paperworkGeneration` (MVP-12 uses it). Fix the one call site if any
+   (`grep -rn coiAutomation`).
+8. `pnpm test` and `pnpm build` green. Grep the tree for `coi`, `COI`,
+   `certificate`, `insurer` and make sure every remaining hit is one of:
+   the paperwork-folder copy ("COIs, W9s, invoices, call sheets" — that's
+   the user's own uploads, fine), the new minimums module, or CLAUDE.md.
+
+**Out of scope:** the new order profile (MVP-10), any email or Anvil work.
+
+---
+
+### MVP-10 · ORDER-PROFILE — Everything the click needs, on the org
+
+**Status:** open
+**Priority:** high
+**Depends on:** MVP-9 (edits `/account` too; land after it)
+
+**Context.** One-click only works if nothing is asked at checkout. Today the
+cart still shows rental-date inputs and a delivery-notes box, and the org
+profile has only `checkout_profile` (production name, contact, phone,
+default rental window days). MVP-11 and MVP-12 need much more: legal entity
+details for forms, an accounts-payable contact for vendor account
+applications, a delivery address, the production's own COI PDF plus broker
+contact, and a recorded authorization to complete forms on the org's
+behalf. This task is the single "Order profile" page and the cart
+simplification that follows from it.
+
+**Current state:**
+- `organizations.checkout_profile` jsonb (`20260830130000_orders_checkout.sql`),
+  typed as `CheckoutProfile` in `lib/orders.ts`, read/written by
+  `app/api/checkout/profile/route.ts` (GET/PATCH). There is NO UI for it.
+- `organizations.insurance_profile` jsonb + `InsuranceProfile` type (after
+  MVP-9: `lib/insurance/minimums.ts`), edited at `/account/insurance`.
+- `app/cart/page.tsx`: date inputs + delivery notes + "Place order" button,
+  posts to `/api/checkout` with lines, dates, notes, idempotency key.
+- `app/account/page.tsx`: profile + org + activity tiles; links to
+  `/account/insurance`.
+- Paperwork uploads: private `paperwork` bucket, validation in
+  `lib/paperwork.ts` (`checkPaperworkFile`, `paperworkBucket`), upload path
+  in `app/api/projects/[id]/folders/[folderId]/documents/route.ts` — copy
+  its storage pattern; do NOT couple the COI upload to a project.
+- Org/profile types: `lib/accounts.ts` (hotspot — keep the diff to a type
+  addition).
+
+**Build:**
+1. Migration: replace the two jsonb columns with one
+   `organizations.order_profile jsonb not null default '{}'` (migrate
+   existing `checkout_profile` + `insurance_profile` values into it in the
+   same migration, then drop them). Shape, typed as `OrderProfile` in a new
+   `lib/order-profile.ts`:
+   ```
+   company:   { legalName, dba?, entityType?: 'llc'|'corp'|'sole_prop'|'other',
+                address: { line1, line2?, city, state, zip },
+                billingAddress?: same shape, phone?, website? }
+   contacts:  { ordering: { name, email, phone? },
+                accountsPayable?: { name, email, phone? } }
+   defaults:  { rentalWindowDays?, deliveryAddress?: address, deliveryNotes? }
+   insurance: { carrier?, policyNumber?, glLimit?, aggregateLimit?,
+                workersCompLimit?, additionalInsuredAvailable?, expiresAt?,
+                broker?: { name, email, phone? },
+                coiDocument?: { storagePath, name, uploadedAt } }
+   authorization: { formsOnBehalf: boolean, acceptedAt?, acceptedByUserId? }
+   ```
+   Tax IDs (EIN) are NOT stored in this task: MVP-12 decides per form
+   whether a form needs one and, if so, collects it at sign time through
+   Anvil rather than persisting it here. Leave a comment saying so.
+2. `lib/order-profile.ts`: `getOrderProfile(orgId)`, `updateOrderProfile`,
+   and `orderReadiness(profile) → { ready: boolean; missing: string[] }`
+   listing human labels ("Ordering contact email", "Delivery address",
+   "Authorization to complete forms"). Readiness for the CLICK requires:
+   company legal name, ordering contact name + email, delivery address (or a
+   default rental window + delivery notes as a fallback), and
+   `authorization.formsOnBehalf`. Insurance is NOT required to order — its
+   absence becomes a note in the outreach email ("COI to follow").
+3. COI upload: `POST /api/account/insurance/coi` (multipart, one PDF/image,
+   `checkPaperworkFile`), stored at `orgs/<orgId>/coi/<uuid>.<ext>` in the
+   paperwork bucket; `GET` mints a 60s signed URL like the project document
+   route. Replacing a COI overwrites the pointer (keep the old object; note
+   cleanup as skipped).
+4. `/account/profile` page (Answer Print): one page, sectioned like
+   `/account` (mono section labels, camera-report field rows), editing the
+   whole `OrderProfile`. Sections: Company, Contacts, Delivery defaults,
+   Insurance on file (fields + COI upload row + broker), Authorization (a
+   single checkbox with the exact sentence: "Prop Haus may complete vendor
+   forms and send vendor requests using the information above. I sign
+   anything that needs a signature." — store `acceptedAt` + user id when
+   checked). Retire `/account/insurance` into this page (redirect the old
+   path). `/account` gets a readiness row: "Ready to order" token, or "2
+   things missing before one-click" linking here.
+5. Cart: remove the date inputs and notes box from the default state. The
+   panel shows the defaults it will use (rental window computed from
+   `defaults.rentalWindowDays` starting the next business day, delivery
+   address) in mono, with a quiet "Change for this order" disclosure that
+   reveals the existing inputs. If `orderReadiness` fails, the button is
+   replaced by the missing list + a link to `/account/profile` (fetch
+   readiness from a new `GET /api/checkout/readiness`). Keep the
+   §11 totals label "Estimate, pending vendor quotes".
+6. `POST /api/checkout`: resolve rental dates and delivery address from the
+   profile when the body omits them; refuse (422, listing `missing`) when
+   readiness fails so the API is one-click-safe even without the UI.
+   Snapshot the resolved values onto the order (`delivery_address jsonb`
+   column on `orders` — add in this task's migration) so MVP-11's emails read
+   the order, not the live profile.
+7. Middleware: `/api/account/:path*` joins the matcher.
+
+**Out of scope:** payment method on the profile, multi-production profiles
+(one org = one profile for now; note it), any email or PDF work.
+
+---
+
+### MVP-11 · OUTREACH — Pre-written, batched, reviewable vendor emails
+
+**Status:** open
+**Priority:** high
+**Depends on:** MVP-10 (reads `order_profile` and the snapshotted order
+fields). Coordinate with MVP-12 on `app/api/checkout/route.ts` and
+`app/orders/[id]/page.tsx` — each task adds ONE clearly-fenced block to each.
+
+**Context.** After the click, a coordinator would email each prop house:
+here is who we are, here is what we want to hold, for these dates,
+delivering here, COI attached, please quote and confirm. The platform
+writes those emails, queues them as one batch per order, and sends them
+after a short review window. The user can open any message to review, edit,
+hold, or send now; a batch nobody touches still goes out.
+
+**Current state:**
+- Nothing sends email anywhere in the repo. No mail dependency.
+- Checkout: `app/api/checkout/route.ts` runs post-checkout hooks in
+  `after()` (the Spacelab prewarm is the pattern — non-fatal, skippable by
+  env). Order shape in `lib/orders.ts` (`Order`, `OrderItem` with
+  `vendor`, `source`, `sourceUrl`, `image`), per-vendor grouping already
+  done by `summarizeOrder`.
+- Vendor config: `lib/vendors.ts` (`VENDORS` keyed by `Source`, with
+  `website`, `notes`, and a `coiStatus` field that is now meaningless —
+  remove it). No vendor email addresses exist anywhere.
+- Order page: `app/orders/[id]/page.tsx` (server component, items grouped
+  by vendor, StatusTokens). Jobs seam: `lib/jobs.ts` (MVP-9 leaves
+  `messagesSent` at 0 for this task to fill).
+- Events: `lib/events.ts` `EVENT_TYPES` (add types here; no migration).
+- Status transitions from vendors are still manual: `PATCH
+  /api/orders/[id]/status` + `pnpm simulate:vendor`. Leave them.
+- Serverless: nothing can sleep. A review window needs a dispatcher that
+  runs later (see step 5).
+
+**Build:**
+1. Mail provider: `lib/mail/provider.ts` — interface
+   `Mailer.send({ to, cc?, replyTo, subject, text, html, attachments?:
+   { filename, content: Buffer | storagePath, contentType }[] }) →
+   { providerMessageId }`. Ship `LogMailer` (default: logs the envelope and
+   the first 500 chars, returns a fake id) and `ResendMailer` (reads
+   `RESEND_API_KEY`, `MAIL_FROM`; use plain `fetch` against Resend's REST
+   API — no SDK dependency needed). Factory reads `MAIL_PROVIDER=log|resend`.
+   Add all three vars to `.env.local.example` with comments.
+2. Vendor addresses: add `orderEmail?: string` to `Vendor` in
+   `lib/vendors.ts`. Seed every vendor with a `PLACEHOLDER` address of the
+   form `orders@<vendor-domain>` and a `// PLACEHOLDER: confirm with vendor`
+   comment; Matthew replaces them. Add `OUTREACH_FALLBACK_TO` env: when a
+   vendor has no address, the message goes there (ops mailbox) with a
+   "[needs vendor address]" subject prefix instead of being dropped.
+3. Migration: `outbound_messages` (id, org_id, order_id, vendor_id,
+   vendor_name, to_email, cc_emails text[], reply_to, subject, body_text,
+   body_html, attachments jsonb [{ name, storagePath, contentType }],
+   status `queued|held|sending|sent|failed|skipped`, scheduled_for
+   timestamptz, sent_at, provider_message_id, error, edited boolean default
+   false, created_at, updated_at). Org-scoped SELECT via RLS like `orders`;
+   writes service-role only. Index on (status, scheduled_for).
+4. Composer: `lib/outreach/compose.ts` — pure function
+   `composeOrderOutreach(order, profile, vendorConfig) → DraftMessage[]`, one
+   per vendor in the order. Template (plain text first, HTML second, same
+   words), Copy Voice §11: sentence case, terse, no exclamation points.
+   Subject: `Hold request · <production name> · <rental start>–<end>`. Body:
+   who (company legal name / DBA, ordering contact), what (each item as
+   name + vendor item link, and the item photo in the HTML version), when
+   (rental window), where (delivery address), paperwork ("COI on file
+   attached" or "COI to follow from our broker <name>"; "Completed <form
+   names> attached" once MVP-12 lands — read from `order_documents` if the
+   table exists, else omit), ask ("Please confirm availability and send a
+   quote. Reply to this email."), signature (contact name, phone, "Sent via
+   Prop Haus on behalf of <company>"). Reply-to is the ordering contact;
+   cc the AP contact when present. If the vendor has minimums
+   (`vendor_insurance_minimums`) and the profile's insurance fails
+   `checkCompatibility`, the draft carries `warnings: string[]` for the
+   preview (NOT included in the email body). Unit-test the composer with
+   vitest against a fixture order: one vendor with COI, one without, one
+   with no address.
+5. Queue + dispatch: `lib/outreach/queue.ts` — `queueOrderOutreach(orderId,
+   orgId)` composes and inserts rows with `scheduled_for = now() +
+   OUTREACH_REVIEW_WINDOW_MINUTES` (default 15; `0` = send immediately from
+   the same `after()` call). `dispatchDue({ orderId?, orgId?, now })` selects
+   `queued` rows whose `scheduled_for <= now`, flips each to `sending`
+   (`update … where status = 'queued'` so two dispatchers can't double-send),
+   loads attachments from the paperwork bucket, calls the mailer, writes
+   `sent`/`failed`. Three callers, all thin: (a) `POST /api/outreach/dispatch`
+   guarded by `CRON_SECRET` header, with a `vercel.json` cron every 5 min
+   (note: 1-min crons need Vercel Pro — say so in the env comment);
+   (b) `pnpm outreach:dispatch` script for local demo; (c) the order page
+   itself calls `dispatchDue({ orderId })` on load when any row is overdue,
+   so the demo works with no cron at all. Record `outreach_queued`,
+   `outreach_sent`, `outreach_failed` events.
+6. Checkout hook: inside `after()` in `app/api/checkout/route.ts`, after the
+   Spacelab prewarm, `queueOrderOutreach(order.id, session.orgId)` wrapped
+   so it can never fail the response; skippable with `OUTREACH=off`.
+7. Review API (auth, org-scoped, all in `app/api/outreach/`):
+   `GET /api/outreach?orderId=` (list), `GET /api/outreach/[id]` (full
+   body), `PATCH /api/outreach/[id]` (edit subject/body while `queued|held`;
+   sets `edited`), `POST /api/outreach/[id]/hold`, `POST
+   /api/outreach/[id]/send` (send now → `dispatchDue` for that id, works from
+   `held` too), `POST /api/outreach/[id]/skip`. Add `/api/outreach/:path*`
+   to the middleware matcher.
+8. Order page UI (Answer Print, §9.7 rows, §9.10 tokens): a "Vendor
+   requests" section above the items. Header line: "Sending to 3 vendors in
+   12 min." / "Sent to 3 vendors." / "1 held." with a ghost "Send all now".
+   One row per message: vendor name, to-address in mono, StatusToken
+   (queued→PENDING, held→PENDING label HELD, sent→CONFIRMED label SENT,
+   failed→UNAVAILABLE label FAILED, skipped→UNAVAILABLE label SKIPPED —
+   extend `status-token.tsx` with `messageStatusSpec`), any composer
+   warning as a 12px mono line, and a "Review" link. Review is a right
+   drawer per §9.6 (440px, `surface-raised`, `rail` entrance): the full
+   message as rendered plain text in a `surface-inset` block, editable
+   subject + body (textarea, `hooks/use-auto-resize-textarea.ts`), the
+   attachment list, and three actions: Save, Hold, Send now. Sent messages
+   open read-only with the sent time. Fold `messagesSent` into `lib/jobs.ts`
+   and the `/jobs` per-row copy ("Sent to 3 vendors. Newel confirmed 4 of
+   6 items.").
+9. Crew requests get the same treatment in a trailing step, cheaply: when
+   `POST /api/crew/requests` succeeds, queue ONE message to the contractor's
+   `contact_email` (add to `contractors` if absent; PLACEHOLDER values) with
+   dates/location/notes, same queue and review UI keyed by
+   `crew_request_id` (nullable column alongside `order_id`). If this pushes
+   the task over budget, leave it as a documented follow-up in the Status
+   line rather than half-built.
+
+**Out of scope:** inbound email parsing / auto-updating item status from
+replies (FUT-5), vendor portal, SMS, per-vendor template customization,
+scheduling beyond the single review window, the Anvil documents themselves
+(MVP-12 — this task only attaches what it finds in `order_documents`).
+
+---
+
+### MVP-12 · FORMS — Vendor paperwork filled from the profile via Anvil
+
+**Status:** open
+**Priority:** high
+**Depends on:** MVP-10 (profile data). Coordinate with MVP-11 on the
+checkout `after()` block and the order page — one fenced block each.
+
+**Context.** Prop houses make every new customer fill out the same forms:
+a rental agreement, a new-account / credit application, sometimes a COI
+request with their exact additional-insured wording, sometimes a W-9
+request. All of that is data the production already gave us. Anvil
+(useanvil.com) fills PDF templates from JSON and runs e-signatures; the
+production signs, we never do. Every form we can lawfully complete is
+completed at checkout and attached to that vendor's outreach email.
+
+**Anvil facts (verified Sep 2026 against useanvil.com/docs):**
+- Node SDK `@anvilco/anvil`; auth is an API key (Basic auth, key as
+  username, empty password). Development keys are free, watermark output,
+  and rate-limit to ~4 req/s; production keys are 4–40 req/s by plan.
+- PDF fill: `POST https://app.useanvil.com/api/v1/fill/{templateEid}.pdf`
+  with `{ title?, data: { <fieldAlias>: value, … } }` → PDF bytes
+  (`anvil.fillPDF(templateEid, payload)`). Templates are uploaded in the
+  Anvil UI and fields are given aliases there; the alias map is per
+  template.
+- E-sign (Etch): GraphQL `createEtchPacket` with `files` (a template eid
+  or an uploaded PDF), `signers` (name, email, `signerType: 'embedded'` for
+  in-product signing via `generateEtchSignURL`, or `'email'` to let Anvil
+  send), and `data` to pre-fill non-signature fields. Completion arrives by
+  webhook (`etchPacketComplete`); finished docs download from
+  `GET /api/document-group/{documentGroupEid}.zip`.
+- Generate PDF from HTML/Markdown also exists (`generatePDF`) — useful for
+  a cover sheet, not needed in v1.
+
+**Current state:**
+- No Anvil, no PDF library. Nothing in the repo fills forms.
+- Storage: private `paperwork` bucket (`lib/paperwork.ts` for validation
+  and bucket name; signed-URL pattern in
+  `app/api/projects/[id]/documents/[documentId]/route.ts`).
+- Vendor minimums table `vendor_insurance_minimums` (after MVP-9).
+- Plans: `lib/plans.ts` has `paperworkGeneration` (free: false, pro: true).
+  Gate the FILL behind it with `can(plan, 'paperworkGeneration')`, but in
+  the MVP make the free tier `true` with a comment — nobody should hit a
+  paywall during validation.
+
+**Build:**
+1. Filler interface: `lib/forms/filler.ts` —
+   `FormFiller.fillPdf({ templateEid, title, data }) → Buffer`,
+   `createSignaturePacket({ templateEid | pdf: Buffer, signer: { name,
+   email }, data, orderRef }) → { packetEid, documentGroupEid, signUrl? }`,
+   `downloadSigned(documentGroupEid) → Buffer`. `MockFormFiller` (default)
+   returns a real, minimal, valid PDF (hand-write the ~600-byte PDF
+   skeleton with the title and a "MOCK — filled by Prop Haus" line; no
+   library) and fake eids; its `createSignaturePacket` returns a
+   `signUrl` pointing at `/orders/[id]/sign/[docId]?mock=1`, a local page
+   that just marks the document signed. `AnvilFormFiller` uses
+   `@anvilco/anvil` (add the dependency) with `ANVIL_API_KEY`; embedded
+   signers so signing happens in-product. `FORMS_PROVIDER=mock|anvil`. Env
+   vars + comments in `.env.local.example`, including the webhook secret.
+2. Migration: `vendor_forms` (id, vendor_id, kind
+   `rental_agreement|credit_application|new_account|coi_request|w9_request|other`,
+   label, anvil_template_eid text null, field_map jsonb — `{ <alias>:
+   "<profile path>" }` e.g. `{ "companyName": "company.legalName",
+   "aiWording": "$vendor.additionalInsuredWording" }`, requires_signature
+   boolean, mode `auto|manual`, notes, updated_at). `manual` = we have the
+   blank PDF but the vendor needs a wet signature/notary; stored so the
+   order page can still hand it over pre-filled where Anvil allows. Seed
+   PLACEHOLDER rows for 5–6 vendors (mix of kinds, one `manual`, one
+   `coi_request` with an `additionalInsuredWording` note) with
+   `anvil_template_eid = null` — the mock ignores it; Matthew fills eids
+   after uploading real templates to Anvil.
+   `order_documents` (id, org_id, order_id, vendor_id, vendor_form_id,
+   kind, label, status
+   `filled|awaiting_signature|signed|manual|failed|skipped`, storage_path,
+   signed_storage_path, anvil_packet_eid, anvil_document_group_eid,
+   sign_url, error, created_at, updated_at). Org-scoped SELECT RLS, writes
+   service-role. Also `organizations.order_profile` must NOT gain a tax id;
+   if a `credit_application` needs an EIN, the field map points at
+   `$signer.ein`, which Anvil collects from the user inside the e-sign
+   session (Etch supports signer-filled fields) — say so in the seed
+   notes.
+3. Mapper: `lib/forms/map.ts` — pure `resolveFieldMap(fieldMap, { profile,
+   order, vendor, form }) → { data, missing: string[] }`. Paths resolve
+   against the profile (`company.legalName`), `$order.rentalStart`,
+   `$vendor.additionalInsuredWording`, `$signer.<x>` (left blank for the
+   signer). Formats dates as the form expects (`MM/DD/YYYY` default,
+   overridable per alias with `"path|date:YYYY-MM-DD"`), money as digits.
+   Vitest against a fixture.
+4. Packet builder: `lib/forms/packet.ts` — `buildOrderPaperwork(orderId,
+   orgId)`: for each vendor in the order, each `vendor_forms` row with
+   `mode = 'auto'` → resolve map → fill → store at
+   `orgs/<orgId>/orders/<orderId>/<vendor>/<kind>.pdf` → insert
+   `order_documents` as `filled`; if `requires_signature` → also create the
+   signature packet (signer = ordering contact from the profile) →
+   `awaiting_signature` with `sign_url`. `manual` rows → `manual` status
+   with the blank/pre-filled PDF stored. Any resolver `missing` → still fill
+   what we can, record the missing labels on the row's `error` so the UI
+   can say "2 fields left blank: EIN, fax". Never throws out of the
+   function; per-document `failed` rows instead. Refuses to fill when
+   `profile.authorization.formsOnBehalf` is false (records `skipped` with
+   the reason).
+5. Checkout hook: in `after()`, after the outreach queue call,
+   `buildOrderPaperwork(order.id, session.orgId)` guarded by `FORMS=off`.
+   Ordering matters for attachments: run paperwork BEFORE
+   `queueOrderOutreach` when both are present (MVP-11's composer reads
+   `order_documents`), so agree on the block order in the route: paperwork,
+   then outreach. If MVP-11 lands first, MVP-12 moves its call above.
+6. Webhook: `POST /api/forms/webhook` — verify Anvil's signature
+   (`ANVIL_WEBHOOK_SECRET`), on `etchPacketComplete` download the signed
+   group, store as `signed_storage_path`, set `signed`, record
+   `document_signed`. Mock path: `/orders/[id]/sign/[docId]` page with a
+   single beam button that calls `POST /api/forms/[docId]/mock-sign`
+   (only when `FORMS_PROVIDER=mock`).
+7. Read/act API (auth, org-scoped): `GET /api/forms?orderId=`,
+   `GET /api/forms/[id]/download` (60s signed URL, signed copy when
+   present), `POST /api/forms/[id]/refill` (re-run one document after a
+   profile fix), `POST /api/orders/[id]/paperwork` (run
+   `buildOrderPaperwork` manually for an order that predates this task).
+   Matcher: `/api/forms/:path*`.
+8. Order page UI: a "Paperwork" section under the vendor requests. Rows per
+   §9.7: vendor, form label, StatusToken (`documentStatusSpec`:
+   filled→CONFIRMED FILLED, awaiting_signature→QUOTED label SIGN NEEDED,
+   signed→CONFIRMED SIGNED, manual→PENDING MANUAL, failed→UNAVAILABLE,
+   skipped→PENDING), the blank-field note in 12px mono, and actions:
+   "Download", "Sign" (opens `sign_url` — embedded Anvil frame in a route
+   `/orders/[id]/sign/[docId]` for the real provider), "Refill". Section
+   copy when the org never authorized: "Forms are not filled until you
+   authorize it on your order profile." with the link. Fill
+   `documentsPending` in `lib/jobs.ts` (awaiting_signature + manual) and
+   show it on `/jobs` ("2 to sign").
+9. Events: `document_filled`, `document_signed`, `document_failed` in
+   `lib/events.ts`.
+
+**Out of scope:** W-9 generation itself (a W-9 is the production's own
+IRS form; we only fill a vendor's *request* for one and let the user attach
+their W-9 from Paperwork), template authoring UI, vendor-side signing,
+per-vendor negotiated terms, storing tax IDs, anything that produces a COI.
 
 ---
 
@@ -729,8 +1175,23 @@ The rest of the dashboard-ui port, per docs/jobs-dashboard-plan.md §6:
 task kanban (todo/in_progress/done), composable per-job module tabs (JSON
 config), AI overview (summary/risks/next-steps via our existing Anthropic
 SDK usage, not OpenRouter), and — once users run multiple orders per
-production — a real `jobs` grouping entity spanning orders + crew + COIs.
+production — a real `jobs` grouping entity spanning orders + crew + outreach + paperwork.
 Scope with Matthew before starting.
+
+---
+
+### FUT-5 · INBOUND — Vendor replies update the order
+
+**Status:** future
+**Depends on:** MVP-11 (outreach messages carry an order-tagged reply-to)
+
+Close the loop on the outreach batch: receive vendor replies (an inbound
+route on the mail provider, e.g. Resend/Postmark inbound webhooks to
+`orders+<orderId>@<domain>`), thread them onto the `outbound_messages` row,
+and let an LLM pass propose per-item status changes (quoted with amount,
+confirmed, unavailable) that the user approves with one click — replacing
+`pnpm simulate:vendor`. Until then, statuses are set manually via
+`PATCH /api/orders/[id]/status`. Scope with Matthew before starting.
 
 ---
 
@@ -753,6 +1214,10 @@ is the bottleneck.
 | MVP-6 | Opus/Fable for the analysis, Sonnet to implement | The compare/contrast judgment is the hard part; the resulting changes are scoped. |
 | MVP-7 | Sonnet | Fully specced parser + endpoint + UI; the file survey is in the brief. |
 | MVP-8 | Sonnet | Research done (docs/jobs-dashboard-plan.md has the source analysis, schema, and file list); pure execution against a spec. |
+| MVP-9 | Sonnet | Deletion + renames against an explicit file list. |
+| MVP-10 | Sonnet | Schema + one form page + cart trim, fully specced. |
+| MVP-11 | Opus for the composer/template + review drawer, Sonnet for the rest | The email copy and the review UX are taste work; queue, dispatcher, and API are execution. |
+| MVP-12 | Sonnet; Opus only if the Anvil field-map design needs rethinking | Interface + mock + mapper are specced; the Anvil adapter follows their docs. |
 | FUT-1/2/3/4 | Opus/Fable to scope, Sonnet to build | Cross-repo architecture (Spacelab) needs the strong model briefly, not for the whole build. |
 
 Token-burn guardrails:
@@ -762,8 +1227,9 @@ Token-burn guardrails:
   the survey. Read the named files, not the whole tree.
 - No multi-agent workflows/ultracode for these — every task here is sized
   for a single agent.
-- Cheapest sequencing: MVP-2/3/4 in parallel (disjoint files), MVP-5A after
-  MVP-3 lands (avoids cart-page conflicts and double-migrating).
+- Cheapest sequencing (Sep 2026 rework): MVP-9 then MVP-10 (both touch
+  `/account`), then MVP-11 and MVP-12 in parallel (disjoint files; they
+  meet only at the checkout `after()` block and the order page).
 
 ---
 
@@ -774,12 +1240,17 @@ Token-burn guardrails:
 | MVP-1 | Finish search (missing data) | in progress — data gap open | high |
 | MVP-2 | Contractor hiring page (/crew) | done — PR #62 | high |
 | MVP-3 | One-click checkout scaffold | done | high |
-| MVP-4 | COI issuance via API partner | done — PR pending | medium-high |
+| MVP-4 | COI issuance via API partner | RETIRED Sep 2026 (see MVP-9) | — |
 | MVP-5 | Site redesign (A done, B in progress)| in progress | high |
 | MVP-6 | Backend optimization (competitor API) | BLOCKED — awaiting direct-API access decision; #1 shipped | medium (paused) |
 | MVP-7 | Web clipper v1 (paste a link) | in progress — asuncion | medium-high |
 | MVP-8 | Jobs-in-progress dashboard | done | medium-high |
+| MVP-9 | Retire COI issuance, keep the data | open | high |
+| MVP-10 | Order profile (one-click readiness) | open — after MVP-9 | high |
+| MVP-11 | Vendor outreach emails (batched, reviewable) | open — after MVP-10 | high |
+| MVP-12 | Vendor paperwork via Anvil | open — after MVP-10 | high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
 | FUT-3 | Chrome extension web clipper | future | — |
 | FUT-4 | Jobs Phase 2 (full dashboard port) | future | — |
+| FUT-5 | Inbound vendor replies update orders | future | — |
