@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { OrderProfile } from '@/lib/order-profile';
-import type { Order } from '@/lib/orders';
+import type { OrderProfile } from '../order-profile';
+import type { Order } from '../orders';
 import { humanize, resolveFieldMap } from './map';
 
 const profile: OrderProfile = {

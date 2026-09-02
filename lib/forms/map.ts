@@ -14,8 +14,8 @@
  * money resolves to plain digits. Pure: no I/O, so it is unit-tested on fixtures.
  */
 
-import { formatAddress, type OrderProfile } from '@/lib/order-profile';
-import type { Order } from '@/lib/orders';
+import { formatAddress, type OrderProfile } from '../order-profile';
+import type { Order } from '../orders';
 
 export type FieldMap = Record<string, string>;
 
