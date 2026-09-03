@@ -3,20 +3,16 @@
  *
  * One surface showing everything a signed-in user has in flight: orders moving
  * through vendor confirmation and crew requests. A "job" here IS an order,
- * enriched (see lib/jobs.ts). List view only,
- * never a card grid (DESIGN.md §9.7).
+ * enriched (see lib/jobs.ts). List view only, never a card grid (DESIGN.md
+ * §9.7); the tables themselves live in jobs-board.tsx on the shared DataTable.
  */
 
 import Link from 'next/link';
 import { requireOrgId } from '@/lib/session';
-import { getJobsOverview, jobRollupCopy, type Job, type CrewRequestRow } from '@/lib/jobs';
+import { getJobsOverview, type JobsStats } from '@/lib/jobs';
 import { PageShell } from '@/components/ap/page-shell';
-import { LightWell } from '@/components/ap/light-well';
-import {
-  StatusToken,
-  orderStatusSpec,
-  crewStatusSpec,
-} from '@/components/ap/status-token';
+import { CrewTable, JobsTable } from './jobs-board';
+import { toJobRow } from './rows';
 
 export const metadata = { title: 'Jobs · Prop Haus' };
 
@@ -25,10 +21,11 @@ export default async function JobsPage() {
   const { jobs, crew, stats } = await getJobsOverview(orgId);
 
   const hasWork = jobs.length > 0 || crew.length > 0;
+  const rows = jobs.map(toJobRow);
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
+      <div className="mx-auto w-full max-w-[1200px] px-4 py-12 sm:px-6 md:py-16">
         {/* Header */}
         <div className="mb-10">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
@@ -45,27 +42,17 @@ export default async function JobsPage() {
           <>
             <StatBand stats={stats} />
 
-            {/* In flight */}
-            {jobs.length > 0 && (
+            {rows.length > 0 && (
               <section className="mt-12">
                 <SectionLabel>In flight</SectionLabel>
-                <div className="border-t border-border">
-                  {jobs.map((job) => (
-                    <JobRow key={job.id} job={job} />
-                  ))}
-                </div>
+                <JobsTable jobs={rows} />
               </section>
             )}
 
-            {/* Crew */}
             {crew.length > 0 && (
               <section className="mt-12">
                 <SectionLabel>Crew</SectionLabel>
-                <div className="border-t border-border">
-                  {crew.map((req) => (
-                    <CrewRow key={req.id} req={req} />
-                  ))}
-                </div>
+                <CrewTable crew={crew} />
               </section>
             )}
           </>
@@ -77,13 +64,13 @@ export default async function JobsPage() {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+    <h2 className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
       {children}
     </h2>
   );
 }
 
-function StatBand({ stats }: { stats: Awaited<ReturnType<typeof getJobsOverview>>['stats'] }) {
+function StatBand({ stats }: { stats: JobsStats }) {
   const tiles: Array<{ label: string; value: number }> = [
     { label: 'Orders in flight', value: stats.ordersInFlight },
     { label: 'Items pending', value: stats.itemsPending },
@@ -110,77 +97,6 @@ function StatBand({ stats }: { stats: Awaited<ReturnType<typeof getJobsOverview>
   );
 }
 
-function JobRow({ job }: { job: Job }) {
-  const thumbs = job.items.filter((i) => i.image).slice(0, 3);
-  const updated = formatDate(job.updatedAt);
-
-  return (
-    <Link
-      href={`/orders/${job.id}`}
-      className="flex items-center gap-4 border-b border-border py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-colors hover:bg-surface-raised"
-    >
-      {/* Overlapping mini LightWells */}
-      <div className="flex shrink-0 items-center">
-        {thumbs.length > 0 ? (
-          thumbs.map((item, i) => (
-            <div
-              key={item.id}
-              className="h-11 w-11 overflow-hidden rounded-md"
-              style={{ marginLeft: i === 0 ? 0 : -12, zIndex: thumbs.length - i }}
-            >
-              <LightWell src={item.image} alt={item.name} mode="photo" fill />
-            </div>
-          ))
-        ) : (
-          <div className="h-11 w-11 rounded-md border border-border bg-plate" />
-        )}
-      </div>
-
-      {/* Copy */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2.5">
-          <p className="font-medium leading-snug">Order #{job.id.slice(0, 8).toUpperCase()}</p>
-          <StatusToken {...orderStatusSpec(job.status)} />
-        </div>
-        <p className="mt-1 font-mono text-[12px] text-text-tertiary">{jobRollupCopy(job)}</p>
-      </div>
-
-      {/* Right meta */}
-      <div className="hidden shrink-0 text-right sm:block">
-        <p className="font-mono text-[12px] tabular-nums text-text-secondary">
-          {job.items.length} item{job.items.length !== 1 ? 's' : ''}
-        </p>
-        <p className="mt-1 font-mono text-[11px] tabular-nums text-text-tertiary">{updated}</p>
-      </div>
-    </Link>
-  );
-}
-
-function CrewRow({ req }: { req: CrewRequestRow }) {
-  const dates =
-    req.requestedDates.length > 0
-      ? req.requestedDates.map(formatDate).join(', ')
-      : 'Dates on request';
-
-  return (
-    <div className="flex items-center gap-4 border-b border-border py-3">
-      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md">
-        <LightWell src={req.contractorPhoto ?? undefined} alt={req.contractorName} mode="photo" fill name={req.contractorName} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2.5">
-          <p className="font-medium leading-snug">{req.contractorName}</p>
-          <StatusToken {...crewStatusSpec(req.status)} />
-        </div>
-        <p className="mt-1 font-mono text-[12px] text-text-tertiary">
-          {dates}
-          {req.location ? ` · ${req.location}` : ''}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function EmptyState() {
   return (
     <div className="border-t border-border py-16">
@@ -198,12 +114,4 @@ function EmptyState() {
       </Link>
     </div>
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return iso;
-  }
 }
