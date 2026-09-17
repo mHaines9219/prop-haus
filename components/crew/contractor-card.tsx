@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { LightWell } from '@/components/ap/light-well';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { CREW_COPY, CREW_SKILL_LABELS } from '@/lib/crew';
@@ -78,25 +78,18 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
   }
 
   return (
-    <div className="group flex flex-col bg-background">
-      {/* Photo well */}
-      <LightWell
-        src={contractor.photo ?? undefined}
-        alt={contractor.name}
-        mode="photo"
-        name={contractor.name}
-        sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 400px"
-        className="aspect-[3/4]"
-      />
-
+    <div className="flex flex-col bg-background">
       {/* Info placard */}
       <div className="flex flex-1 flex-col p-5">
-        <p className="font-display text-[18px] font-bold leading-[24px]">
-          {contractor.name}
-        </p>
+        <div className="flex items-center gap-3">
+          <ContractorAvatar name={contractor.name} photo={contractor.photo} />
+          <p className="font-display text-[18px] font-bold leading-[24px]">
+            {contractor.name}
+          </p>
+        </div>
 
         {/* Skill tags */}
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {contractor.skills.map((s) => (
             <span
               key={s}
@@ -213,6 +206,41 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase();
+}
+
+/** 48px circular headshot; falls back to initials on the plate color. */
+function ContractorAvatar({ name, photo }: { name: string; photo: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const showPhoto = photo && !failed;
+
+  return (
+    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-card">
+      {showPhoto ? (
+        <Image
+          src={photo}
+          alt={name}
+          fill
+          sizes="48px"
+          onError={() => setFailed(true)}
+          className="object-cover"
+        />
+      ) : (
+        <span
+          aria-hidden
+          className="absolute inset-0 grid place-items-center bg-plate font-mono text-[13px] font-medium text-[#0F0F10]"
+        >
+          {initials(name)}
+        </span>
+      )}
     </div>
   );
 }

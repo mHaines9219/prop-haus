@@ -40,12 +40,24 @@ export const CREW_SKILL_LABELS: Record<string, string> = {
 /** contractors.category value for the crew directory. */
 export const CREW_CATEGORY = 'crew';
 
+/** PLACEHOLDER inbox for roster applications — swap for the real crew address. */
+export const CREW_JOIN_EMAIL = 'crew@prophaus.com';
+
+/** Roster application limits, shared by the modal (client) and the API route. */
+export const ROSTER_MAX_WORK_PHOTOS = 5;
+export const ROSTER_MAX_FILE_BYTES = 5 * 1024 * 1024; // per image
+export const ROSTER_MAX_TOTAL_BYTES = 20 * 1024 * 1024; // whole application
+
 export const CREW_COPY = {
   eyebrow: 'Los Angeles crew',
   headline: 'Extra hands, on call.',
   blurb:
     'Hire vetted production assistants and delivery drivers for set days, load-in and load-out, and same-day runs. Request through the platform — we coordinate the rest.',
   ctaLabel: 'Request crew',
+  joinEyebrow: 'For contractors',
+  joinBlurb:
+    'PA or driver in Los Angeles? Get listed and take set days, load-ins, and delivery runs through Prop Haus.',
+  joinCta: 'Join the roster',
   footerNote:
     'All contractors are vetted by Prop Haus. Day rates shown are typical ranges; final rates confirmed on booking.',
 };
