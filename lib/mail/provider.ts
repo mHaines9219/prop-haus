@@ -1,11 +1,12 @@
 /**
  * Outbound mail behind one interface. The default is a logger, so every flow
- * that sends demos with zero secrets; Resend is the real provider, reached
- * with plain fetch so there is no SDK to carry.
+ * that sends demos with zero secrets; Resend and SendGrid are the real
+ * providers, reached with plain fetch so there is no SDK to carry.
  *
- *   MAIL_PROVIDER=log|resend   picks the implementation (default: log)
- *   RESEND_API_KEY             Resend secret
- *   MAIL_FROM                  the From header, e.g. "Prop Haus <orders@prophaus.example>"
+ *   MAIL_PROVIDER=log|resend|sendgrid   picks the implementation (default: log)
+ *   RESEND_API_KEY                      Resend secret
+ *   SENDGRID_API_KEY                    SendGrid secret
+ *   MAIL_FROM                           the From header, e.g. "Prop Haus <orders@prophaus.example>"
  */
 
 export type MailAttachment = {
@@ -91,13 +92,76 @@ export class ResendMailer implements Mailer {
   }
 }
 
-/** The configured mailer. Falls back to the logger when Resend is chosen but not configured. */
+/** SendGrid's v3 mail send API (https://www.twilio.com/docs/sendgrid/api-reference/mail-send). */
+export class SendGridMailer implements Mailer {
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string,
+    private readonly resolve: ResolveAttachment,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async send(message: MailMessage): Promise<{ providerMessageId: string }> {
+    const attachments = await Promise.all(
+      (message.attachments ?? []).map(async (a) => ({
+        filename: a.filename,
+        content: (Buffer.isBuffer(a.content) ? a.content : await this.resolve(a.content.storagePath)).toString(
+          'base64',
+        ),
+        type: a.contentType,
+        disposition: 'attachment',
+      })),
+    );
+
+    const res = await this.fetchImpl('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [
+          {
+            to: [{ email: message.to }],
+            ...(message.cc?.length ? { cc: message.cc.map((email) => ({ email })) } : {}),
+          },
+        ],
+        from: parseAddress(this.from),
+        reply_to: { email: message.replyTo },
+        subject: message.subject,
+        content: [
+          { type: 'text/plain', value: message.text },
+          { type: 'text/html', value: message.html },
+        ],
+        ...(attachments.length ? { attachments } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`sendgrid ${res.status}: ${detail.slice(0, 300)}`);
+    }
+    // SendGrid answers 202 with an empty body; the id lives in the x-message-id header.
+    return { providerMessageId: res.headers.get('x-message-id') ?? `sendgrid-${crypto.randomUUID()}` };
+  }
+}
+
+/** "Prop Haus <orders@x.com>" → { name, email }; a bare address passes through. */
+function parseAddress(from: string): { email: string; name?: string } {
+  const m = from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  return m ? { email: m[2], ...(m[1] ? { name: m[1] } : {}) } : { email: from };
+}
+
+/** The configured mailer. Falls back to the logger when a real provider is chosen but not configured. */
 export function mailer(resolve: ResolveAttachment): Mailer {
-  if (process.env.MAIL_PROVIDER === 'resend') {
+  const provider = process.env.MAIL_PROVIDER;
+  const from = process.env.MAIL_FROM;
+  if (provider === 'resend') {
     const key = process.env.RESEND_API_KEY;
-    const from = process.env.MAIL_FROM;
     if (key && from) return new ResendMailer(key, from, resolve);
     console.warn('[mail] MAIL_PROVIDER=resend but RESEND_API_KEY or MAIL_FROM is unset; logging instead');
+  }
+  if (provider === 'sendgrid') {
+    const key = process.env.SENDGRID_API_KEY;
+    if (key && from) return new SendGridMailer(key, from, resolve);
+    console.warn('[mail] MAIL_PROVIDER=sendgrid but SENDGRID_API_KEY or MAIL_FROM is unset; logging instead');
   }
   return new LogMailer();
 }

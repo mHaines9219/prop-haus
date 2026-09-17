@@ -3,6 +3,7 @@ import { SiteNav } from '@/components/ap/site-nav';
 import { SiteFooter } from '@/components/ap/site-footer';
 import { CrewDirectory } from '@/components/crew/crew-directory';
 import type { Contractor } from '@/components/crew/contractor-card';
+import { JoinRoster } from '@/components/crew/join-roster';
 import { CREW_CATEGORY, CREW_COPY, isCrewRoleSlug } from '@/lib/crew';
 
 export const metadata = {
@@ -53,6 +54,21 @@ export default async function CrewPage({
 
         {/* Filter rail + ruled grid */}
         <CrewDirectory contractors={contractors} initialRole={initialRole} />
+
+        {/* Contractor-facing: get listed on the roster */}
+        <section className="border-t border-border">
+          <div className="mx-auto flex w-full max-w-[1600px] flex-col items-start justify-between gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center">
+            <div>
+              <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
+                {CREW_COPY.joinEyebrow}
+              </p>
+              <p className="mt-3 max-w-[480px] text-[15px] leading-[23px] text-text-secondary">
+                {CREW_COPY.joinBlurb}
+              </p>
+            </div>
+            <JoinRoster />
+          </div>
+        </section>
 
         {/* Footer note */}
         <section className="border-t border-border">

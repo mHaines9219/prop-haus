@@ -46,6 +46,7 @@ describe('CrewPage', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(CREW_COPY.headline);
     expect(screen.getByText(CREW_COPY.eyebrow)).toBeInTheDocument();
     expect(screen.getByText(CREW_COPY.footerNote)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: CREW_COPY.joinCta })).toBeInTheDocument();
     expect(shown('Dana Lee')).toBe(true);
     expect(shown('Ravi Patel')).toBe(true);
     expect(shown('Inactive Ida')).toBe(false);

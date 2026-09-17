@@ -63,7 +63,7 @@ describe('ContractorCard', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the photo well, name, skill labels, rate and bio', () => {
+  it('renders the avatar, name, skill labels, rate and bio', () => {
     render(<ContractorCard contractor={contractor()} />);
     expect(screen.getByRole('img', { name: 'Dana Reyes' })).toHaveClass('object-cover');
     expect(screen.getByText('Dana Reyes')).toBeInTheDocument();
@@ -88,7 +88,8 @@ describe('ContractorCard', () => {
   it('copes with no photo, no bio and no skills', () => {
     render(<ContractorCard contractor={contractor({ photo: null, bio: null, skills: [] })} />);
     expect(screen.queryByRole('img')).toBeNull();
-    expect(screen.getAllByText('Dana Reyes')).toHaveLength(2);
+    expect(screen.getByText('DR')).toBeInTheDocument(); // avatar falls back to initials
+    expect(screen.getByText('Dana Reyes')).toBeInTheDocument();
     expect(screen.queryByText('Ten years on commercial sets.')).toBeNull();
   });
 
