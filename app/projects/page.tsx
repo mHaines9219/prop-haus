@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { listProjects } from '@/lib/projects';
 import { requireOrgId } from '@/lib/session';
+import { DashboardTabs } from '@/components/ap/dashboard-tabs';
 import { PageShell } from '@/components/ap/page-shell';
 import { NewProjectForm } from './new-project-form';
 import { ProjectsTable } from './projects-table';
@@ -46,7 +47,9 @@ export default async function ProjectsPage({
           One project per production. Sort what you pull by scene, and keep the paperwork with it.
         </p>
 
-        <div className="mt-8 border-t border-border">
+        <DashboardTabs />
+
+        <div className="mt-8">
           <NewProjectForm />
 
           {rows.length === 0 ? (

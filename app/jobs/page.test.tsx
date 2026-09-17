@@ -79,6 +79,8 @@ describe('JobsPage', () => {
     jobs.getJobsOverview.mockResolvedValue(overview());
     render(await JobsPage());
     expect(jobs.getJobsOverview).toHaveBeenCalledWith(ORG_ID);
+    const tabs = screen.getByRole('navigation', { name: 'Dashboard sections' });
+    expect(within(tabs).getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '/projects');
     expect(screen.getByText('Nothing in flight')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Browse catalog' })).toHaveAttribute('href', '/search');
     expect(screen.queryByText('In flight')).not.toBeInTheDocument();
