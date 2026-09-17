@@ -10,6 +10,8 @@
 import Link from 'next/link';
 import { requireOrgId } from '@/lib/session';
 import { getJobsOverview, type JobsStats } from '@/lib/jobs';
+import { cn } from '@/lib/utils';
+import { DashboardTabs } from '@/components/ap/dashboard-tabs';
 import { PageShell } from '@/components/ap/page-shell';
 import { CrewTable, JobsTable } from './jobs-board';
 import { toJobRow } from './rows';
@@ -25,22 +27,25 @@ export default async function JobsPage() {
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-12 sm:px-6 md:py-16">
-        {/* Header */}
-        <div className="mb-10">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-            Production workflow
-          </p>
-          <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
-            Jobs in progress
-          </h1>
-        </div>
+      <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 sm:py-10">
+        {/* Header — matches /projects: the two pages are one Dashboard. */}
+        <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
+          Dashboard
+        </p>
+        <h1 className="mt-2 text-[28px] font-bold leading-[34px] tracking-[-0.01em] text-foreground [font-family:var(--font-display)]">
+          Jobs in progress
+        </h1>
+        <p className="mt-2 text-[15px] leading-[22px] text-text-secondary">
+          Orders moving through vendor confirmation, and the crew you have requested.
+        </p>
+
+        <DashboardTabs />
 
         {!hasWork ? (
           <EmptyState />
         ) : (
           <>
-            <StatBand stats={stats} />
+            <StatBand stats={stats} className="mt-8" />
 
             {rows.length > 0 && (
               <section className="mt-12">
@@ -70,7 +75,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StatBand({ stats }: { stats: JobsStats }) {
+function StatBand({ stats, className }: { stats: JobsStats; className?: string }) {
   const tiles: Array<{ label: string; value: number }> = [
     { label: 'Orders in flight', value: stats.ordersInFlight },
     { label: 'Items pending', value: stats.itemsPending },
@@ -82,7 +87,7 @@ function StatBand({ stats }: { stats: JobsStats }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4 lg:grid-cols-7">
+    <div className={cn('grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4 lg:grid-cols-7', className)}>
       {tiles.map((t) => (
         <div key={t.label} className="bg-background px-4 py-5">
           <p className="font-mono text-[28px] font-medium leading-none tabular-nums text-foreground">
@@ -99,7 +104,7 @@ function StatBand({ stats }: { stats: JobsStats }) {
 
 function EmptyState() {
   return (
-    <div className="border-t border-border py-16">
+    <div className="py-16">
       <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
         Nothing in flight
       </p>

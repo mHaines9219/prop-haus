@@ -58,7 +58,8 @@ describe('SiteNav', () => {
     expect(nav).toHaveTextContent('How it works');
     expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/#how');
     expect(screen.getByRole('link', { name: 'Crew' })).toHaveAttribute('href', '/crew');
-    expect(screen.getByRole('link', { name: 'Jobs' })).toHaveAttribute('href', '/jobs');
+    // Jobs is not a top-level link — it lives under the Dashboard (DashboardTabs).
+    expect(screen.queryByRole('link', { name: 'Jobs' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/projects');
     expect(screen.getByRole('button', { name: /Switch to/ })).toBeInTheDocument();
   });
