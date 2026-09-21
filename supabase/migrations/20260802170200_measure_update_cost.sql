@@ -64,6 +64,12 @@
 --
 -- If BOTH arms are slow, the hypothesis is wrong, a side table would not help,
 -- and this needs rethinking before anything is built.
+--
+-- ON A FRESH DATABASE (CI, a new local stack) the catalog is empty when this
+-- runs, so there is nothing to measure. Each arm skips with a NOTICE instead
+-- of raising: a measurement that cannot run is not a reason to stop the
+-- migration chain. The numbers this file was written to record came from
+-- live, where it has already run.
 -- ============================================================================
 
 do $$
@@ -85,8 +91,9 @@ begin
   from (select id from catalog.prop_items where keyword_tsv is not null limit 5) s;
 
   if ids is null or cardinality(ids) < 5 then
-    raise exception 'need at least 5 already-populated rows to measure arm A; found %',
+    raise notice 'measure_update_cost: nothing to measure, need at least 5 already-populated rows for arm A; found %. Skipped.',
       coalesce(cardinality(ids), 0);
+    return;
   end if;
 
   foreach one_id in array ids loop
@@ -106,8 +113,9 @@ begin
   from (select id from catalog.prop_items where keyword_tsv is null limit 5) s;
 
   if ids is null or cardinality(ids) < 5 then
-    raise exception 'need at least 5 unpopulated rows to measure arm B; found %',
+    raise notice 'measure_update_cost: nothing to measure, need at least 5 unpopulated rows for arm B; found %. Skipped.',
       coalesce(cardinality(ids), 0);
+    return;
   end if;
 
   foreach one_id in array ids loop
