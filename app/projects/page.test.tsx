@@ -19,8 +19,10 @@ vi.mock('@/lib/projects', async () => ({
   ...(await vi.importActual<typeof import('@/lib/projects')>('@/lib/projects')),
   listProjects: vi.fn(),
 }));
+vi.mock('@/lib/requirements/store', () => ({ paperworkStandings: vi.fn() }));
 
 const projects = vi.mocked(await import('@/lib/projects'));
+const store = vi.mocked(await import('@/lib/requirements/store'));
 
 function item(over: Partial<ProjectItem> = {}): ProjectItem {
   return {
@@ -83,6 +85,8 @@ function props(archived?: string) {
 beforeEach(() => {
   projects.listProjects.mockReset();
   projects.listProjects.mockResolvedValue([]);
+  store.paperworkStandings.mockReset();
+  store.paperworkStandings.mockResolvedValue(new Map());
   resetNavigation();
 });
 
@@ -113,9 +117,15 @@ describe('ProjectsPage', () => {
     expect(screen.getByText('No projects yet')).toBeInTheDocument();
   });
 
-  it('renders each project row with counts, filmstrip, date and archive control', async () => {
+  it('renders each project row with counts, paperwork mark, filmstrip, date and archive control', async () => {
     signIn();
-    projects.listProjects.mockResolvedValue([
+    store.paperworkStandings.mockResolvedValue(
+      new Map([
+        ['p-1', { complete: true, outstanding: 0 }],
+        ['p-2', { complete: false, outstanding: 2 }],
+      ]),
+    );
+    const list = [
       project({
         folders: [
           folder({ items: [item(), item({ itemId: 'omega-2', sourceId: '2', name: 'Lamp' })] }),
@@ -129,18 +139,31 @@ describe('ProjectsPage', () => {
         archivedAt: '2026-08-01T00:00:00.000Z',
         folders: [folder({ id: 'f-9', projectId: 'p-2' })],
       }),
-    ]);
+    ];
+    projects.listProjects.mockResolvedValue(list);
     render(await ProjectsPage(props('1')));
+    expect(store.paperworkStandings).toHaveBeenCalledWith(ORG_ID, list);
 
     expect(screen.getByRole('link', { name: 'Nocturne' })).toHaveAttribute('href', '/projects/p-1');
     const row = screen.getByRole('link', { name: 'Nocturne' }).closest('tr')!;
-    const cells = within(row).getAllByRole('cell').map((c) => c.textContent);
-    expect(cells.slice(1, 4)).toEqual(['2', '3', '1']);
+    const cells = within(row).getAllByRole('cell');
+    expect(cells.slice(1, 3).map((c) => c.textContent)).toEqual(['2', '3']);
+    // Documents is a mark, not a count: a check with a tooltip saying the checklist is accounted for.
+    const done = within(cells[3]!).getByLabelText('Paperwork complete');
+    expect(done).toHaveAttribute('aria-describedby', within(cells[3]!).getByRole('tooltip').id);
+    expect(within(cells[3]!).getByRole('tooltip')).toHaveTextContent(
+      'Every document on this project’s checklist is attached, on file, or marked not applicable.',
+    );
     expect(within(row).getAllByRole('img')).toHaveLength(2);
     expect(within(row).getByTestId('archive-p-1')).toHaveTextContent('Archive');
 
     const archived = screen.getByRole('link', { name: 'Archived Short' }).closest('tr')!;
-    expect(within(archived).getAllByRole('cell').map((c) => c.textContent).slice(1, 4)).toEqual(['1', '0', '0']);
+    const archivedCells = within(archived).getAllByRole('cell');
+    expect(archivedCells.slice(1, 3).map((c) => c.textContent)).toEqual(['1', '0']);
+    within(archivedCells[3]!).getByLabelText('Paperwork needed');
+    expect(within(archivedCells[3]!).getByRole('tooltip')).toHaveTextContent(
+      '2 documents on the checklist still need to be submitted.',
+    );
     expect(within(archived).queryAllByRole('img')).toHaveLength(0);
     expect(within(archived).getByText('Archived')).toBeInTheDocument();
     expect(within(archived).getByTestId('archive-p-2')).toHaveTextContent('Restore');

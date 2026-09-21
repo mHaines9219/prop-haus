@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { listProjects } from '@/lib/projects';
 import { requireOrgId } from '@/lib/session';
+import { paperworkStandings } from '@/lib/requirements/store';
+import { DashboardTabs } from '@/components/ap/dashboard-tabs';
 import { PageShell } from '@/components/ap/page-shell';
 import { NewProjectForm } from './new-project-form';
 import { ProjectsTable } from './projects-table';
@@ -25,7 +27,8 @@ export default async function ProjectsPage({
   const showArchived = archived === '1';
   const orgId = await requireOrgId('/projects');
   const projects = await listProjects(orgId, { includeArchived: showArchived });
-  const rows = projects.map(toProjectRow);
+  const standings = await paperworkStandings(orgId, projects);
+  const rows = projects.map((p) => toProjectRow(p, standings.get(p.id) ?? { complete: false, outstanding: 0 }));
 
   return (
     <PageShell>

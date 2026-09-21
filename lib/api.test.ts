@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, deleteJson, getJson, postForm, postJson } from './api';
+import { ApiError, deleteJson, getJson, patchJson, postForm, postJson } from './api';
 
 /**
  * Every client fetch funnels through parse(); the shape of what it throws is
@@ -89,6 +89,20 @@ describe('postJson', () => {
   it('throws on failure like getJson', async () => {
     respond({ error: 'idempotencyKey is required' }, 400);
     await expect(postJson('/api/checkout', {})).rejects.toMatchObject({ status: 400, message: 'idempotencyKey is required' });
+  });
+});
+
+describe('patchJson', () => {
+  it('sends a JSON body as PATCH and throws on failure', async () => {
+    respond({ profile: {} });
+    await expect(patchJson('/api/projects/p1/profile', { crew: { count: 2 } })).resolves.toEqual({ profile: {} });
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p1/profile', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: '{"crew":{"count":2}}',
+    });
+    respond({ error: 'not found' }, 404);
+    await expect(patchJson('/api/projects/p1/profile', {})).rejects.toMatchObject({ status: 404, message: 'not found' });
   });
 });
 

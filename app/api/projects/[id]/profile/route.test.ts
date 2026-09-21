@@ -52,4 +52,13 @@ describe('PATCH /api/projects/[id]/profile', () => {
     expect(body.checklist.items.map((i) => i.requirementId)).toContain('minor_release');
     expect(body.questions).toHaveLength(3);
   });
+
+  it('replaces lists and forgets the paths in `unset`', async () => {
+    seedProject(ORG_ID, { productionType: 'film', locations: { city: 'Brooklyn', kinds: ['studio', 'venue'] }, cast: { minors: true } });
+    const res = await patch({ locations: { kinds: ['studio'] }, unset: ['cast.minors', 'productionType', 7] });
+    expect(res.status).toBe(200);
+    const body = await readJson<{ profile: unknown }>(res);
+    expect(body.profile).toEqual({ locations: { city: 'Brooklyn', kinds: ['studio'] } });
+    expect(db.rows('projects')[0].profile).toEqual(body.profile);
+  });
 });

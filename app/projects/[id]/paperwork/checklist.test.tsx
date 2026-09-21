@@ -17,6 +17,8 @@ const checklist = evaluate({
 });
 
 const row = (name: string) => screen.getByText(name).closest('div.border-b') as HTMLElement;
+/** Open the row's details (every reason, the terms, the secondary actions). */
+const expand = (r: HTMLElement) => userEvent.setup().click(within(r).getByRole('button', { expanded: false }));
 
 beforeEach(() => resetNavigation());
 afterEach(() => {
@@ -31,32 +33,31 @@ describe('ChecklistSection', () => {
     expect(screen.queryByText('Worth a look')).not.toBeInTheDocument();
   });
 
-  it('groups rows by category with the reason, the status token, and the right actions', () => {
+  it('groups rows by category with the lead reason, the status token, and the one action that closes it', () => {
     render(<ChecklistSection projectId="p1" checklist={checklist} />);
 
     expect(screen.getByText('Worth a look')).toBeInTheDocument();
     expect(screen.getByText(/Minors are on set/)).toBeInTheDocument();
     expect(screen.getByText('Vendors and rentals')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Progress: /)).toBeInTheDocument();
 
     const w9 = row('W-9');
-    expect(within(w9).getByText('Required by Prop Heaven')).toBeInTheDocument();
+    expect(within(w9).getByText('Prop Heaven asks new customers for a W-9.')).toBeInTheDocument();
     expect(within(w9).getByText('UPLOAD')).toBeInTheDocument();
     expect(within(w9).getByRole('button', { name: 'Upload mine' })).toBeInTheDocument();
     expect(within(w9).queryByRole('button', { name: 'Use template' })).not.toBeInTheDocument();
+    expect(within(w9).queryByRole('button', { name: 'Not applicable' })).not.toBeInTheDocument();
 
     const change = row('Change order');
     expect(within(change).getByText('TEMPLATE READY')).toBeInTheDocument();
     expect(within(change).getByRole('button', { name: 'Use template' })).toBeInTheDocument();
-    expect(within(change).getByText(/Included with your plan/)).toBeInTheDocument();
+    expect(within(change).queryByText(/Included with your plan/)).not.toBeInTheDocument();
 
     const coi = row('Certificate of insurance (COI)');
     expect(within(coi).getByText('COMPLETE')).toBeInTheDocument();
-    expect(within(coi).getByText(/On file for your account:/)).toBeInTheDocument();
     expect(within(coi).queryByRole('button', { name: 'Use template' })).not.toBeInTheDocument();
 
     const permit = row('Child performer work permit and set requirements');
-    expect(within(permit).getByText('May be legally required. Verify locally.')).toBeInTheDocument();
-    expect(within(permit).getByText('Depends on where you shoot. Verify locally.')).toBeInTheDocument();
     expect(within(permit).getByText('EXTERNAL')).toBeInTheDocument();
     expect(within(permit).getByRole('button', { name: 'Mark requested' })).toBeInTheDocument();
 
@@ -65,13 +66,38 @@ describe('ChecklistSection', () => {
     expect(within(talent).getByRole('button', { name: 'Undo' })).toBeInTheDocument();
   });
 
-  it('posts an action and refreshes', async () => {
+  it('opens a row into every reason, the terms, the file on record, and the secondary actions', async () => {
+    render(<ChecklistSection projectId="p1" checklist={checklist} />);
+
+    const w9 = row('W-9');
+    await expand(w9);
+    expect(within(w9).getByText('Required by Prop Heaven')).toBeInTheDocument();
+    expect(within(w9).getByRole('button', { name: 'Not applicable' })).toBeInTheDocument();
+    expect(within(w9).getByRole('button', { expanded: true })).toBeInTheDocument();
+
+    const change = row('Change order');
+    await expand(change);
+    expect(within(change).getByText(/Included with your plan/)).toBeInTheDocument();
+
+    const coi = row('Certificate of insurance (COI)');
+    await expand(coi);
+    expect(within(coi).getByText(/On file for your account:/)).toBeInTheDocument();
+
+    const permit = row('Child performer work permit and set requirements');
+    await expand(permit);
+    expect(within(permit).getByText('May be legally required. Verify locally.')).toBeInTheDocument();
+    expect(within(permit).getByText('Depends on where you shoot. Verify locally.')).toBeInTheDocument();
+  });
+
+  it('posts a secondary action from the open row and refreshes', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async () => json({ ok: true, checklist }));
     vi.stubGlobal('fetch', fetchMock);
     render(<ChecklistSection projectId="p1" checklist={checklist} />);
 
-    await user.click(within(row('Change order')).getByRole('button', { name: 'Not applicable' }));
+    const change = row('Change order');
+    await expand(change);
+    await user.click(within(change).getByRole('button', { name: 'Not applicable' }));
     await waitFor(() => expect(nav.router.refresh).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/projects/p1/requirements/change_order');

@@ -9,7 +9,6 @@ import PaperworkPage from './page';
 vi.mock('@/lib/session', async () => (await import('@/test/mocks/session')).sessionModule());
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
 vi.mock('@/lib/requirements/store', () => ({ buildChecklist: vi.fn() }));
-vi.mock('@/lib/intake/store', () => ({ listIntakeMessages: vi.fn(async () => []) }));
 
 const store = vi.mocked(await import('@/lib/requirements/store'));
 
@@ -44,7 +43,7 @@ describe('PaperworkPage', () => {
     await expect(page()).rejects.toThrow(/NEXT_NOT_FOUND|404/);
   });
 
-  it('renders the summary, the intake panel, and the checklist', async () => {
+  it('renders the summary, the production form, and the checklist', async () => {
     const profile = { productionType: 'film' as const, crew: { count: 12 }, cast: { minors: true } };
     const checklist = evaluate({ profile, states: [{ requirementId: 'crew_deal_memo', status: 'attached', document: { id: 'd1', name: 'memos.pdf' } }] });
     store.buildChecklist.mockResolvedValue({ project: project(profile), checklist });
@@ -55,8 +54,9 @@ describe('PaperworkPage', () => {
     expect(screen.getByText('Tell us about the production')).toBeInTheDocument();
     expect(screen.getByText('Paperwork checklist')).toBeInTheDocument();
     expect(screen.getByText('Minor release with parent or guardian consent')).toBeInTheDocument();
-    expect(screen.getByText('Film')).toBeInTheDocument();
-    expect(screen.getByText('Still open')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Film' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('Crew count')).toHaveValue(12);
+    expect(screen.getByText(/still open$/)).toBeInTheDocument();
     expect(store.buildChecklist).toHaveBeenCalledWith(expect.any(String), 'p-1', 'free');
   });
 
