@@ -4,10 +4,17 @@
  * The /jobs board: orders in flight and crew requests as sortable, filterable
  * list tables (components/ap/data-table.tsx). Rows link to /orders/[id]; the
  * status tabs and search box narrow the orders table client-side.
+ *
+ * Two status axes per order row. "Status" is the user's own (active | pending |
+ * done), set right in the row with JobStatusSelect and the thing the facet
+ * tabs filter on. "Confirmation" is the vendor-driven lifecycle (placed →
+ * processing → confirmed), read-only here.
  */
 
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { LightWell } from '@/components/ap/light-well';
+import { JobStatusSelect } from '@/components/ap/job-status-select';
 import { StatusToken, crewStatusSpec, orderStatusSpec } from '@/components/ap/status-token';
 import {
   DataTable,
@@ -17,6 +24,7 @@ import {
   useDataTable,
   type FacetOption,
 } from '@/components/ap/data-table';
+import { JOB_STATUSES, JOB_STATUS_LABEL, JOB_STATUS_RANK, type JobStatus } from '@/lib/job-status';
 import type { OrderStatus } from '@/lib/orders';
 import type { CrewRow, JobRow } from './rows';
 
@@ -25,13 +33,6 @@ const ORDER_STATUS_RANK: Record<OrderStatus, number> = {
   processing: 1,
   confirmed: 2,
   cancelled: 3,
-};
-
-const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  placed: 'Placed',
-  processing: 'Processing',
-  confirmed: 'Confirmed',
-  cancelled: 'Cancelled',
 };
 
 const CREW_STATUS_RANK: Record<CrewRow['status'], number> = { requested: 0, confirmed: 1, declined: 2 };
@@ -46,6 +47,9 @@ function formatDate(iso: string): string {
 
 const job = createDataColumns<JobRow>();
 
+/** What the Status cell needs from the table: a way to report a pick so the facets re-filter at once. */
+type JobsTableMeta = { onJobStatus: (id: string, status: JobStatus) => void };
+
 const jobColumns = job.columns([
   job.accessor((r) => Date.parse(r.createdAt), {
     id: 'order',
@@ -53,9 +57,21 @@ const jobColumns = job.columns([
     sortDescFirst: true,
     cell: ({ row }) => <OrderCell row={row.original} />,
   }),
-  job.accessor('status', {
+  job.accessor('jobStatus', {
     header: 'Status',
     filterFn: 'equals',
+    sortFn: (a, b, id) => JOB_STATUS_RANK[a.getValue<JobStatus>(id)] - JOB_STATUS_RANK[b.getValue<JobStatus>(id)],
+    cell: ({ row, table }) => (
+      <JobStatusSelect
+        orderId={row.original.id}
+        value={row.original.jobStatus}
+        label={`Status for order #${row.original.code}`}
+        onChange={(status) => (table.options.meta as JobsTableMeta | undefined)?.onJobStatus(row.original.id, status)}
+      />
+    ),
+  }),
+  job.accessor('status', {
+    header: 'Confirmation',
     sortFn: (a, b, id) =>
       ORDER_STATUS_RANK[a.getValue<OrderStatus>(id)] - ORDER_STATUS_RANK[b.getValue<OrderStatus>(id)],
     cell: ({ getValue }) => <StatusToken {...orderStatusSpec(getValue())} />,
@@ -122,32 +138,54 @@ function OrderCell({ row }: { row: JobRow }) {
 }
 
 function jobSearchText(r: JobRow): string {
-  return [r.code, r.status, r.rollup, ...r.vendorNames].join(' ');
+  return [r.code, JOB_STATUS_LABEL[r.jobStatus], r.status, r.rollup, ...r.vendorNames].join(' ');
 }
 
 const JOB_SORT = [{ id: 'updated', desc: true }];
 
 export function JobsTable({ jobs }: { jobs: JobRow[] }) {
+  // Picks the user makes in a row, ahead of the server round-trip, so the
+  // facet counts and the active filter follow the pick without a flash. The
+  // server render wins once router.refresh() lands new rows.
+  const [picks, setPicks] = useState<Record<string, JobStatus>>({});
+  const rows = useMemo(
+    () => jobs.map((j) => (picks[j.id] && picks[j.id] !== j.jobStatus ? { ...j, jobStatus: picks[j.id] } : j)),
+    [jobs, picks],
+  );
+  const onJobStatus = useCallback((id: string, status: JobStatus) => {
+    setPicks((p) => ({ ...p, [id]: status }));
+  }, []);
+  // New rows from the server carry the saved statuses; drop the interim picks.
+  useEffect(() => {
+    setPicks({});
+  }, [jobs]);
+  const meta = useMemo<JobsTableMeta>(() => ({ onJobStatus }), [onJobStatus]);
+
   const table = useDataTable({
-    data: jobs,
+    data: rows,
     columns: jobColumns,
     getRowId: (r) => r.id,
     initialSorting: JOB_SORT,
     search: jobSearchText,
+    meta,
   });
 
-  const facets: FacetOption[] = (Object.keys(ORDER_STATUS_LABEL) as OrderStatus[])
-    .map((s) => ({ value: s, label: ORDER_STATUS_LABEL[s], count: jobs.filter((j) => j.status === s).length }))
-    .filter((o) => o.count > 0);
+  // Every status is a tab, even at zero: the user assigns these, so an empty
+  // Done bucket is information, not noise.
+  const facets: FacetOption[] = JOB_STATUSES.map((s) => ({
+    value: s,
+    label: JOB_STATUS_LABEL[s],
+    count: rows.filter((j) => j.jobStatus === s).length,
+  }));
 
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <DataTableFacetTabs
           table={table}
-          columnId="status"
+          columnId="jobStatus"
           label="Filter orders by status"
-          allCount={jobs.length}
+          allCount={rows.length}
           options={facets}
           className="min-w-0 flex-1"
         />
@@ -157,7 +195,7 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         <DataTable
           table={table}
           rowHref={(r) => `/orders/${r.id}`}
-          columnClass={{ vendors: 'hidden md:table-cell', items: 'hidden sm:table-cell' }}
+          columnClass={{ status: 'hidden sm:table-cell', vendors: 'hidden md:table-cell', items: 'hidden sm:table-cell' }}
           emptyBody="No orders match that filter."
         />
       </div>

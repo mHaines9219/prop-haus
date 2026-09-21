@@ -18,6 +18,7 @@ import { getOrderProfile } from '@/lib/order-profile-store';
 import { listOrderDocuments } from '@/lib/forms/documents';
 import { PaperworkSection } from '@/components/orders/paperwork-section';
 import { PageShell } from '@/components/ap/page-shell';
+import { JobStatusSelect } from '@/components/ap/job-status-select';
 import { LightWell } from '@/components/ap/light-well';
 import { SpacelabPanel } from '@/components/ap/spacelab-panel';
 import { VendorRequests } from '@/components/ap/vendor-requests';
@@ -81,6 +82,7 @@ export default async function OrderPage({ params }: Props) {
               #{order.id.slice(0, 8).toUpperCase()}
             </h1>
             <StatusToken {...orderStatusSpec(order.status)} />
+            <JobStatusSelect orderId={order.id} value={order.jobStatus} label="Job status" />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-text-secondary">
             <span>{placedDate}</span>

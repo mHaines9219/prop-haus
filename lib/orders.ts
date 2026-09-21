@@ -1,7 +1,11 @@
 import type { Source } from './types';
 import type { Address } from './order-profile';
 import { createAdminClient } from './supabase/admin';
+import { DEFAULT_JOB_STATUS, isJobStatus, type JobStatus } from './job-status';
 
+export type { JobStatus } from './job-status';
+
+/** Vendor-driven lifecycle. The user's own board status is `jobStatus` (lib/job-status.ts). */
 export type OrderStatus = 'placed' | 'processing' | 'confirmed' | 'cancelled';
 
 /**
@@ -29,6 +33,8 @@ export type Order = {
   id: string;
   orgId: string;
   status: OrderStatus;
+  /** User-assigned board status (active | pending | done), set from /jobs. */
+  jobStatus: JobStatus;
   rentalStart?: string;
   rentalEnd?: string;
   /** Snapshotted at checkout so emails and forms read the order, not the live profile. */
@@ -157,6 +163,24 @@ export async function setOrderStatus(
 }
 
 /**
+ * Set the user's own board status on an order (orders.job_status). Org-scoped
+ * like setOrderStatus; throws "not found" for an order outside this org.
+ */
+export async function setJobStatus(orderId: string, orgId: string, jobStatus: JobStatus): Promise<void> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from('orders')
+    .update({ job_status: jobStatus, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .eq('org_id', orgId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('Order not found');
+}
+
+/**
  * Move a single line item to a new coordination status. Verifies the item's
  * parent order belongs to `orgId` before writing (a caller must not be able to
  * flip another org's line by guessing an id). `note`/`quotedCents` are only
@@ -249,6 +273,7 @@ type OrderRow = {
   id: string;
   org_id: string;
   status: string;
+  job_status?: string | null;
   rental_start: string | null;
   rental_end: string | null;
   delivery_address: Address | null;
@@ -281,6 +306,7 @@ function toOrder(r: OrderRow): Order {
     id: r.id,
     orgId: r.org_id,
     status: r.status as OrderStatus,
+    jobStatus: isJobStatus(r.job_status) ? r.job_status : DEFAULT_JOB_STATUS,
     ...(r.rental_start ? { rentalStart: r.rental_start } : {}),
     ...(r.rental_end ? { rentalEnd: r.rental_end } : {}),
     ...(r.delivery_address ? { deliveryAddress: r.delivery_address } : {}),

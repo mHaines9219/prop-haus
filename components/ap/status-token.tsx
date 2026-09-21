@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils';
 
 export type StatusTone = 'pending' | 'quoted' | 'confirmed' | 'unavailable';
 
-const TONE_DOT: Record<StatusTone, string> = {
+/** The dot class per tone. Exported for controls that render a token-shaped dot (JobStatusSelect). */
+export const TONE_DOT: Record<StatusTone, string> = {
   pending: 'bg-status-pending',
   quoted: 'bg-status-quoted',
   confirmed: 'bg-status-confirmed',
@@ -76,6 +77,22 @@ export function orderStatusSpec(status: string): TokenSpec {
       return { tone: 'unavailable', label: 'CANCELLED' };
     default:
       return { tone: 'pending', label: 'PLACED' };
+  }
+}
+
+/**
+ * orders.job_status — the user's own board status (active/pending/done). Active
+ * reads as standby amber (in motion, the user's attention is on it), pending as
+ * house-lights grey (parked), done as go green.
+ */
+export function jobStatusSpec(status: string): TokenSpec {
+  switch (status) {
+    case 'active':
+      return { tone: 'quoted', label: 'ACTIVE' };
+    case 'done':
+      return { tone: 'confirmed', label: 'DONE' };
+    default:
+      return { tone: 'pending', label: 'PENDING' };
   }
 }
 
