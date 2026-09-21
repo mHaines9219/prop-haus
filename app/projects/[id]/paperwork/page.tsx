@@ -3,16 +3,14 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { requireOrgId, currentPlan } from '@/lib/session';
 import { buildChecklist } from '@/lib/requirements/store';
-import { listIntakeMessages } from '@/lib/intake/store';
 import { intakeProvider } from '@/lib/intake/extract';
-import { profileFacts, profileGaps } from '@/lib/project-profile';
 import { PageShell } from '@/components/ap/page-shell';
-import { IntakePanel } from './intake-panel';
+import { ProfileForm } from './profile-form';
 import { ChecklistSection } from './checklist';
 
 /**
  * /projects/[id]/paperwork — the paperwork workspace for one production.
- * Left: the intake conversation and the profile it has built. Right: the
+ * Left: the production form, seeded by a one-line description. Right: the
  * checklist the requirements engine derives from that profile, with the
  * reason behind every row and the action that closes it.
  */
@@ -24,10 +22,6 @@ export default async function PaperworkPage({ params }: { params: Promise<{ id: 
   const built = await buildChecklist(orgId, id, plan);
   if (!built) notFound();
   const { project, checklist } = built;
-  const messages = await listIntakeMessages(id);
-
-  const facts = profileFacts(project.profile);
-  const questions = profileGaps(project.profile).slice(0, 3);
   const { total, complete, needsInformation } = checklist.summary;
 
   return (
@@ -57,13 +51,7 @@ export default async function PaperworkPage({ params }: { params: Promise<{ id: 
 
         <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-12">
           <div className="lg:col-span-5">
-            <IntakePanel
-              projectId={project.id}
-              initialMessages={messages.map((m) => ({ id: m.id, role: m.role, content: m.content }))}
-              initialFacts={facts}
-              initialQuestions={questions.map((q) => q.question)}
-              provider={intakeProvider()}
-            />
+            <ProfileForm projectId={project.id} initialProfile={project.profile} provider={intakeProvider()} />
           </div>
           <div className="lg:col-span-7">
             <ChecklistSection projectId={project.id} checklist={checklist} />
