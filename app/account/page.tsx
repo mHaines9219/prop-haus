@@ -162,13 +162,13 @@ export default async function AccountPage() {
           </div>
         </section>
 
-        {/* Shortcut to jobs-in-progress */}
+        {/* Shortcut to the dashboard: jobs live under each project */}
         <div className="mt-10">
           <Link
-            href="/jobs"
+            href="/projects"
             className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary underline underline-offset-4 hover:text-foreground"
           >
-            View jobs in progress →
+            View your projects →
           </Link>
         </div>
       </div>

@@ -7,6 +7,7 @@ test.describe('signed-out guards', () => {
     await page.goto('/projects');
     await expect(page).toHaveURL(/\/$/);
 
+    // /jobs is gone: it redirects to the dashboard, which bounces a stranger home.
     await page.goto('/jobs');
     await expect(page).toHaveURL(/\/$/);
 

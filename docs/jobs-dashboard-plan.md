@@ -236,3 +236,13 @@ The rest of the DripDome port, scope with Matthew first:
   job spanning multiple orders + crew + COIs) once users have >1 order per
   production. The Phase 1 aggregation seam (`lib/jobs.ts`) is where that
   slots in without UI rework.
+
+---
+
+**Sep 21 2026 — superseded in part.** The standalone `/jobs` surface this
+plan describes was folded into each project page: the Dashboard is Projects
+only, and a project shows its orders (JOBS) and crew requests (CREW) beside
+SCENES and PAPERWORK. `lib/jobs.ts` is still the aggregation seam
+(`getProjectJobs` per project, `getJobsOverview` org-wide); orders and crew
+requests now carry a `project_id`. See TASKS.md · MVP-8 for the current
+shape. The sections below are kept as history.

@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { createOrder, type CartLineInput } from '@/lib/orders';
+import { getProject } from '@/lib/projects';
 import { normalizeAddress, orderDefaults, orderReadiness } from '@/lib/order-profile';
 import { getOrderProfile } from '@/lib/order-profile-store';
 import { paymentProvider } from '@/lib/payments/provider';
@@ -18,6 +19,8 @@ type CheckoutBody = {
   deliveryNotes?: string;
   /** Vendor emails the user edited on the cart: { vendorId, subject?, bodyText? }[]. */
   messages?: unknown;
+  /** The project the order is for (its Jobs section lists it). Optional. */
+  projectId?: unknown;
   idempotencyKey: string;
 };
 
@@ -47,8 +50,22 @@ export async function POST(req: Request) {
   }
   const defaults = orderDefaults(profile);
 
+  // A project id is only ever the session org's own: an unknown or foreign id
+  // is refused rather than silently dropped, so the cart never thinks an
+  // order landed on a project it did not.
+  let projectId: string | undefined;
+  if (body.projectId !== undefined && body.projectId !== null && body.projectId !== '') {
+    if (typeof body.projectId !== 'string') {
+      return NextResponse.json({ error: 'projectId must be a string' }, { status: 400 });
+    }
+    const project = await getProject(session.orgId, body.projectId);
+    if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 });
+    projectId = project.id;
+  }
+
   const order = await createOrder({
     orgId: session.orgId,
+    projectId,
     lines: body.lines,
     rentalStart: body.rentalStart || defaults.rentalStart,
     rentalEnd: body.rentalEnd || defaults.rentalEnd,

@@ -62,6 +62,24 @@ export const CREW_COPY = {
     'All contractors are vetted by Prop Haus. Day rates shown are typical ranges; final rates confirmed on booking.',
 };
 
+/** "$650–$800/day", "$450/day", or "Rate on request" from cents. */
+export function formatDayRate(low: number | null, high: number | null): string {
+  if (!low && !high) return 'Rate on request';
+  const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  if (low && high && low !== high) return `${fmt(low)}–${fmt(high)}/day`;
+  return `${fmt(low ?? high!)}/day`;
+}
+
+/** "los_angeles" → "Los Angeles". contractors.city is a slug. */
+export function formatCrewCity(city: string | null | undefined): string | null {
+  if (!city) return null;
+  return city
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export function isCrewRoleSlug(value: unknown): value is CrewRoleSlug {
   return typeof value === 'string' && CREW_ROLES.some((r) => r.slug === value);
 }

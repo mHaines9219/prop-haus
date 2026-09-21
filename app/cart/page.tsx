@@ -14,6 +14,7 @@ import { OutreachDrawer } from '@/components/ap/outreach-drawer';
 import { ApiError, getJson, postJson } from '@/lib/api';
 import { formatAddress, type OrderDefaults } from '@/lib/order-profile';
 import type { Draft } from '@/lib/outreach/compose';
+import type { ProjectSummary } from '@/lib/projects';
 
 type CheckoutState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
@@ -23,7 +24,7 @@ type Edit = { subject: string; bodyText: string };
 type Readiness =
   | { kind: 'loading' }
   | { kind: 'anon' }
-  | { kind: 'ready'; defaults: OrderDefaults & { rentalWindowDays?: number } }
+  | { kind: 'ready'; defaults: OrderDefaults & { rentalWindowDays?: number }; projects: ProjectSummary[] }
   | { kind: 'incomplete'; missing: string[] };
 
 export default function CartPage() {
@@ -38,6 +39,9 @@ export default function CartPage() {
   const [override, setOverride] = useState(false);
   const [state, setState] = useState<CheckoutState>({ kind: 'idle' });
   const [readiness, setReadiness] = useState<Readiness>({ kind: 'loading' });
+  // The project the order lands on (its Jobs section lists it). Starts on the
+  // most recently touched project; '' places the order on none.
+  const [projectId, setProjectId] = useState<string | null>(null);
   // Stable key for the lifetime of this cart session — prevents double-submit.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
@@ -51,7 +55,9 @@ export default function CartPage() {
   useEffect(() => {
     let cancelled = false;
     loadReadiness().then((r) => {
-      if (!cancelled) setReadiness(r);
+      if (cancelled) return;
+      setReadiness(r);
+      if (r.kind === 'ready') setProjectId((current) => current ?? r.projects[0]?.id ?? '');
     });
     return () => {
       cancelled = true;
@@ -116,6 +122,7 @@ export default function CartPage() {
         rentalEnd: rentalEnd || undefined,
         deliveryNotes: deliveryNotes.trim() || undefined,
         messages: Object.entries(edits).map(([vendorId, e]) => ({ vendorId, ...e })),
+        projectId: projectId || undefined,
         idempotencyKey,
       });
 
@@ -223,6 +230,30 @@ export default function CartPage() {
                   <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                     Order details
                   </p>
+
+                  {readiness.kind === 'ready' && readiness.projects.length > 0 && (
+                    <div className="mt-4">
+                      <label htmlFor="cart-project" className="block font-mono text-[13px] text-text-tertiary">
+                        Project
+                      </label>
+                      <select
+                        id="cart-project"
+                        value={projectId ?? ''}
+                        onChange={(e) => setProjectId(e.target.value)}
+                        className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                      >
+                        {readiness.projects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                        <option value="">No project</option>
+                      </select>
+                      <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                        The order shows under this project&apos;s jobs.
+                      </p>
+                    </div>
+                  )}
 
                   {readiness.kind === 'ready' && (
                     <dl className="mt-4 space-y-3 font-mono text-[13px]">
@@ -483,8 +514,11 @@ async function loadReadiness(): Promise<Readiness> {
       ready: boolean;
       missing: string[];
       defaults: OrderDefaults & { rentalWindowDays?: number };
+      projects?: ProjectSummary[];
     }>('/api/checkout/readiness');
-    return r.ready ? { kind: 'ready', defaults: r.defaults } : { kind: 'incomplete', missing: r.missing };
+    return r.ready
+      ? { kind: 'ready', defaults: r.defaults, projects: r.projects ?? [] }
+      : { kind: 'incomplete', missing: r.missing };
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return { kind: 'anon' };
     return { kind: 'incomplete', missing: ['Order profile could not be read'] };

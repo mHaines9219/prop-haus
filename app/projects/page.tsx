@@ -11,8 +11,10 @@ import { toProjectRow } from './rows';
 export const metadata = { title: 'Dashboard · Prop Haus' };
 
 /**
- * /projects — the Dashboard. One row per production; each production owns
- * scene folders of pulled items plus a paperwork folder (see lib/projects.ts).
+ * /projects — the Dashboard, which is Projects and nothing else. One row per
+ * production; each production owns scene folders of pulled items, its orders
+ * (Jobs), its crew requests, and a paperwork folder (see lib/projects.ts and
+ * lib/jobs.ts).
  * List view, never a card grid (DESIGN.md §9.7). The rows are a sortable,
  * searchable table (projects-table.tsx on the shared DataTable).
  */
@@ -49,9 +51,7 @@ export default async function ProjectsPage({
           One project per production. Sort what you pull by scene, and keep the paperwork with it.
         </p>
 
-        <DashboardTabs />
-
-        <div className="mt-8">
+        <div className="mt-8 border-t border-border pt-8">
           <NewProjectForm />
 
           {rows.length === 0 ? (

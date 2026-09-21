@@ -102,8 +102,8 @@ describe('ProjectsPage', () => {
     render(await ProjectsPage(props()));
     expect(projects.listProjects).toHaveBeenCalledWith(ORG_ID, { includeArchived: false });
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Your projects');
-    const tabs = screen.getByRole('navigation', { name: 'Dashboard sections' });
-    expect(within(tabs).getByRole('link', { name: 'Jobs' })).toHaveAttribute('href', '/jobs');
+    // The Dashboard is Projects only: no Jobs tab, no section sub-nav.
+    expect(screen.queryByRole('navigation', { name: 'Dashboard sections' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Show archived' })).toHaveAttribute('href', '/projects?archived=1');
     expect(screen.getByText('No active projects')).toBeInTheDocument();
   });

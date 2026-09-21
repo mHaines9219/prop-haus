@@ -248,6 +248,47 @@ describe('idempotency', () => {
     expect(db.rows('orders')).toHaveLength(2);
   });
 
+  describe('projectId', () => {
+    function seedProject(id: string, orgId = ORG_ID) {
+      db.relation('projects', 'project_folders', 'project_id');
+      db.relation('project_folders', 'project_items', 'folder_id');
+      db.relation('project_folders', 'project_documents', 'folder_id');
+      db.seed('projects', [{ id, org_id: orgId, name: 'Nocturne', profile: {}, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', archived_at: null }]);
+    }
+
+    it('places the order on one of the session org’s projects', async () => {
+      seedOrg();
+      seedProject('p-1');
+      const res = await POST(jsonRequest('/api/checkout', { ...body, projectId: 'p-1' }));
+      expect(res.status).toBe(201);
+      expect(db.rows('orders')).toEqual([expect.objectContaining({ project_id: 'p-1' })]);
+    });
+
+    it('leaves project_id null when the cart sends none or an empty one', async () => {
+      seedOrg();
+      await POST(jsonRequest('/api/checkout', body));
+      await POST(jsonRequest('/api/checkout', { ...body, idempotencyKey: 'click-2', projectId: '' }));
+      expect(db.rows('orders').map((o) => o.project_id)).toEqual([null, null]);
+    });
+
+    it('404s for another org’s project and places nothing', async () => {
+      seedOrg();
+      seedProject('p-theirs', OTHER_ORG_ID);
+      const res = await POST(jsonRequest('/api/checkout', { ...body, projectId: 'p-theirs' }));
+      expect(res.status).toBe(404);
+      expect(await readJson(res)).toEqual({ error: 'project not found' });
+      expect(db.rows('orders')).toEqual([]);
+      expect(db.rows('events')).toEqual([]);
+    });
+
+    it('400s for a non-string projectId', async () => {
+      seedOrg();
+      const res = await POST(jsonRequest('/api/checkout', { ...body, projectId: 12 }));
+      expect(res.status).toBe(400);
+      expect(db.rows('orders')).toEqual([]);
+    });
+  });
+
   it('surfaces a non-duplicate insert failure instead of swallowing it', async () => {
     seedOrg();
     db.failNext('orders', 'insert', { code: '57014', message: 'statement timeout' });

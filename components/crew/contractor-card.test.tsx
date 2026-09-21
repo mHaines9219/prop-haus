@@ -93,6 +93,46 @@ describe('ContractorCard', () => {
     expect(screen.queryByText('Ten years on commercial sets.')).toBeNull();
   });
 
+  describe('project picker', () => {
+    const PROJECTS = [
+      { id: 'p-1', name: 'Nocturne' },
+      { id: 'p-2', name: 'Daylight' },
+    ];
+
+    it('is absent without projects, and the body carries no project_id', async () => {
+      render(<ContractorCard contractor={contractor()} />);
+      const f = await openForm();
+      expect(screen.queryByLabelText('Project')).toBeNull();
+      await userEvent.click(f.send);
+      expect(lastBody()).not.toHaveProperty('project_id');
+    });
+
+    it('starts on the first project and sends it', async () => {
+      render(<ContractorCard contractor={contractor()} projects={PROJECTS} />);
+      const f = await openForm();
+      const picker = screen.getByLabelText('Project');
+      expect(picker).toHaveValue('p-1');
+      await userEvent.click(f.send);
+      expect(lastBody().project_id).toBe('p-1');
+    });
+
+    it('starts on the project it was opened for, and lets the user pick none', async () => {
+      render(<ContractorCard contractor={contractor()} projects={PROJECTS} initialProjectId="p-2" />);
+      const f = await openForm();
+      const picker = screen.getByLabelText('Project');
+      expect(picker).toHaveValue('p-2');
+      await userEvent.selectOptions(picker, '');
+      await userEvent.click(f.send);
+      expect(lastBody()).not.toHaveProperty('project_id');
+    });
+
+    it('ignores an initial project that is not in the list', async () => {
+      render(<ContractorCard contractor={contractor()} projects={PROJECTS} initialProjectId="p-theirs" />);
+      await openForm();
+      expect(screen.getByLabelText('Project')).toHaveValue('p-1');
+    });
+  });
+
   it('opens and cancels the request form', async () => {
     render(<ContractorCard contractor={contractor()} />);
     expect(screen.queryByLabelText('Dates needed')).toBeNull();

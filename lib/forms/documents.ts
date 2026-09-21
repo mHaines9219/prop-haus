@@ -110,12 +110,16 @@ export async function getOrderDocument(id: string, orgId: string): Promise<Order
 }
 
 /** Documents still waiting on the user across an org: to sign, or manual. */
-export async function countPendingDocuments(orgId: string): Promise<number> {
-  const { count } = await createAdminClient()
+export async function countPendingDocuments(orgId: string, opts: { orderIds?: string[] } = {}): Promise<number> {
+  if (opts.orderIds && opts.orderIds.length === 0) return 0;
+  let q = createAdminClient()
     .from('order_documents')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', orgId)
     .in('status', ['awaiting_signature', 'manual']);
+  // Narrowed to one project's orders when the caller scopes it (the project page).
+  if (opts.orderIds) q = q.in('order_id', opts.orderIds);
+  const { count } = await q;
   return count ?? 0;
 }
 

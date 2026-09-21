@@ -1,10 +1,10 @@
 /**
- * Row view-models for the /jobs board. Built on the server from lib/jobs
- * (which reaches the database) and handed to the client table as plain data,
- * so the board never imports server-only code.
+ * Row view-models for a project's Jobs table. Built on the server from
+ * lib/jobs (which reaches the database) and handed to the client table as
+ * plain data, so the table never imports server-only code.
  */
 
-import { jobRollupCopy, type CrewRequestRow, type Job } from '@/lib/jobs';
+import { jobRollupCopy, type Job } from '@/lib/jobs';
 import type { JobStatus, OrderStatus } from '@/lib/orders';
 
 export type JobThumb = { id: string; name: string; image: string };
@@ -49,5 +49,3 @@ export function toJobRow(job: Job): JobRow {
     updatedAt: job.updatedAt,
   };
 }
-
-export type CrewRow = CrewRequestRow;

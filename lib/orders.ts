@@ -33,8 +33,10 @@ export type Order = {
   id: string;
   orgId: string;
   status: OrderStatus;
-  /** User-assigned board status (active | pending | done), set from /jobs. */
+  /** User-assigned board status (active | pending | done), set from the project's Jobs section. */
   jobStatus: JobStatus;
+  /** The production the order was placed for. Absent for orders placed without a project. */
+  projectId?: string;
   rentalStart?: string;
   rentalEnd?: string;
   /** Snapshotted at checkout so emails and forms read the order, not the live profile. */
@@ -59,6 +61,8 @@ export type CartLineInput = {
 
 export type CreateOrderInput = {
   orgId: string;
+  /** Verified by the caller to belong to `orgId` before it gets here. */
+  projectId?: string;
   lines: CartLineInput[];
   rentalStart?: string;
   rentalEnd?: string;
@@ -76,6 +80,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     .from('orders')
     .insert({
       org_id: input.orgId,
+      project_id: input.projectId ?? null,
       status: 'placed',
       rental_start: input.rentalStart ?? null,
       rental_end: input.rentalEnd ?? null,
@@ -274,6 +279,7 @@ type OrderRow = {
   org_id: string;
   status: string;
   job_status?: string | null;
+  project_id?: string | null;
   rental_start: string | null;
   rental_end: string | null;
   delivery_address: Address | null;
@@ -307,6 +313,7 @@ function toOrder(r: OrderRow): Order {
     orgId: r.org_id,
     status: r.status as OrderStatus,
     jobStatus: isJobStatus(r.job_status) ? r.job_status : DEFAULT_JOB_STATUS,
+    ...(r.project_id ? { projectId: r.project_id } : {}),
     ...(r.rental_start ? { rentalStart: r.rental_start } : {}),
     ...(r.rental_end ? { rentalEnd: r.rental_end } : {}),
     ...(r.delivery_address ? { deliveryAddress: r.delivery_address } : {}),

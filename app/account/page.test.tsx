@@ -38,9 +38,15 @@ function overview(over: Partial<JobsOverview> = {}): JobsOverview {
 
 const CREW: CrewRequestRow = {
   id: 'cr-1',
+  projectId: null,
   contractorId: 'c-1',
   contractorName: 'Dana Lee',
   contractorPhoto: null,
+  contractorSkills: [],
+  contractorCity: null,
+  contractorRateLow: null,
+  contractorRateHigh: null,
+  contractorBio: null,
   requestedDates: [],
   location: null,
   notes: null,
@@ -95,7 +101,7 @@ describe('AccountPage', () => {
     expect(screen.getByText('Nocturne Pictures')).toBeInTheDocument();
     expect(screen.getByText('Pro')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Order profile →' })).toHaveAttribute('href', '/account/profile');
-    expect(screen.getByRole('link', { name: 'View jobs in progress →' })).toHaveAttribute('href', '/jobs');
+    expect(screen.getByRole('link', { name: 'View your projects →' })).toHaveAttribute('href', '/projects');
   });
 
   it('shows the ready token when the order profile is complete', async () => {

@@ -21,7 +21,7 @@ import { createServerClient } from "@supabase/ssr";
 
 // Routes that only make sense with an owner. Everything else (browse, search,
 // item pages, cart) stays public.
-const PROTECTED_PREFIXES = ['/projects', '/jobs'];
+const PROTECTED_PREFIXES = ['/projects'];
 
 function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
@@ -85,10 +85,10 @@ export const config = {
     "/api/clip",
     "/api/usage",
     "/api/search",
-    // MVP-8: /jobs is gated above; /orders and /account read the session via
-    // requireOrgId, and these API routes call currentSession()/currentOrgId().
-    // They were all missing from the matcher, so their tokens expired mid-session.
-    "/jobs",
+    // /orders and /account read the session via requireOrgId, and these API
+    // routes call currentSession()/currentOrgId(). They were all missing from
+    // the matcher once, so their tokens expired mid-session. (/jobs is gone:
+    // next.config redirects it to /projects.)
     "/orders/:path*",
     "/account/:path*",
     "/api/account/:path*",

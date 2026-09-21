@@ -550,10 +550,24 @@ the fallback posture if he says hotlink-only.
 
 **Status:** DONE (mHaines9219/cancun, 2026-08-31) — plan in docs/jobs-dashboard-plan.md.
 Sep 21 2026 follow-up: user-assigned job status (`orders.job_status`:
-active | pending | done) set from the /jobs row and the job detail header
+active | pending | done) set from the jobs row and the job detail header
 (`components/ap/job-status-select.tsx`), with the board's facet tabs
 filtering on it; the vendor lifecycle stays as the read-only Confirmation
 column. Migration `20260921120000_order_job_status.sql`.
+Sep 21 2026 restructure: the Dashboard is PROJECTS ONLY. `/jobs` and the
+Jobs tab are gone (next.config redirects `/jobs` → `/projects`). What the
+board showed now lives on each project page (`app/projects/[id]/page.tsx`)
+as four sections: SCENES, JOBS (that project's orders, the same DataTable
+in `app/projects/[id]/jobs-table.tsx`), CREW (`crew-list.tsx`: empty → a
+"Need a crew?" button into `/crew?project=<id>`; populated → one-line rows
+that expand into the contractor's full profile), PAPERWORK. Orders and
+crew requests carry a nullable `project_id`
+(`20260921130000_project_jobs_and_crew.sql`): the cart has a project
+picker (fed by `/api/checkout/readiness`), the crew request form has one
+too (preselected from `?project=`), and both routes verify the project is
+the session org's own. `lib/jobs.getProjectJobs` is the per-project read;
+`getJobsOverview` stays org-wide for `/account`. Orders placed with no
+project still list at `/orders`.
 **Priority:** medium-high
 **Depends on:** nothing (MVP-3 orders and MVP-2 crew already landed)
 
