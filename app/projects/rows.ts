@@ -4,13 +4,8 @@
  * plain data, so the table never imports server-only code.
  */
 
-import {
-  allItems,
-  projectDocumentCount,
-  projectItemCount,
-  sceneFolders,
-  type Project,
-} from '@/lib/projects';
+import { allItems, projectItemCount, sceneFolders, type Project } from '@/lib/projects';
+import type { PaperworkStanding } from '@/lib/requirements/store';
 
 export type ProjectThumb = { itemId: string; name: string; image: string };
 
@@ -19,19 +14,20 @@ export type ProjectRow = {
   name: string;
   scenes: number;
   items: number;
-  documents: number;
+  /** Where the paperwork checklist stands (lib/requirements/store.ts). */
+  paperwork: PaperworkStanding;
   thumbs: ProjectThumb[];
   updatedAt: string;
   archivedAt: string | null;
 };
 
-export function toProjectRow(p: Project): ProjectRow {
+export function toProjectRow(p: Project, paperwork: PaperworkStanding): ProjectRow {
   return {
     id: p.id,
     name: p.name,
     scenes: sceneFolders(p).length,
     items: projectItemCount(p),
-    documents: projectDocumentCount(p),
+    paperwork,
     thumbs: allItems(p)
       .filter((i): i is typeof i & { image: string } => Boolean(i.image))
       .slice(0, 3)

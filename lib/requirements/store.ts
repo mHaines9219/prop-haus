@@ -27,17 +27,36 @@ type StateRow = {
   project_documents: { id: string; name: string } | null;
 };
 
+function toState(r: StateRow): RequirementState {
+  return {
+    requirementId: r.requirement_id,
+    status: r.status,
+    ...(r.status === 'attached' && r.project_documents ? { document: { id: r.project_documents.id, name: r.project_documents.name } } : {}),
+  };
+}
+
 export async function listRequirementStates(projectId: string): Promise<RequirementState[]> {
   const { data, error } = await createAdminClient()
     .from('project_requirements')
     .select('requirement_id, status, document_id, project_documents(id, name)')
     .eq('project_id', projectId);
   if (error) throw new Error(`listRequirementStates: ${error.message}`);
-  return ((data ?? []) as unknown as StateRow[]).map((r) => ({
-    requirementId: r.requirement_id,
-    status: r.status,
-    ...(r.status === 'attached' && r.project_documents ? { document: { id: r.project_documents.id, name: r.project_documents.name } } : {}),
-  }));
+  return ((data ?? []) as unknown as StateRow[]).map(toState);
+}
+
+/** The same, for many projects in one read; every requested id gets an entry, empty when nothing is set. */
+async function listRequirementStatesFor(projectIds: string[]): Promise<Map<string, RequirementState[]>> {
+  const states = new Map(projectIds.map((id) => [id, [] as RequirementState[]]));
+  if (projectIds.length === 0) return states;
+  const { data, error } = await createAdminClient()
+    .from('project_requirements')
+    .select('project_id, requirement_id, status, document_id, project_documents(id, name)')
+    .in('project_id', projectIds);
+  if (error) throw new Error(`listRequirementStatesFor: ${error.message}`);
+  for (const r of (data ?? []) as unknown as (StateRow & { project_id: string })[]) {
+    states.get(r.project_id)?.push(toState(r));
+  }
+  return states;
 }
 
 async function upsertState(
@@ -107,6 +126,51 @@ export async function buildChecklist(orgId: string, projectId: string, plan: Pla
   }
 
   return { project, checklist };
+}
+
+// ---- standing ----
+
+/**
+ * Where a project's paperwork stands, boiled down for a list: complete means
+ * there is a checklist and every item on it is attached, on file, or marked
+ * not applicable. `outstanding` counts the items still waiting on a document
+ * or on information; a project with no checklist yet has none outstanding
+ * and is not complete either.
+ */
+export type PaperworkStanding = { complete: boolean; outstanding: number };
+
+export function paperworkStanding(checklist: Checklist): PaperworkStanding {
+  const { total, open, needsInformation } = checklist.summary;
+  const outstanding = open + needsInformation;
+  return { complete: total > 0 && outstanding === 0, outstanding };
+}
+
+/**
+ * Standing for every project in a list (the dashboard): one states read for
+ * all of them and one org profile read, then the engine per project. Plan
+ * tier only changes template access, never status, so it is not an input.
+ */
+export async function paperworkStandings(orgId: string, projects: Project[]): Promise<Map<string, PaperworkStanding>> {
+  if (projects.length === 0) return new Map();
+  const [states, orderProfile, vendors] = await Promise.all([
+    listRequirementStatesFor(projects.map((p) => p.id)),
+    getOrderProfile(orgId),
+    Promise.all(projects.map((p) => loadVendorPaperwork(projectVendorIds(p)))),
+  ]);
+  const coi = orderProfile.insurance.coiDocument;
+  const accountDocuments = coi ? [{ requirementId: COI_REQUIREMENT_ID, name: coi.name }] : [];
+
+  return new Map(
+    projects.map((p, i) => {
+      const checklist = evaluate({
+        profile: p.profile,
+        vendorRequirements: vendors[i].requirements,
+        states: states.get(p.id),
+        accountDocuments,
+      });
+      return [p.id, paperworkStanding(checklist)];
+    }),
+  );
 }
 
 // ---- actions ----

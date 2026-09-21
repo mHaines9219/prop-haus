@@ -5,7 +5,17 @@ vi.mock('@/lib/supabase/admin', async () => (await import('@/test/mocks/supabase
 
 import { ORG_ID, OTHER_ORG_ID } from '@/test/mocks/session';
 import { db } from '@/test/mocks/supabase-admin';
-import { attachTemplate, attachUpload, buildChecklist, listRequirementStates, projectVendorIds, setRequirementStatus } from './store';
+import {
+  attachTemplate,
+  attachUpload,
+  buildChecklist,
+  listRequirementStates,
+  paperworkStanding,
+  paperworkStandings,
+  projectVendorIds,
+  setRequirementStatus,
+} from './store';
+import { evaluate } from './evaluate';
 
 /**
  * The checklist store against the in-memory database: the profile, the
@@ -86,6 +96,53 @@ describe('buildChecklist', () => {
       { id: 'insurance_gap:omega', text: 'Omega Cinema Props: GL limit too low: org has $1,000,000, vendor requires $2,000,000.' },
     ]);
     expect(projectVendorIds(built!.project)).toEqual(['omega', 'propheaven']);
+  });
+});
+
+describe('paperworkStanding', () => {
+  it('is complete only when there is a checklist and nothing on it is open or waiting on information', () => {
+    expect(paperworkStanding(evaluate({ profile: {} }))).toEqual({ complete: false, outstanding: 0 });
+
+    const open = evaluate({ profile: { rentals: { props: true } } });
+    expect(paperworkStanding(open)).toEqual({ complete: false, outstanding: open.summary.total });
+
+    const states = open.items.map((i) => ({ requirementId: i.requirementId, status: 'not_applicable' as const }));
+    expect(paperworkStanding(evaluate({ profile: { rentals: { props: true } }, states }))).toEqual({ complete: true, outstanding: 0 });
+  });
+});
+
+describe('paperworkStandings', () => {
+  it('reads every project in one pass and matches buildChecklist for each', async () => {
+    seedProject('proj-a', ORG_ID, { rentals: { props: true } });
+    seedProject('proj-b', ORG_ID, { rentals: { props: true } });
+    seedProject('proj-c', ORG_ID, {});
+    seedItem('proj-a', 'omega', 'omega-1');
+    db.seed('vendor_forms', [
+      { vendor_id: 'omega', kind: 'rental_agreement', label: 'Rental agreement', field_map: {}, requires_signature: true, mode: 'auto', notes: null },
+    ]);
+    db.seed('organizations', [
+      { id: ORG_ID, order_profile: { insurance: { coiDocument: { storagePath: 'x', name: 'coi.pdf', uploadedAt: T } }, authorization: { formsOnBehalf: true } } },
+    ]);
+    // proj-b: everything the engine lists is marked not applicable, so it is accounted for.
+    const b = (await buildChecklist(ORG_ID, 'proj-b'))!.checklist;
+    db.seed(
+      'project_requirements',
+      b.items.filter((i) => i.status !== 'complete').map((i) => ({ project_id: 'proj-b', requirement_id: i.requirementId, status: 'not_applicable', document_id: null, updated_at: T })),
+    );
+
+    const projects = await Promise.all(['proj-a', 'proj-b', 'proj-c'].map(async (id) => (await buildChecklist(ORG_ID, id))!));
+    const standings = await paperworkStandings(ORG_ID, projects.map((p) => p.project));
+
+    expect(standings.get('proj-a')).toEqual(paperworkStanding(projects[0]!.checklist));
+    expect(standings.get('proj-a')!.complete).toBe(false);
+    expect(standings.get('proj-a')!.outstanding).toBeGreaterThan(0);
+    // The vendor on proj-a's pull adds its rental agreement there and nowhere else.
+    expect(projects[0]!.checklist.items.some((i) => i.requirementId === 'vendor_rental_agreement')).toBe(true);
+    expect(projects[1]!.checklist.items.some((i) => i.requirementId === 'vendor_rental_agreement')).toBe(false);
+
+    expect(standings.get('proj-b')).toEqual({ complete: true, outstanding: 0 });
+    expect(standings.get('proj-c')).toEqual({ complete: false, outstanding: 0 });
+    expect(await paperworkStandings(ORG_ID, [])).toEqual(new Map());
   });
 });
 

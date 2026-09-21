@@ -8,7 +8,9 @@
  */
 
 import Link from 'next/link';
+import { Check, CircleHelp } from 'lucide-react';
 import { LightWell } from '@/components/ap/light-well';
+import { Tooltip } from '@/components/ap/tooltip';
 import {
   DataTable,
   DataTableSearch,
@@ -40,9 +42,11 @@ const columns = col.columns([
     header: 'Items',
     cell: ({ getValue }) => <Count value={getValue()} />,
   }),
-  col.accessor('documents', {
+  col.accessor((r) => r.paperwork.complete, {
+    id: 'documents',
     header: 'Documents',
-    cell: ({ getValue }) => <Count value={getValue()} />,
+    sortDescFirst: true,
+    cell: ({ row }) => <PaperworkMark standing={row.original.paperwork} />,
   }),
   col.accessor((r) => Date.parse(r.updatedAt), {
     id: 'updated',
@@ -74,6 +78,46 @@ function Count({ value }: { value: number }) {
   return <span className="font-mono text-[12px] tabular-nums text-text-secondary">{value}</span>;
 }
 
+/** Copy for the paperwork mark: the same sentence reaches the tooltip and the mobile line. */
+export function paperworkCopy(p: ProjectRow['paperwork']): { label: string; detail: string } {
+  if (p.complete) {
+    return {
+      label: 'Paperwork complete',
+      detail: 'Every document on this project’s checklist is attached, on file, or marked not applicable.',
+    };
+  }
+  if (p.outstanding === 0) {
+    return {
+      label: 'Paperwork needed',
+      detail: 'No checklist yet. Describe the production on its paperwork page to see which documents it needs.',
+    };
+  }
+  return {
+    label: 'Paperwork needed',
+    detail: `${p.outstanding} ${p.outstanding === 1 ? 'document' : 'documents'} on the checklist still need${p.outstanding === 1 ? 's' : ''} to be submitted.`,
+  };
+}
+
+/**
+ * One mark, not a count: a check when the checklist is fully accounted for, a
+ * question mark when the production still owes paperwork. The tooltip says
+ * which and why.
+ */
+function PaperworkMark({ standing }: { standing: ProjectRow['paperwork'] }) {
+  const { label, detail } = paperworkCopy(standing);
+  const Icon = standing.complete ? Check : CircleHelp;
+  return (
+    <Tooltip label={label} content={detail} side="right">
+      <span
+        data-complete={standing.complete || undefined}
+        className="inline-flex h-6 w-6 items-center justify-center border border-border bg-surface-inset text-status-quoted data-[complete]:text-status-confirmed"
+      >
+        <Icon size={14} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
 function ProjectCell({ row }: { row: ProjectRow }) {
   return (
     <div className="flex items-center gap-4">
@@ -100,7 +144,7 @@ function ProjectCell({ row }: { row: ProjectRow }) {
           {row.name}
         </Link>
         <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary sm:hidden">
-          {row.scenes} sc · {row.items} items · {row.documents} docs
+          {row.scenes} sc · {row.items} items · {row.paperwork.complete ? 'paperwork complete' : 'paperwork needed'}
         </p>
       </div>
     </div>
