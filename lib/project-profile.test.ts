@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeProjectProfile, normalizeProjectProfile, profileFacts, profileGaps } from './project-profile';
+import { mergeProjectProfile, normalizeProjectProfile, profileFacts, profileGaps, unsetProfilePaths } from './project-profile';
 
 describe('normalizeProjectProfile', () => {
   it('keeps known fields, drops unknown keys and blank sections, keeps false as false', () => {
@@ -50,6 +50,25 @@ describe('mergeProjectProfile', () => {
 
   it('a patch can flip a boolean to false', () => {
     expect(mergeProjectProfile({ cast: { minors: true } }, { cast: { minors: false } })).toEqual({ cast: { minors: false } });
+  });
+
+  it('replaces lists instead of unioning them when asked', () => {
+    const base = normalizeProjectProfile({ locations: { city: 'Brooklyn', kinds: ['studio', 'venue'] } });
+    expect(mergeProjectProfile(base, { locations: { kinds: ['studio'] } }, { lists: 'replace' })).toEqual({
+      locations: { city: 'Brooklyn', kinds: ['studio'] },
+    });
+    expect(mergeProjectProfile(base, { locations: { kinds: [] } }, { lists: 'replace' })).toEqual({
+      locations: { city: 'Brooklyn' },
+    });
+  });
+});
+
+describe('unsetProfilePaths', () => {
+  it('forgets a field, drops an emptied section, and ignores paths that are not there', () => {
+    const base = normalizeProjectProfile({ productionType: 'film', cast: { minors: true }, crew: { count: 4, union: true } });
+    expect(unsetProfilePaths(base, ['cast.minors', 'crew.union', 'productionType', 'venue.name', 'nope'])).toEqual({
+      crew: { count: 4 },
+    });
   });
 });
 

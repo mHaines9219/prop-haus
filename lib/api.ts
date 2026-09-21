@@ -40,6 +40,16 @@ export function postJson<T>(url: string, body: unknown, init?: RequestInit): Pro
   }).then((r) => parse<T>(r));
 }
 
+/** PATCH a JSON body. */
+export function patchJson<T>(url: string, body: unknown, init?: RequestInit): Promise<T> {
+  return fetch(url, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    ...init,
+  }).then((r) => parse<T>(r));
+}
+
 /** POST multipart form data (file uploads, moodboards). */
 export function postForm<T>(url: string, form: FormData, init?: RequestInit): Promise<T> {
   return fetch(url, { method: 'POST', body: form, ...init }).then((r) => parse<T>(r));

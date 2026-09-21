@@ -1160,12 +1160,21 @@ understands the description; deterministic rules decide what is required.
   `POST /api/projects/[id]/requirements/[requirementId]` (multipart upload
   or `{ action }`).
 - UI: "Start a new project" takes a description; `/projects/[id]/paperwork`
-  is the workspace (intake + profile readout on the left, grouped checklist
-  with reasons and actions on the right); the project page links to it.
+  is the workspace. Left: the production form (`profile-form.tsx`), one
+  control per profile field. Edits stay on the page; "Save" writes them
+  through the PATCH route (lists replace; `unset` forgets a field) and
+  "Generate paperwork checklist" saves what is pending and re-renders the
+  right side. A one-shot description on top seeds the form through the
+  intake route, and an OPEN mark sits on each row the gap list still needs. The multi-turn chat was retired Sep 2026: the
+  profile is almost entirely booleans, enums, and counts, and the gap list
+  was already deterministic, so the conversation was a form in disguise.
+  Right: the checklist (`checklist.tsx`), one line per row (name, lead
+  reason, the one action that closes it, status token) with a segmented
+  progress bar per row and the rest (every reason, terms, file on record,
+  secondary actions) under a disclosure; the project page links to it.
 
 **Out of scope for v1:** template checkout/payment rails, per-vendor
-requirement comparison beyond what `vendor_forms` already holds, editing
-the profile field-by-field in the UI (the PATCH route exists), document
+requirement comparison beyond what `vendor_forms` already holds, document
 prefill through real Anvil templates (the mock filler produces the PDF).
 
 ---

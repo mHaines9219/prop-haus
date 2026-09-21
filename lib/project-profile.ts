@@ -124,11 +124,22 @@ export function normalizeProjectProfile(raw: unknown): ProjectProfile {
   });
 }
 
+export type MergeOptions = {
+  /**
+   * How a list in the patch meets the list on the profile. The intake
+   * conversation unions (a second message adds vendors, never forgets them);
+   * a direct edit from the form replaces (unchecking a box removes it).
+   */
+  lists?: 'union' | 'replace';
+};
+
 /**
  * Apply a patch on top of a profile. A field the patch names replaces the old
- * value; a field it omits is kept. Lists union. Facts append (deduped, capped).
+ * value; a field it omits is kept. Lists union unless told to replace. Facts
+ * append (deduped, capped).
  */
-export function mergeProjectProfile(base: ProjectProfile, patch: ProjectProfile): ProjectProfile {
+export function mergeProjectProfile(base: ProjectProfile, patch: ProjectProfile, options: MergeOptions = {}): ProjectProfile {
+  const lists = options.lists ?? 'union';
   const out: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
@@ -139,7 +150,7 @@ export function mergeProjectProfile(base: ProjectProfile, patch: ProjectProfile)
       const section: Record<string, unknown> = { ...(out[key] as Record<string, unknown>) };
       for (const [k, v] of Object.entries(value)) {
         if (v === undefined) continue;
-        if (Array.isArray(v) && Array.isArray(section[k])) {
+        if (lists === 'union' && Array.isArray(v) && Array.isArray(section[k])) {
           section[k] = [...new Set([...(section[k] as unknown[]), ...v])];
         } else {
           section[k] = v;
@@ -148,6 +159,27 @@ export function mergeProjectProfile(base: ProjectProfile, patch: ProjectProfile)
       out[key] = section;
     } else {
       out[key] = value;
+    }
+  }
+  return normalizeProjectProfile(out);
+}
+
+/**
+ * Forget facts: each path ("cast.minors", "productionType") goes back to
+ * unknown. A path that is not on the profile is ignored. The result is
+ * normalized, so an emptied section disappears with its last field.
+ */
+export function unsetProfilePaths(profile: ProjectProfile, paths: string[]): ProjectProfile {
+  const out: Record<string, unknown> = { ...profile };
+  for (const path of paths) {
+    const [head, tail] = path.split('.', 2);
+    if (!head || !(head in out)) continue;
+    if (tail === undefined) {
+      delete out[head];
+    } else if (isPlainObject(out[head])) {
+      const section = { ...(out[head] as Record<string, unknown>) };
+      delete section[tail];
+      out[head] = section;
     }
   }
   return normalizeProjectProfile(out);
@@ -199,7 +231,8 @@ function risksUnknown(p: ProjectProfile): boolean {
   return !r || Object.values(r).every((v) => v === undefined);
 }
 
-function isClientWork(p: ProjectProfile): boolean {
+/** Commercial, experiential, event, and editorial work has a client behind it. */
+export function isClientWork(p: ProjectProfile): boolean {
   return p.productionType === 'commercial' || p.productionType === 'experiential' || p.productionType === 'event' || p.productionType === 'editorial';
 }
 
