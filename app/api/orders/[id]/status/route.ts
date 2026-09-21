@@ -17,7 +17,7 @@ import type { LogEventInput } from '@/lib/events';
  *
  * Body: {
  *   status?: OrderStatus,
- *   jobStatus?: JobStatus,           // active | pending | done, set by the user from /jobs
+ *   jobStatus?: JobStatus,           // active | pending | done, set by the user from the project's Jobs section
  *   items?: [{ id, status: ItemStatus, note?, quotedCents? }]
  * }
  *

@@ -54,6 +54,7 @@ it('lists every gap and no defaults for an org without a profile', async () => {
       'Authorization to complete forms',
     ],
     defaults: {},
+    projects: [],
   });
 });
 
@@ -69,7 +70,31 @@ it('is ready with the window, address and notes the order will get', async () =>
       deliveryNotes: 'Stage 4',
       rentalWindowDays: 7,
     },
+    projects: [],
   });
+});
+
+it('lists the org’s active projects for the picker, newest touched first', async () => {
+  seedOrg();
+  db.seed('projects', [
+    { id: 'p-old', org_id: ORG_ID, name: 'Older', archived_at: null, updated_at: '2026-09-01T00:00:00Z' },
+    { id: 'p-new', org_id: ORG_ID, name: 'Newer', archived_at: null, updated_at: '2026-09-05T00:00:00Z' },
+    { id: 'p-gone', org_id: ORG_ID, name: 'Archived', archived_at: '2026-09-02T00:00:00Z', updated_at: '2026-09-06T00:00:00Z' },
+    { id: 'p-theirs', org_id: OTHER_ORG_ID, name: 'Theirs', archived_at: null, updated_at: '2026-09-07T00:00:00Z' },
+  ]);
+  const body = await readJson<{ projects: unknown }>(await GET());
+  expect(body.projects).toEqual([
+    { id: 'p-new', name: 'Newer' },
+    { id: 'p-old', name: 'Older' },
+  ]);
+});
+
+it('answers with no projects rather than failing when that read breaks', async () => {
+  seedOrg();
+  db.failNext('projects', 'select', 'boom');
+  const body = await readJson<{ ready: boolean; projects: unknown }>(await GET());
+  expect(body.ready).toBe(true);
+  expect(body.projects).toEqual([]);
 });
 
 it('skips the weekend when picking the start date', async () => {
@@ -86,6 +111,7 @@ it('omits an incomplete address from defaults and reports it missing', async () 
     ready: false,
     missing: ['Delivery address'],
     defaults: {},
+    projects: [],
   });
 });
 
@@ -95,6 +121,7 @@ it('accepts a rental window plus notes in place of a full address', async () => 
     ready: true,
     missing: [],
     defaults: { rentalStart: '2026-09-03', rentalEnd: '2026-09-06', deliveryNotes: 'Will call', rentalWindowDays: 3 },
+    projects: [],
   });
 });
 

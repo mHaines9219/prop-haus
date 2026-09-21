@@ -1,5 +1,5 @@
 /**
- * simulate-vendor-responses.ts — demo driver for the /jobs dashboard.
+ * simulate-vendor-responses.ts — demo driver for a project's Jobs section.
  *
  *   pnpm simulate:vendor
  *
@@ -136,7 +136,7 @@ async function main() {
     console.log(`  crew request ${crewRow.id.slice(0, 8)} -> confirmed`);
   }
 
-  console.log('Done. Refresh /jobs to see the order settle.');
+  console.log('Done. Refresh the project page to see the order settle.');
 }
 
 main().catch((err) => {

@@ -2,7 +2,7 @@
  * The user-assigned job status (orders.job_status).
  *
  * Shared by the server (lib/orders.ts, the status route) and the client (the
- * /jobs board, the JobStatusSelect), so this module has no server imports.
+ * project Jobs table, the JobStatusSelect), so this module has no server imports.
  * `orders.status` is the vendor-driven lifecycle; this is the user's own board:
  * active (working it), pending (parked), done (wrapped).
  */

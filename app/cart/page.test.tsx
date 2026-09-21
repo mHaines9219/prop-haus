@@ -193,6 +193,54 @@ describe('lines', () => {
   });
 });
 
+describe('project picker', () => {
+  const PROJECTS = [
+    { id: 'p-new', name: 'Nocturne' },
+    { id: 'p-old', name: 'Daylight' },
+  ];
+  const withProjects = () =>
+    stubRoutes(undefined, () => json({ ready: true, missing: [], defaults: READY_DEFAULTS, projects: PROJECTS }));
+
+  it('is absent when the org has no projects and the click sends no projectId', async () => {
+    const fetchMock = stubRoutes();
+    await renderCart();
+    await placeOrder();
+    expect(screen.queryByRole('combobox', { name: 'Project' })).not.toBeInTheDocument();
+    await userEvent.click(await placeOrder());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalled());
+    const body = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
+    expect(body).not.toHaveProperty('projectId');
+  });
+
+  it('starts on the most recently touched project and sends it with the click', async () => {
+    const fetchMock = withProjects();
+    await renderCart();
+    const picker = await screen.findByRole('combobox', { name: 'Project' });
+    expect(picker).toHaveValue('p-new');
+    expect(within(picker).getAllByRole('option').map((o) => o.textContent)).toEqual(['Nocturne', 'Daylight', 'No project']);
+
+    await userEvent.click(await placeOrder());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
+    const body = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
+    expect(body.projectId).toBe('p-new');
+  });
+
+  it('lets the user pick another project or none', async () => {
+    const fetchMock = withProjects();
+    await renderCart();
+    const picker = await screen.findByRole('combobox', { name: 'Project' });
+    await userEvent.selectOptions(picker, 'p-old');
+    expect(picker).toHaveValue('p-old');
+    await userEvent.selectOptions(picker, '');
+    expect(picker).toHaveValue('');
+
+    await userEvent.click(await placeOrder());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalled());
+    const body = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
+    expect(body).not.toHaveProperty('projectId');
+  });
+});
+
 describe('readiness', () => {
   it('reads the profile once on mount', async () => {
     const fetchMock = stubRoutes();

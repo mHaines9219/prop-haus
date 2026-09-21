@@ -93,7 +93,7 @@ describe('OrderPage', () => {
     expect(screen.getByRole('heading', { name: 'Omega Cinema Props' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Newel' })).toBeInTheDocument();
 
-    expect(screen.getByRole('link', { name: 'All jobs' })).toHaveAttribute('href', '/jobs');
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/projects');
     expect(screen.getByRole('link', { name: 'Browse catalog' })).toHaveAttribute('href', '/search');
   });
 

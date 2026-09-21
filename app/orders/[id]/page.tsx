@@ -2,8 +2,8 @@
  * /orders/[id] — the job detail view (MVP-8).
  *
  * An order enriched into a job: line items grouped by vendor with per-vendor
- * rollups and per-item StatusTokens, and an order-level status header. /jobs
- * rows link here; there is no separate /jobs/[id].
+ * rollups and per-item StatusTokens, and an order-level status header. A
+ * project's Jobs rows link here; there is no separate job detail route.
  */
 
 import Link from 'next/link';
@@ -166,10 +166,10 @@ export default async function OrderPage({ params }: Props) {
         {/* Footer actions */}
         <div className="mt-10 flex gap-3">
           <Link
-            href="/jobs"
+            href={order.projectId ? `/projects/${order.projectId}` : '/projects'}
             className="rounded-md border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
           >
-            All jobs
+            {order.projectId ? 'Back to project' : 'Dashboard'}
           </Link>
           <Link
             href="/search"

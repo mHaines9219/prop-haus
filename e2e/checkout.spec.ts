@@ -52,7 +52,13 @@ test('the order profile saves and reports itself ready', async ({ page }) => {
   await expect(page.getByText('Ready to order')).toBeVisible();
 });
 
-test('one click places a multi-vendor order and the order pages agree', async ({ page }) => {
+test('one click places a multi-vendor order and the order pages agree', async ({ page, request }) => {
+  // The order lands on a project: its Jobs section is where the work tracks.
+  const projectName = `E2E Checkout ${Date.now()}`;
+  const created = await request.post('/api/projects', { data: { name: projectName } });
+  expect(created.status()).toBe(200);
+  const { id: projectId } = (await created.json()) as { id: string };
+
   await page.goto('/item/omega/e2e-1');
   await page.getByRole('button', { name: 'Add to cart' }).click();
   await page.goto('/item/hpr/e2e-1');
@@ -63,6 +69,7 @@ test('one click places a multi-vendor order and the order pages agree', async ({
   await expect(page.getByText('Deliver to')).toBeVisible();
   await expect(page.getByText('4100 W Alameda Ave, Burbank, CA 91505')).toBeVisible();
 
+  await page.getByLabel('Project').selectOption(projectId);
   await page.getByRole('button', { name: 'Place order' }).click();
   await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/);
 
@@ -86,9 +93,16 @@ test('one click places a multi-vendor order and the order pages agree', async ({
   await row.click();
   await expect(page).toHaveURL(orderUrl);
 
+  // The order detail leads back to its project, whose Jobs section lists it.
+  await page.getByRole('link', { name: 'Back to project' }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+  await expect(page.getByRole('heading', { name: 'Jobs' })).toBeVisible();
+  await expect(page.getByText('Orders in flight')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Order #/ })).toHaveAttribute('href', new RegExp(orderUrl.replace(/^.*\/orders/, '/orders')));
+
+  // Old bookmarks land on the dashboard.
   await page.goto('/jobs');
-  await expect(page.getByRole('heading', { name: 'Jobs in progress' })).toBeVisible();
-  await expect(page.getByText('In flight')).toBeVisible();
+  await expect(page).toHaveURL(/\/projects$/);
 });
 
 test('the checkout API refuses an empty cart and a missing idempotency key', async ({ request }) => {

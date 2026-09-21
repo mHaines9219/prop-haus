@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { CREW_ROLES, contractorHasRole, getCrewRole, type CrewRoleSlug } from '@/lib/crew';
+import type { ProjectSummary } from '@/lib/projects';
 import { ContractorCard, type Contractor } from './contractor-card';
 
 /**
@@ -16,9 +17,15 @@ import { ContractorCard, type Contractor } from './contractor-card';
 export function CrewDirectory({
   contractors,
   initialRole = null,
+  projects = [],
+  initialProjectId = null,
 }: {
   contractors: Contractor[];
   initialRole?: CrewRoleSlug | null;
+  /** The signed-in org's projects, for each card's request form. Empty when anonymous. */
+  projects?: ProjectSummary[];
+  /** The project the form starts on (from ?project=). */
+  initialProjectId?: string | null;
 }) {
   const [role, setRole] = useState<CrewRoleSlug | null>(initialRole);
   const reduce = useReducedMotion();
@@ -125,7 +132,7 @@ export function CrewDirectory({
                   }}
                   className="bg-background"
                 >
-                  <ContractorCard contractor={c} />
+                  <ContractorCard contractor={c} projects={projects} initialProjectId={initialProjectId} />
                 </motion.div>
               ))}
             </div>

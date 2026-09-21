@@ -9,24 +9,40 @@ import {
   sceneFolders,
   type ProjectFolder,
 } from '@/lib/projects';
+import { getProjectJobs, type JobsStats } from '@/lib/jobs';
 import { evaluate } from '@/lib/requirements/evaluate';
 import { requireOrgId } from '@/lib/session';
+import { cn } from '@/lib/utils';
 import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
+import { CrewList } from './crew-list';
 import { FolderActions } from './folder-actions';
+import { toJobRow } from './job-rows';
+import { JobsTable } from './jobs-table';
 import { NewFolderForm } from './new-folder-form';
 
 /**
- * /projects/[id] — one production. Its scene folders (any number, user-named)
- * are listed first, then the single paperwork folder. Each row links into the
- * folder; rename/delete are quiet inline controls.
+ * /projects/[id] — one production, in four sections:
+ *
+ *   SCENES     the scene folders (any number, user-named) of pulled items
+ *   JOBS       the orders placed for this project, moving through vendor
+ *              confirmation (the former /jobs board, per project)
+ *   CREW       the crew requested for this project; empty, a "Need a crew?"
+ *              button to /crew; populated, one-line rows that expand into
+ *              the contractor's full profile
+ *   PAPERWORK  the checklist and the single paperwork folder
+ *
+ * Each folder row links into the folder; rename/delete are quiet inline
+ * controls.
  */
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const orgId = await requireOrgId(`/projects/${id}`);
-  const project = await getProject(orgId, id);
+  const [project, work] = await Promise.all([getProject(orgId, id), getProjectJobs(orgId, id)]);
   if (!project) notFound();
 
+  const jobs = work.jobs.map(toJobRow);
+  const crew = work.crew;
   const scenes = sceneFolders(project);
   const paperwork = paperworkFolder(project);
   const itemCount = projectItemCount(project);
@@ -79,6 +95,73 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             ))}
             <NewFolderForm projectId={project.id} suggestedName={`Scene ${scenes.length + 1}`} />
           </div>
+        </section>
+
+        {/* Jobs — the orders placed for this project */}
+        <section className="mt-10" aria-labelledby="project-jobs">
+          <h2
+            id="project-jobs"
+            className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary"
+          >
+            Jobs
+          </h2>
+          {jobs.length === 0 ? (
+            <div className="border-y border-border py-10 text-center">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                No orders yet
+              </p>
+              <p className="mt-2 text-[15px] text-text-secondary">
+                Pick this project at checkout and the order tracks here as vendors respond.
+              </p>
+              <Link
+                href="/search"
+                className="mt-5 inline-block rounded-md border border-border px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:border-foreground hover:text-foreground"
+              >
+                Browse catalog
+              </Link>
+            </div>
+          ) : (
+            <>
+              <StatBand stats={work.stats} className="mb-6" />
+              <JobsTable jobs={jobs} />
+            </>
+          )}
+        </section>
+
+        {/* Crew — the contractors requested for this project */}
+        <section className="mt-10" aria-labelledby="project-crew">
+          <h2
+            id="project-crew"
+            className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary"
+          >
+            Crew
+          </h2>
+          {crew.length === 0 ? (
+            <div className="border-y border-border py-10 text-center">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                No crew on this project
+              </p>
+              <p className="mt-2 text-[15px] text-text-secondary">
+                Extra hands for set days, load-in and load-out, and delivery runs.
+              </p>
+              <Link
+                href={`/crew?project=${encodeURIComponent(project.id)}`}
+                className="mt-5 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors duration-150 hover:bg-accent hover:text-accent-foreground"
+              >
+                Need a crew?
+              </Link>
+            </div>
+          ) : (
+            <>
+              <CrewList crew={crew} />
+              <Link
+                href={`/crew?project=${encodeURIComponent(project.id)}`}
+                className="mt-4 inline-block font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary underline underline-offset-4 transition-colors duration-150 hover:text-foreground"
+              >
+                Request more crew
+              </Link>
+            </>
+          )}
         </section>
 
         {/* Paperwork */}
@@ -185,6 +268,29 @@ function SceneRow({ projectId, folder }: { projectId: string; folder: ProjectFol
           itemCount={folder.items.length}
         />
       </div>
+    </div>
+  );
+}
+
+/** The four numbers a coordinator glances at before the table: what is still moving. */
+function StatBand({ stats, className }: { stats: JobsStats; className?: string }) {
+  const tiles: Array<{ label: string; value: number }> = [
+    { label: 'Orders in flight', value: stats.ordersInFlight },
+    { label: 'Items confirmed', value: stats.itemsConfirmed },
+    { label: 'Vendors notified', value: stats.vendorsNotified },
+    { label: 'To sign', value: stats.documentsPending },
+  ];
+
+  return (
+    <div className={cn('grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4', className)}>
+      {tiles.map((t) => (
+        <div key={t.label} className="bg-background px-4 py-4">
+          <p className="font-mono text-[24px] font-medium leading-none tabular-nums text-foreground">{t.value}</p>
+          <p className="mt-2 font-mono text-[11px] uppercase leading-[14px] tracking-[0.06em] text-text-tertiary">
+            {t.label}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }

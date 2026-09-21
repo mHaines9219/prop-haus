@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeOrder, makeOrderItem, orderItemRow, orderRow } from '@/test/fixtures/orders';
 
 /**
- * The /jobs board is a join of orders, crew requests, sent outreach and
- * pending paperwork with derived stats. The counts and the row copy are what
+ * A project's Jobs and Crew sections are a join of orders, crew requests, sent
+ * outreach and pending paperwork with derived stats. The counts and the row copy are what
  * a coordinator reads at a glance, so each bucket is pinned against seeded rows.
  */
 
@@ -12,7 +12,7 @@ vi.mock('@/lib/supabase/admin', async () => (await import('@/test/mocks/supabase
 import { ORG_ID, OTHER_ORG_ID } from '@/test/mocks/session';
 import { db } from '@/test/mocks/supabase-admin';
 import { summarizeOrder } from './orders';
-import { getJobDetail, getJobsOverview, jobRollupCopy, type Job } from './jobs';
+import { getJobDetail, getJobsOverview, getProjectJobs, jobRollupCopy, type Job } from './jobs';
 
 beforeEach(() => {
   db.reset();
@@ -105,19 +105,36 @@ describe('getJobsOverview', () => {
   });
 
   it('lists the org’s crew requests newest first with the contractor embedded', async () => {
-    db.seed('contractors', [{ id: 'c-1', name: 'Dana Ortiz', photo: 'https://img/dana.jpg' }]);
+    db.seed('contractors', [
+      {
+        id: 'c-1',
+        name: 'Dana Ortiz',
+        photo: 'https://img/dana.jpg',
+        skills: ['delivery', 'load-in'],
+        city: 'los_angeles',
+        rate_low: 45000,
+        rate_high: 55000,
+        bio: 'Cargo van owner-operator.',
+      },
+    ]);
     db.seed('crew_requests', [
       crewRow({ id: 'r-old', created_at: '2026-09-01T00:00:00Z', status: 'confirmed' }),
-      crewRow({ id: 'r-new', created_at: '2026-09-03T00:00:00Z', updated_at: '2026-09-03T00:00:00Z', notes: 'bring gloves' }),
+      crewRow({ id: 'r-new', project_id: 'p-1', created_at: '2026-09-03T00:00:00Z', updated_at: '2026-09-03T00:00:00Z', notes: 'bring gloves' }),
       crewRow({ id: 'r-theirs', org_id: OTHER_ORG_ID, created_at: '2026-09-05T00:00:00Z' }),
     ]);
     const { crew, stats } = await getJobsOverview(ORG_ID);
     expect(crew.map((c) => c.id)).toEqual(['r-new', 'r-old']);
     expect(crew[0]).toEqual({
       id: 'r-new',
+      projectId: 'p-1',
       contractorId: 'c-1',
       contractorName: 'Dana Ortiz',
       contractorPhoto: 'https://img/dana.jpg',
+      contractorSkills: ['delivery', 'load-in'],
+      contractorCity: 'los_angeles',
+      contractorRateLow: 45000,
+      contractorRateHigh: 55000,
+      contractorBio: 'Cargo van owner-operator.',
       requestedDates: ['2026-09-10'],
       location: 'Stage 4',
       notes: 'bring gloves',
@@ -125,13 +142,64 @@ describe('getJobsOverview', () => {
       createdAt: '2026-09-03T00:00:00Z',
       updatedAt: '2026-09-03T00:00:00Z',
     });
+    expect(crew[1].projectId).toBeNull();
     expect(stats.crewPending).toBe(1);
   });
 
   it('fills in a placeholder when the contractor row is gone and dates are null', async () => {
     db.seed('crew_requests', [crewRow({ id: 'r', contractor_id: 'missing', requested_dates: null })]);
     const { crew } = await getJobsOverview(ORG_ID);
-    expect(crew[0]).toMatchObject({ contractorName: 'Contractor', contractorPhoto: null, requestedDates: [] });
+    expect(crew[0]).toMatchObject({
+      contractorName: 'Contractor',
+      contractorPhoto: null,
+      contractorSkills: [],
+      contractorRateLow: null,
+      contractorBio: null,
+      requestedDates: [],
+    });
+  });
+
+  it('scopes orders, crew and pending paperwork to one project, never crossing the org', async () => {
+    db.seed('orders', [
+      orderRow({ id: 'mine', idempotency_key: 'a', project_id: 'p-1', created_at: '2026-09-01T00:00:00Z' }),
+      orderRow({ id: 'other-project', idempotency_key: 'b', project_id: 'p-2', created_at: '2026-09-02T00:00:00Z' }),
+      orderRow({ id: 'no-project', idempotency_key: 'c', project_id: null, created_at: '2026-09-03T00:00:00Z' }),
+      orderRow({ id: 'theirs', idempotency_key: 'd', org_id: OTHER_ORG_ID, project_id: 'p-1', created_at: '2026-09-04T00:00:00Z' }),
+    ]);
+    db.seed('order_items', [
+      orderItemRow({ id: '1', order_id: 'mine', vendor: 'Newel', status: 'pending' }),
+      orderItemRow({ id: '2', order_id: 'other-project', vendor: 'Omega', status: 'confirmed' }),
+      orderItemRow({ id: '3', order_id: 'no-project', vendor: 'Omega', status: 'confirmed' }),
+    ]);
+    db.seed('crew_requests', [
+      crewRow({ id: 'r-mine', project_id: 'p-1' }),
+      crewRow({ id: 'r-other', project_id: 'p-2' }),
+      crewRow({ id: 'r-none', project_id: null }),
+      crewRow({ id: 'r-theirs', project_id: 'p-1', org_id: OTHER_ORG_ID }),
+    ]);
+    db.seed('order_documents', [
+      { org_id: ORG_ID, order_id: 'mine', status: 'awaiting_signature' },
+      { org_id: ORG_ID, order_id: 'other-project', status: 'manual' },
+      { org_id: ORG_ID, order_id: 'mine', status: 'signed' },
+    ]);
+
+    const { jobs, crew, stats } = await getProjectJobs(ORG_ID, 'p-1');
+    expect(jobs.map((j) => j.id)).toEqual(['mine']);
+    expect(jobs[0].projectId).toBe('p-1');
+    expect(crew.map((c) => c.id)).toEqual(['r-mine']);
+    expect(stats).toEqual({ ...ZERO_STATS, ordersInFlight: 1, itemsPending: 1, crewPending: 1, vendorsNotified: 1, documentsPending: 1 });
+
+    // The whole-org read still sees everything the org owns.
+    const org = await getJobsOverview(ORG_ID);
+    expect(org.jobs.map((j) => j.id)).toEqual(['no-project', 'other-project', 'mine']);
+    expect(org.crew).toHaveLength(3);
+    expect(org.stats.documentsPending).toBe(2);
+  });
+
+  it('is empty for a project with nothing on it, without reading paperwork', async () => {
+    db.seed('orders', [orderRow({ id: 'elsewhere', project_id: 'p-9' })]);
+    db.seed('order_documents', [{ org_id: ORG_ID, order_id: 'elsewhere', status: 'manual' }]);
+    await expect(getProjectJobs(ORG_ID, 'p-1')).resolves.toEqual({ jobs: [], crew: [], stats: ZERO_STATS });
   });
 
   it('treats failed crew, outreach and paperwork reads as zero rather than failing the board', async () => {

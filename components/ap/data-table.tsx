@@ -2,7 +2,7 @@
 
 /**
  * DataTable — the one sortable, filterable list surface for the dashboard
- * pages (/jobs, /projects). TanStack Table v9 does the state and row models;
+ * pages (/projects and each project's Jobs table). TanStack Table v9 does the state and row models;
  * the shadcn Table/Tabs/Input primitives in components/ui carry the Answer
  * Print skin. List rows, hairline seams, radius 0 (DESIGN.md §9.7).
  *

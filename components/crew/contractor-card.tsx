@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { CREW_COPY, CREW_SKILL_LABELS } from '@/lib/crew';
+import { CREW_COPY, CREW_SKILL_LABELS, formatDayRate } from '@/lib/crew';
+import type { ProjectSummary } from '@/lib/projects';
 
 export type Contractor = {
   id: string;
@@ -19,18 +20,24 @@ export type Contractor = {
   category: string;
 };
 
-function formatRate(low: number | null, high: number | null): string {
-  if (!low && !high) return 'Rate on request';
-  const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-  if (low && high && low !== high) return `${fmt(low)}–${fmt(high)}/day`;
-  return `${fmt(low ?? high!)}/day`;
-}
-
 type Status = 'idle' | 'open' | 'submitting' | 'sent' | 'error';
 
-export function ContractorCard({ contractor }: { contractor: Contractor }) {
+export function ContractorCard({
+  contractor,
+  projects = [],
+  initialProjectId = null,
+}: {
+  contractor: Contractor;
+  /** The org's projects; when there are any, the form asks which one the crew is for. */
+  projects?: ProjectSummary[];
+  /** The project the picker starts on; falls back to the first project. */
+  initialProjectId?: string | null;
+}) {
   const [status, setStatus] = useState<Status>('idle');
   const [dates, setDates] = useState('');
+  const [projectId, setProjectId] = useState(
+    () => (initialProjectId && projects.some((p) => p.id === initialProjectId) ? initialProjectId : projects[0]?.id) ?? '',
+  );
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -56,6 +63,7 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
           requested_dates: dateList,
           location: location || undefined,
           notes: notes || undefined,
+          project_id: projectId || undefined,
         }),
       });
 
@@ -102,7 +110,7 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
 
         {/* Rate */}
         <p className="mt-3 font-mono text-[13px] leading-[18px] text-text-secondary">
-          {formatRate(contractor.rate_low, contractor.rate_high)}
+          {formatDayRate(contractor.rate_low, contractor.rate_high)}
         </p>
 
         {/* Bio */}
@@ -148,6 +156,26 @@ export function ContractorCard({ contractor }: { contractor: Contractor }) {
                     className="overflow-hidden"
                   >
                     <div className="flex flex-col gap-3 pt-4">
+                      {projects.length > 0 && (
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-tertiary">
+                            Project
+                          </span>
+                          <select
+                            value={projectId}
+                            onChange={(e) => setProjectId(e.target.value)}
+                            className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                          >
+                            {projects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                            <option value="">No project</option>
+                          </select>
+                        </label>
+                      )}
+
                       <label className="flex flex-col gap-1">
                         <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-tertiary">
                           Dates needed

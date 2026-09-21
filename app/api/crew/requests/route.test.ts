@@ -136,9 +136,46 @@ describe('POST', () => {
         org_id: ORG_ID,
         user_id: USER_ID,
         type: 'crew_requested',
-        payload: { crewRequestId: id, contractorId: 'c-1' },
+        payload: { crewRequestId: id, contractorId: 'c-1', projectId: null },
       }),
     ]);
+  });
+
+  describe('project_id', () => {
+    function seedProject(id: string, orgId = ORG_ID) {
+      db.relation('projects', 'project_folders', 'project_id');
+      db.relation('project_folders', 'project_items', 'folder_id');
+      db.relation('project_folders', 'project_documents', 'folder_id');
+      db.seed('projects', [{ id, org_id: orgId, name: 'Nocturne', profile: {}, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', archived_at: null }]);
+    }
+
+    it('attaches the request to one of the session org’s projects', async () => {
+      seedProject('p-1');
+      const res = await POST(jsonRequest('/api/crew/requests', { ...VALID, project_id: 'p-1' }));
+      expect(res.status).toBe(201);
+      const { id } = await readJson<{ id: string }>(res);
+      expect(userDb.rows('crew_requests')).toEqual([expect.objectContaining({ id, project_id: 'p-1' })]);
+      expect(db.rows('events')[0]).toMatchObject({ payload: { crewRequestId: id, contractorId: 'c-1', projectId: 'p-1' } });
+    });
+
+    it('404s for another org’s project and writes nothing', async () => {
+      seedProject('p-theirs', OTHER_ORG_ID);
+      const res = await POST(jsonRequest('/api/crew/requests', { ...VALID, project_id: 'p-theirs' }));
+      expect(res.status).toBe(404);
+      expect(await readJson(res)).toEqual({ error: 'project not found' });
+      expect(userDb.rows('crew_requests')).toEqual([]);
+      expect(db.rows('events')).toEqual([]);
+    });
+
+    it('400s for a non-string project_id and treats an empty one as none', async () => {
+      const bad = await POST(jsonRequest('/api/crew/requests', { ...VALID, project_id: 7 }));
+      expect(bad.status).toBe(400);
+      expect(userDb.rows('crew_requests')).toEqual([]);
+
+      const blank = await POST(jsonRequest('/api/crew/requests', { ...VALID, project_id: '' }));
+      expect(blank.status).toBe(201);
+      expect(userDb.rows('crew_requests')).toEqual([expect.objectContaining({ project_id: null })]);
+    });
   });
 
   it('defaults dates, location and notes when absent or blank', async () => {

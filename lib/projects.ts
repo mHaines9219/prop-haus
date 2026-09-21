@@ -203,6 +203,27 @@ export async function listProjects(
   return rows.map(toProject);
 }
 
+/** A project as a picker lists it: id and name only. */
+export type ProjectSummary = { id: string; name: string };
+
+/**
+ * The org's active projects, most recently touched first, without their
+ * folders: what a "which project is this for?" picker (cart, crew request)
+ * needs and nothing more.
+ */
+export async function listProjectSummaries(orgId: string): Promise<ProjectSummary[]> {
+  const rows = orThrow(
+    'listProjectSummaries',
+    await db()
+      .from('projects')
+      .select('id, name')
+      .eq('org_id', orgId)
+      .is('archived_at', null)
+      .order('updated_at', { ascending: false }),
+  );
+  return (rows as ProjectSummary[]).map((r) => ({ id: r.id, name: r.name }));
+}
+
 /**
  * One project, for a member of the owning organization. Returns undefined for
  * "does not exist" and for "not yours" alike; the caller cannot tell them apart.

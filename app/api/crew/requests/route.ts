@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 import { currentOrgId, currentSession } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 import { recordEvents } from '@/lib/analytics';
+import { getProject } from '@/lib/projects';
 
 type RequestBody = {
   contractor_id: string;
   requested_dates?: string[];
   location?: string;
   notes?: string;
+  /** The project the crew is for (its Crew section lists the request). Optional. */
+  project_id?: unknown;
 };
 
 /** List the org's crew requests (with contractor name). Auth required. */
@@ -19,7 +22,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('crew_requests')
     .select(
-      'id, contractor_id, requested_dates, location, notes, status, created_at, updated_at, contractors(name, photo)',
+      'id, project_id, contractor_id, requested_dates, location, notes, status, created_at, updated_at, contractors(name, photo)',
     )
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
@@ -45,9 +48,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
 
-  const { contractor_id, requested_dates, location, notes } = body;
+  const { contractor_id, requested_dates, location, notes, project_id } = body;
   if (!contractor_id?.trim()) {
     return NextResponse.json({ error: 'contractor_id is required' }, { status: 400 });
+  }
+
+  // Only the session org's own project may be attached; a foreign or unknown
+  // id is refused so a request never lands on someone else's project page.
+  let projectId: string | null = null;
+  if (project_id !== undefined && project_id !== null && project_id !== '') {
+    if (typeof project_id !== 'string') {
+      return NextResponse.json({ error: 'project_id must be a string' }, { status: 400 });
+    }
+    const project = await getProject(orgId, project_id);
+    if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 });
+    projectId = project.id;
   }
 
   const supabase = await createClient();
@@ -56,6 +71,7 @@ export async function POST(req: Request) {
     .from('crew_requests')
     .insert({
       org_id: orgId,
+      project_id: projectId,
       contractor_id,
       requested_dates: requested_dates ?? [],
       location: location?.trim() || null,
@@ -73,7 +89,7 @@ export async function POST(req: Request) {
     orgId,
     userId: session.userId,
     type: 'crew_requested',
-    payload: { crewRequestId: data.id, contractorId: contractor_id },
+    payload: { crewRequestId: data.id, contractorId: contractor_id, projectId },
   });
 
   return NextResponse.json({ id: data.id }, { status: 201 });

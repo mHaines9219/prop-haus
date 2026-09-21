@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * The /jobs board: orders in flight and crew requests as sortable, filterable
- * list tables (components/ap/data-table.tsx). Rows link to /orders/[id]; the
- * status tabs and search box narrow the orders table client-side.
+ * A project's JOBS section: its orders in flight as a sortable, filterable
+ * list table (components/ap/data-table.tsx). Rows link to /orders/[id]; the
+ * status tabs and search box narrow the table client-side.
  *
  * Two status axes per order row. "Status" is the user's own (active | pending |
  * done), set right in the row with JobStatusSelect and the thing the facet
@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { LightWell } from '@/components/ap/light-well';
 import { JobStatusSelect } from '@/components/ap/job-status-select';
-import { StatusToken, crewStatusSpec, orderStatusSpec } from '@/components/ap/status-token';
+import { StatusToken, orderStatusSpec } from '@/components/ap/status-token';
 import {
   DataTable,
   DataTableFacetTabs,
@@ -26,7 +26,7 @@ import {
 } from '@/components/ap/data-table';
 import { JOB_STATUSES, JOB_STATUS_LABEL, JOB_STATUS_RANK, type JobStatus } from '@/lib/job-status';
 import type { OrderStatus } from '@/lib/orders';
-import type { CrewRow, JobRow } from './rows';
+import type { JobRow } from './job-rows';
 
 const ORDER_STATUS_RANK: Record<OrderStatus, number> = {
   placed: 0,
@@ -35,15 +35,11 @@ const ORDER_STATUS_RANK: Record<OrderStatus, number> = {
   cancelled: 3,
 };
 
-const CREW_STATUS_RANK: Record<CrewRow['status'], number> = { requested: 0, confirmed: 1, declined: 2 };
-
 function formatDate(iso: string): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return iso;
   return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-
-// ── Orders ──────────────────────────────────────────────────────────────────
 
 const job = createDataColumns<JobRow>();
 
@@ -197,98 +193,6 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
           rowHref={(r) => `/orders/${r.id}`}
           columnClass={{ status: 'hidden sm:table-cell', vendors: 'hidden md:table-cell', items: 'hidden sm:table-cell' }}
           emptyBody="No orders match that filter."
-        />
-      </div>
-    </div>
-  );
-}
-
-// ── Crew ────────────────────────────────────────────────────────────────────
-
-const crew = createDataColumns<CrewRow>();
-
-const crewColumns = crew.columns([
-  crew.accessor('contractorName', {
-    header: 'Contractor',
-    sortFn: 'text',
-    cell: ({ row }) => (
-      <div className="flex items-center gap-4">
-        <div className="h-10 w-10 shrink-0 overflow-hidden border border-border bg-surface-inset">
-          <LightWell
-            src={row.original.contractorPhoto ?? undefined}
-            alt={row.original.contractorName}
-            mode="photo"
-            fill
-            name={row.original.contractorName}
-          />
-        </div>
-        <p className="truncate text-[15px] font-medium leading-[22px] text-foreground">
-          {row.original.contractorName}
-        </p>
-      </div>
-    ),
-  }),
-  crew.accessor('status', {
-    header: 'Status',
-    sortFn: (a, b, id) =>
-      CREW_STATUS_RANK[a.getValue<CrewRow['status']>(id)] - CREW_STATUS_RANK[b.getValue<CrewRow['status']>(id)],
-    cell: ({ getValue }) => <StatusToken {...crewStatusSpec(getValue())} />,
-  }),
-  crew.accessor((r) => r.requestedDates[0] ?? '', {
-    id: 'dates',
-    header: 'Dates',
-    sortFn: 'text',
-    cell: ({ row }) => (
-      <span className="font-mono text-[12px] tabular-nums text-text-secondary">
-        {row.original.requestedDates.length > 0
-          ? row.original.requestedDates.map(formatDate).join(', ')
-          : 'Dates on request'}
-      </span>
-    ),
-  }),
-  crew.accessor((r) => r.location ?? '', {
-    id: 'location',
-    header: 'Location',
-    sortFn: 'text',
-    cell: ({ row }) => (
-      <span className="font-mono text-[12px] text-text-secondary">{row.original.location ?? ''}</span>
-    ),
-  }),
-  crew.accessor((r) => Date.parse(r.createdAt), {
-    id: 'requested',
-    header: 'Requested',
-    sortDescFirst: true,
-    cell: ({ row }) => (
-      <span className="font-mono text-[12px] tabular-nums text-text-tertiary">{formatDate(row.original.createdAt)}</span>
-    ),
-  }),
-]);
-
-function crewSearchText(r: CrewRow): string {
-  return [r.contractorName, r.status, r.location ?? ''].join(' ');
-}
-
-const CREW_SORT = [{ id: 'requested', desc: true }];
-
-export function CrewTable({ crew: requests }: { crew: CrewRow[] }) {
-  const table = useDataTable({
-    data: requests,
-    columns: crewColumns,
-    getRowId: (r) => r.id,
-    initialSorting: CREW_SORT,
-    search: crewSearchText,
-  });
-
-  return (
-    <div>
-      <div className="flex justify-end">
-        <DataTableSearch table={table} label="Search crew" placeholder="Search crew" />
-      </div>
-      <div className="mt-4 -mx-4 border-t border-border sm:-mx-6">
-        <DataTable
-          table={table}
-          columnClass={{ location: 'hidden md:table-cell', requested: 'hidden sm:table-cell' }}
-          emptyBody="No crew requests match that search."
         />
       </div>
     </div>
