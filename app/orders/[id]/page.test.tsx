@@ -123,7 +123,7 @@ describe('OrderPage', () => {
     expect(screen.getByText('$451')).toBeInTheDocument();
     expect(screen.getAllByText('QUOTED')).toHaveLength(2);
     expect(screen.getAllByText('$', { exact: false }).filter((n) => n.textContent?.startsWith('$'))).toHaveLength(1);
-    expect(screen.getByText('PENDING')).toBeInTheDocument();
+    expect(screen.getByText('PENDING', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByText('0 of 3 confirmed · 3 pending')).toBeInTheDocument();
   });
 

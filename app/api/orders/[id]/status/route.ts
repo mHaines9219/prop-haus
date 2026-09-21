@@ -2,20 +2,28 @@ import { NextResponse } from 'next/server';
 import { currentSession } from '@/lib/session';
 import {
   setItemStatus,
+  setJobStatus,
   setOrderStatus,
   type ItemStatus,
   type OrderStatus,
 } from '@/lib/orders';
+import { isJobStatus } from '@/lib/job-status';
 import { recordEvents } from '@/lib/analytics';
 import type { LogEventInput } from '@/lib/events';
 
 /**
- * PATCH /api/orders/[id]/status — move an order and/or its line items forward.
+ * PATCH /api/orders/[id]/status — move an order and/or its line items forward,
+ * or set the user's own board status.
  *
- * Body: { status?: OrderStatus, items?: [{ id, status: ItemStatus, note?, quotedCents? }] }
+ * Body: {
+ *   status?: OrderStatus,
+ *   jobStatus?: JobStatus,           // active | pending | done, set by the user from /jobs
+ *   items?: [{ id, status: ItemStatus, note?, quotedCents? }]
+ * }
  *
- * This is the seam a future vendor portal or ops tool writes through; for now it
- * powers `pnpm simulate:vendor`. Session-checked and org-scoped — the org is
+ * `status`/`items` are the seam a future vendor portal or ops tool writes
+ * through; for now they power `pnpm simulate:vendor`. `jobStatus` is the one
+ * field the user writes by hand. Session-checked and org-scoped — the org is
  * resolved from the session, never the body, and the lib layer verifies each
  * item's parent order belongs to that org before writing.
  */
@@ -25,6 +33,7 @@ const ITEM_STATUSES: ItemStatus[] = ['pending', 'quoted', 'confirmed', 'unavaila
 
 type Body = {
   status?: string;
+  jobStatus?: string;
   items?: Array<{ id: string; status: string; note?: string; quotedCents?: number }>;
 };
 
@@ -41,7 +50,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
 
-  if (!body.status && (!body.items || body.items.length === 0)) {
+  if (!body.status && !body.jobStatus && (!body.items || body.items.length === 0)) {
     return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
   }
 
@@ -76,6 +85,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         userId: session.userId,
         type: 'order_status_changed',
         payload: { orderId: id, status: body.status },
+      });
+    }
+
+    if (body.jobStatus) {
+      if (!isJobStatus(body.jobStatus)) {
+        return NextResponse.json({ error: `invalid job status: ${body.jobStatus}` }, { status: 400 });
+      }
+      await setJobStatus(id, session.orgId, body.jobStatus);
+      events.push({
+        orgId: session.orgId,
+        userId: session.userId,
+        type: 'job_status_changed',
+        payload: { orderId: id, jobStatus: body.jobStatus },
       });
     }
   } catch (err) {

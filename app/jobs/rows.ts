@@ -5,7 +5,7 @@
  */
 
 import { jobRollupCopy, type CrewRequestRow, type Job } from '@/lib/jobs';
-import type { OrderStatus } from '@/lib/orders';
+import type { JobStatus, OrderStatus } from '@/lib/orders';
 
 export type JobThumb = { id: string; name: string; image: string };
 
@@ -13,7 +13,10 @@ export type JobRow = {
   id: string;
   /** "ABCDEF12": the short code the row reads as. */
   code: string;
+  /** Vendor-driven lifecycle (placed → confirmed). */
   status: OrderStatus;
+  /** The user's own board status (active | pending | done). */
+  jobStatus: JobStatus;
   /** §9.7 aggregate copy: "Sent to 3 vendors. Newel confirmed 4 of 6 items. 2 pending." */
   rollup: string;
   vendors: number;
@@ -31,6 +34,7 @@ export function toJobRow(job: Job): JobRow {
     id: job.id,
     code: job.id.slice(0, 8).toUpperCase(),
     status: job.status,
+    jobStatus: job.jobStatus,
     rollup: jobRollupCopy(job),
     vendors: job.vendorSummaries.length,
     vendorNames: job.vendorSummaries.map((v) => v.vendor),

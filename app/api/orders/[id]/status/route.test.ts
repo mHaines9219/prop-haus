@@ -58,7 +58,7 @@ describe('refusals', () => {
     expect(db.log).toEqual([]);
   });
 
-  it.each([[{}], [{ items: [] }], [{ status: '' }], [{ status: null, items: null }]])('400 with nothing to update: %j', async (body) => {
+  it.each([[{}], [{ items: [] }], [{ status: '' }], [{ status: null, items: null }], [{ jobStatus: '' }]])('400 with nothing to update: %j', async (body) => {
     const res = await patch('order-1', body);
     expect(res.status).toBe(400);
     expect(await readJson(res)).toEqual({ error: 'nothing to update' });
@@ -70,6 +70,14 @@ describe('refusals', () => {
     expect(res.status).toBe(400);
     expect(await readJson(res)).toEqual({ error: `invalid order status: ${status}` });
     expect(order('order-1').status).toBe('placed');
+    expect(db.rows('events')).toEqual([]);
+  });
+
+  it.each(['archived', 'Active', 'DONE', 1, true])('400 for job status %j, writing nothing', async (jobStatus) => {
+    const res = await patch('order-1', { jobStatus });
+    expect(res.status).toBe(400);
+    expect(await readJson(res)).toEqual({ error: `invalid job status: ${jobStatus}` });
+    expect(order('order-1').job_status).toBe('active');
     expect(db.rows('events')).toEqual([]);
   });
 
@@ -151,6 +159,41 @@ describe('order status', () => {
         payload: { orderId: 'order-1', status },
       }),
     ]);
+  });
+});
+
+describe('job status (the user\'s own board status)', () => {
+  it.each(['active', 'pending', 'done'] as const)('sets job_status to %s, leaves the lifecycle alone and records the event', async (jobStatus) => {
+    const before = order('order-1').updated_at;
+    const res = await patch('order-1', { jobStatus });
+    expect(res.status).toBe(200);
+    expect(await readJson(res)).toEqual({ ok: true });
+    expect(order('order-1').job_status).toBe(jobStatus);
+    expect(order('order-1').status).toBe('placed');
+    expect(order('order-1').updated_at).not.toBe(before);
+    expect(order('order-2').job_status).toBe('active');
+    expect(db.rows('events')).toEqual([
+      expect.objectContaining({
+        org_id: ORG_ID,
+        user_id: USER_ID,
+        type: 'job_status_changed',
+        payload: { orderId: 'order-1', jobStatus },
+      }),
+    ]);
+  });
+
+  it('404 for another org\'s order, leaving it untouched', async () => {
+    const res = await patch('theirs', { jobStatus: 'done' });
+    expect(res.status).toBe(404);
+    expect(order('theirs').job_status).toBe('active');
+    expect(db.rows('events')).toEqual([]);
+  });
+
+  it('lifecycle and job status in one request, lifecycle first', async () => {
+    const res = await patch('order-1', { status: 'confirmed', jobStatus: 'done' });
+    expect(res.status).toBe(200);
+    expect(order('order-1')).toMatchObject({ status: 'confirmed', job_status: 'done' });
+    expect(db.rows('events').map((e) => e.type)).toEqual(['order_status_changed', 'job_status_changed']);
   });
 });
 

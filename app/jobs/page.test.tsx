@@ -1,5 +1,6 @@
 // /jobs: session gate, empty state, stat band, the orders table (rollup copy,
-// thumbs, status tabs, search, sorting, row navigation) and the crew table.
+// thumbs, the user's status control and tabs, search, sorting, row navigation)
+// and the crew table.
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -135,6 +136,7 @@ describe('JobsPage', () => {
     );
     const row = rowOf(/Order #ABCDEF12/);
     expect(row).toHaveTextContent('PLACED');
+    expect(within(row).getByRole('combobox', { name: 'Status for order #ABCDEF12' })).toHaveValue('active');
     expect(row).toHaveTextContent('Omega Cinema Props confirmed 1 of 3 items. 2 pending.');
     expect(within(row).getByRole('cell', { name: /^3 1 confirmed$/ })).toBeInTheDocument();
     expect(within(row).getByRole('cell', { name: /^1 not sent$/ })).toBeInTheDocument();
@@ -168,33 +170,39 @@ describe('JobsPage', () => {
     jobs.getJobsOverview.mockResolvedValue(
       overview({
         jobs: [
-          job(makeOrder({ id: 'aaaa-1', status: 'placed' })),
+          job(makeOrder({ id: 'aaaa-1', status: 'placed', jobStatus: 'active' })),
           job(
             makeOrder({
               id: 'bbbb-2',
               status: 'confirmed',
+              jobStatus: 'done',
               items: [makeOrderItem({ id: 'x', vendor: 'Newel', status: 'confirmed' })],
             }),
           ),
-          job(makeOrder({ id: 'cccc-3', status: 'processing' })),
+          job(makeOrder({ id: 'cccc-3', status: 'processing', jobStatus: 'active' })),
         ],
       }),
     );
     render(await JobsPage());
 
+    // Every status is a tab, even Pending at zero: the user assigns these.
     const tabs = screen.getByRole('tablist', { name: 'Filter orders by status' });
     expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual([
       'All3',
-      'Placed1',
-      'Processing1',
-      'Confirmed1',
+      'Active2',
+      'Pending0',
+      'Done1',
     ]);
     expect(screen.getAllByRole('link', { name: /Order #/ })).toHaveLength(3);
 
-    await userEvent.click(within(tabs).getByRole('tab', { name: /Confirmed/ }));
+    await userEvent.click(within(tabs).getByRole('tab', { name: /Done/ }));
     expect(screen.getAllByRole('link', { name: /Order #/ }).map((l) => l.textContent)).toEqual([
       'Order #BBBB-2',
     ]);
+
+    await userEvent.click(within(tabs).getByRole('tab', { name: /Pending/ }));
+    expect(screen.queryByRole('link', { name: /Order #/ })).not.toBeInTheDocument();
+    expect(screen.getByText('No orders match that filter.')).toBeInTheDocument();
 
     await userEvent.click(within(tabs).getByRole('tab', { name: /^All/ }));
     expect(screen.getAllByRole('link', { name: /Order #/ })).toHaveLength(3);
@@ -238,9 +246,71 @@ describe('JobsPage', () => {
     expect(codes()).toEqual(['Order #OLD-1', 'Order #MID-3', 'Order #NEW-2']);
     expect(updated.closest('th')).toHaveAttribute('aria-sort', 'ascending');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Status' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmation' }));
     expect(codes()).toEqual(['Order #NEW-2', 'Order #MID-3', 'Order #OLD-1']);
     expect(updated.closest('th')).not.toHaveAttribute('aria-sort');
+  });
+
+  it('sorts by the user status in board order: active, pending, done', async () => {
+    signIn();
+    jobs.getJobsOverview.mockResolvedValue(
+      overview({
+        jobs: [
+          job(makeOrder({ id: 'done-1', jobStatus: 'done', updatedAt: '2026-09-03T00:00:00.000Z' })),
+          job(makeOrder({ id: 'pend-2', jobStatus: 'pending', updatedAt: '2026-09-02T00:00:00.000Z' })),
+          job(makeOrder({ id: 'actv-3', jobStatus: 'active', updatedAt: '2026-09-01T00:00:00.000Z' })),
+        ],
+      }),
+    );
+    render(await JobsPage());
+    const codes = () => screen.getAllByRole('link', { name: /Order #/ }).map((l) => l.textContent);
+    expect(codes()).toEqual(['Order #DONE-1', 'Order #PEND-2', 'Order #ACTV-3']);
+    await userEvent.click(screen.getByRole('button', { name: 'Status' }));
+    expect(codes()).toEqual(['Order #ACTV-3', 'Order #PEND-2', 'Order #DONE-1']);
+  });
+
+  it('lets the user set a status from the row: the write goes out, the tabs recount, and the row follows the filter', async () => {
+    signIn();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      jobs.getJobsOverview.mockResolvedValue(
+        overview({
+          jobs: [
+            job(makeOrder({ id: 'aaaa-1', jobStatus: 'active' })),
+            job(makeOrder({ id: 'bbbb-2', jobStatus: 'active' })),
+          ],
+        }),
+      );
+      render(await JobsPage());
+      const tabs = screen.getByRole('tablist', { name: 'Filter orders by status' });
+      const tabText = () => within(tabs).getAllByRole('tab').map((t) => t.textContent);
+      expect(tabText()).toEqual(['All2', 'Active2', 'Pending0', 'Done0']);
+
+      await userEvent.click(within(tabs).getByRole('tab', { name: /Active/ }));
+      const select = within(rowOf(/Order #AAAA-1/)).getByRole('combobox', { name: 'Status for order #AAAA-1' });
+      await userEvent.selectOptions(select, 'done');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0]!;
+      expect(url).toBe('/api/orders/aaaa-1/status');
+      expect(init?.method).toBe('PATCH');
+      expect(JSON.parse(String(init?.body))).toEqual({ jobStatus: 'done' });
+
+      // Marked done while the Active tab is on: the row leaves the list and the counts move.
+      expect(screen.getAllByRole('link', { name: /Order #/ }).map((l) => l.textContent)).toEqual(['Order #BBBB-2']);
+      expect(tabText()).toEqual(['All2', 'Active1', 'Pending0', 'Done1']);
+      await vi.waitFor(() => expect(nav.router.refresh).toHaveBeenCalled());
+      // Picking a status is not a click on the row.
+      expect(nav.router.push).not.toHaveBeenCalled();
+
+      await userEvent.click(within(tabs).getByRole('tab', { name: /Done/ }));
+      expect(within(rowOf(/Order #AAAA-1/)).getByRole('combobox')).toHaveValue('done');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('uses the multi-vendor rollup and a blank plate when no item has a photo', async () => {

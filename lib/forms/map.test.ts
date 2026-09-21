@@ -19,6 +19,7 @@ const order: Order = {
   id: 'a1b2c3d4-0000-4000-8000-000000000000',
   orgId: 'org',
   status: 'placed',
+  jobStatus: 'active',
   rentalStart: '2026-09-07',
   rentalEnd: '2026-09-14',
   deliveryAddress: { line1: '1 Stage Rd', city: 'Los Angeles', state: 'CA', zip: '90028' },

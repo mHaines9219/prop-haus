@@ -24,6 +24,7 @@ export const EVENT_TYPES = [
   'document_uploaded', // payload: { kind, vendor? }
   'order_placed', // payload: { orderId, itemCount, vendorCount }
   'order_status_changed', // payload: { orderId, status }
+  'job_status_changed', // payload: { orderId, jobStatus } — the user's own board status
   'item_status_changed', // payload: { orderId, orderItemId, status }
   'crew_requested', // payload: { crewRequestId, contractorId }
   'crew_status_changed', // payload: { crewRequestId, status }

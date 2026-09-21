@@ -12,7 +12,7 @@ vi.mock('@/lib/supabase/admin', async () => (await import('@/test/mocks/supabase
 
 import { ORG_ID, OTHER_ORG_ID } from '@/test/mocks/session';
 import { db } from '@/test/mocks/supabase-admin';
-import { createOrder, getOrderById, listOrders, setItemStatus, setOrderStatus, summarizeOrder } from './orders';
+import { createOrder, getOrderById, listOrders, setItemStatus, setJobStatus, setOrderStatus, summarizeOrder } from './orders';
 
 beforeEach(() => {
   db.reset();
@@ -135,6 +135,7 @@ describe('row mapping', () => {
       id: 'order-1',
       orgId: ORG_ID,
       status: 'placed',
+      jobStatus: 'active',
       items: [
         {
           id: 'oi-1',
@@ -158,6 +159,17 @@ describe('row mapping', () => {
     const order = await getOrderById('order-1', ORG_ID);
     expect(order.totalCents).toBe(0);
     expect(order.items[0]).toMatchObject({ priceCents: 0, quotedCents: 0, statusNote: 'call first', status: 'quoted' });
+  });
+
+  it('reads job_status and falls back to active for rows that predate it or carry junk', async () => {
+    db.seed('orders', [
+      orderRow({ id: 'done', idempotency_key: 'a', job_status: 'done' }),
+      orderRow({ id: 'legacy', idempotency_key: 'b', job_status: undefined }),
+      orderRow({ id: 'junk', idempotency_key: 'c', job_status: 'archived' }),
+    ]);
+    expect((await getOrderById('done', ORG_ID)).jobStatus).toBe('done');
+    expect((await getOrderById('legacy', ORG_ID)).jobStatus).toBe('active');
+    expect((await getOrderById('junk', ORG_ID)).jobStatus).toBe('active');
   });
 
   it('defaults a missing item status to pending and no lines to an empty list', async () => {
@@ -216,6 +228,31 @@ describe('setOrderStatus', () => {
   it('rethrows a write failure', async () => {
     db.failNext('orders', 'update', 'boom');
     await expect(setOrderStatus('order-1', ORG_ID, 'processing')).rejects.toMatchObject({ message: 'boom' });
+  });
+});
+
+describe('setJobStatus', () => {
+  beforeEach(() => {
+    db.seed('orders', [orderRow()]);
+  });
+
+  it('updates job_status, bumps updated_at and leaves the lifecycle status alone', async () => {
+    await setJobStatus('order-1', ORG_ID, 'done');
+    const row = db.rows('orders')[0];
+    expect(row.job_status).toBe('done');
+    expect(row.status).toBe('placed');
+    expect(row.updated_at).not.toBe('2026-09-02T10:00:00.000Z');
+  });
+
+  it('throws when the order is missing or belongs to another org', async () => {
+    await expect(setJobStatus('nope', ORG_ID, 'pending')).rejects.toThrow('Order not found');
+    await expect(setJobStatus('order-1', OTHER_ORG_ID, 'pending')).rejects.toThrow('Order not found');
+    expect(db.rows('orders')[0].job_status).toBe('active');
+  });
+
+  it('rethrows a write failure', async () => {
+    db.failNext('orders', 'update', 'boom');
+    await expect(setJobStatus('order-1', ORG_ID, 'done')).rejects.toMatchObject({ message: 'boom' });
   });
 });
 

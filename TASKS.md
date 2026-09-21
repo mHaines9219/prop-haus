@@ -548,7 +548,12 @@ the fallback posture if he says hotlink-only.
 
 ### MVP-8 · JOBS — Jobs-in-progress dashboard (DripDome dashboard port)
 
-**Status:** DONE (mHaines9219/cancun, 2026-08-31) — plan in docs/jobs-dashboard-plan.md
+**Status:** DONE (mHaines9219/cancun, 2026-08-31) — plan in docs/jobs-dashboard-plan.md.
+Sep 21 2026 follow-up: user-assigned job status (`orders.job_status`:
+active | pending | done) set from the /jobs row and the job detail header
+(`components/ap/job-status-select.tsx`), with the board's facet tabs
+filtering on it; the vendor lifecycle stays as the read-only Confirmation
+column. Migration `20260921120000_order_job_status.sql`.
 **Priority:** medium-high
 **Depends on:** nothing (MVP-3 orders and MVP-2 crew already landed)
 

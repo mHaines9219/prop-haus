@@ -42,6 +42,7 @@ import {
   type ReactTable,
   type Row,
   type SortingState,
+  type TableMeta,
 } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -81,6 +82,7 @@ export function useDataTable<TData extends object>({
   getRowId,
   initialSorting,
   search,
+  meta,
 }: {
   data: TData[];
   columns: DataTableColumn<TData>[];
@@ -89,6 +91,8 @@ export function useDataTable<TData extends object>({
   initialSorting?: SortingState;
   /** Text the search box matches against, per row. Case-insensitive substring. */
   search?: (row: TData) => string;
+  /** Anything a cell needs from its table (callbacks, mostly); read it back from `table.options.meta`. */
+  meta?: TableMeta<DataTableFeatures, TData>;
 }): DataTableInstance<TData> {
   const globalFilterFn = useMemo(() => {
     if (!search) return undefined;
@@ -111,6 +115,7 @@ export function useDataTable<TData extends object>({
     enableSortingRemoval: false,
     enableMultiSort: false,
     globalFilterFn,
+    meta,
     // One evaluation per row is enough: the search text is row-level, so let
     // the first accessor column carry it and keep the rest out of the loop.
     getColumnCanGlobalFilter: (column) => Boolean(search) && column.id === firstAccessorId(columns),
