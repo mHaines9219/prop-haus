@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { listProjects } from '@/lib/projects';
 import { requireOrgId } from '@/lib/session';
 import { paperworkStandings } from '@/lib/requirements/store';
-import { DashboardTabs } from '@/components/ap/dashboard-tabs';
 import { PageShell } from '@/components/ap/page-shell';
 import { NewProjectForm } from './new-project-form';
 import { ProjectsTable } from './projects-table';

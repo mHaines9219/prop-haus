@@ -14,9 +14,11 @@ vi.mock('@/lib/supabase/server', async () => (await import('@/test/mocks/supabas
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
 vi.mock('@/lib/jobs', () => ({ getJobsOverview: vi.fn() }));
 vi.mock('@/lib/order-profile-store', () => ({ getOrderProfile: vi.fn() }));
+vi.mock('@/lib/passport-store', () => ({ getPassport: vi.fn() }));
 
 const jobs = vi.mocked(await import('@/lib/jobs'));
 const store = vi.mocked(await import('@/lib/order-profile-store'));
+const passportStore = vi.mocked(await import('@/lib/passport-store'));
 
 function overview(over: Partial<JobsOverview> = {}): JobsOverview {
   return {
@@ -78,6 +80,8 @@ beforeEach(() => {
   jobs.getJobsOverview.mockResolvedValue(overview());
   store.getOrderProfile.mockReset();
   store.getOrderProfile.mockResolvedValue(READY_PROFILE);
+  passportStore.getPassport.mockReset();
+  passportStore.getPassport.mockResolvedValue({ documents: {} });
 });
 
 describe('AccountPage', () => {
