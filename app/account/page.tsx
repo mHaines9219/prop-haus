@@ -13,6 +13,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getJobsOverview } from '@/lib/jobs';
 import { orderReadiness } from '@/lib/order-profile';
 import { getOrderProfile } from '@/lib/order-profile-store';
+import { passportSummary } from '@/lib/passport';
+import { getPassport } from '@/lib/passport-store';
 import { PageShell } from '@/components/ap/page-shell';
 import { StatusToken } from '@/components/ap/status-token';
 import type { Profession, PlanTier } from '@/lib/accounts';
@@ -56,7 +58,7 @@ export default async function AccountPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileResult, orgResult, { jobs, crew, stats }, orderProfile] = await Promise.all([
+  const [profileResult, orgResult, { jobs, crew, stats }, orderProfile, passport] = await Promise.all([
     supabase
       .from('profiles')
       .select('email, full_name, profession, created_at')
@@ -65,11 +67,13 @@ export default async function AccountPage() {
     supabase.from('organizations').select('name, plan').eq('id', orgId).single(),
     getJobsOverview(orgId),
     getOrderProfile(orgId),
+    getPassport(orgId),
   ]);
 
   const profile = profileResult.data as ProfileRow | null;
   const org = orgResult.data as OrgRow | null;
   const readiness = orderReadiness(orderProfile);
+  const passportState = passportSummary(passport);
 
   const itemsConfirmed = jobs.reduce(
     (n, job) => n + job.items.filter((i) => i.status === 'confirmed').length,
@@ -135,13 +139,38 @@ export default async function AccountPage() {
                   )}
                 </dd>
               </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-tertiary">Passport</dt>
+                <dd className="text-right">
+                  {passportState.expired.length > 0 ? (
+                    <Link
+                      href="/account/passport"
+                      className="font-mono text-[12px] text-accent-text underline underline-offset-4"
+                    >
+                      {passportState.expired.length} document{passportState.expired.length !== 1 ? 's' : ''} expired →
+                    </Link>
+                  ) : (
+                    <span className="font-mono text-[12px] tabular-nums text-text-secondary">
+                      {passportState.onFile} of {passportState.total} on file
+                    </span>
+                  )}
+                </dd>
+              </div>
             </dl>
-            <Link
-              href="/account/profile"
-              className="mt-5 inline-block font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4"
-            >
-              Order profile →
-            </Link>
+            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+              <Link
+                href="/account/profile"
+                className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4"
+              >
+                Order profile →
+              </Link>
+              <Link
+                href="/account/passport"
+                className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4"
+              >
+                Passport →
+              </Link>
+            </div>
           </div>
         </div>
 
