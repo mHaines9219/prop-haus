@@ -117,7 +117,7 @@ describe('AIPromptModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledTimes(3);
 
-    fireEvent.click(container.querySelector('.backdrop-blur-sm')!);
+    fireEvent.click(container.querySelector('[data-slot="backdrop"]')!);
     expect(onClose).toHaveBeenCalledTimes(4);
   });
 

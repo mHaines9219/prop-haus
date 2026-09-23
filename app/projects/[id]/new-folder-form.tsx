@@ -68,13 +68,13 @@ export function NewFolderForm({ projectId, suggestedName }: { projectId: string;
                 placeholder={`${suggestedName} — e.g. “Sc. 12 diner” or “Apt interior”`}
                 maxLength={120}
                 autoFocus
-                className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
                 disabled={busy}
               />
               <button
                 type="submit"
                 disabled={busy}
-                className="h-9 shrink-0 rounded-md border border-emerald-500 px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+                className="h-9 shrink-0 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
               >
                 {busy ? 'Adding…' : 'Add scene'}
               </button>

@@ -5,15 +5,16 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * LightWell — Nocturne treatment (DESIGN.md section 4).
+ * LightWell — Party Line treatment (DESIGN.md §4): the picture in the ad.
  *
- * Photos blend into the dark canvas via mix-blend-mode: lighten — dark parts
- * of the image fall away into the background. White-background cutouts render
- * on a neutral-200 plate (#e3e4de) with multiply blend so the plate fuses
- * into the card surface.
+ * Every inventory photo prints onto cream stock inside a hairline ink rule,
+ * the way the line drawings sit in the reference ads. White-background
+ * cutouts (most scraped inventory) use multiply blend so the white disappears
+ * into the paper and only the object is "printed". Full-bleed photos print
+ * as-is, edge to edge.
  *
- * `mode="cutout"` is the default; most scraped inventory is white-background.
- * `mode="photo"` uses lighten blend for full-bleed dark-background shots.
+ * The plate is always paper, whichever scope the well sits in: a photo never
+ * prints on green vinyl.
  */
 export function LightWell({
   src,
@@ -28,9 +29,9 @@ export function LightWell({
   src?: string;
   alt: string;
   sizes?: string;
-  /** cutout: neutral-200 plate + multiply blend. photo: lighten blend, full-bleed. */
+  /** cutout: paper plate + multiply blend. photo: full-bleed, no blend. */
   mode?: 'cutout' | 'photo';
-  /** Retained for API compatibility; shows plate without scrim in Nocturne. */
+  /** Brighter stock (pure white) for the hero print on the item page. */
   lit?: boolean;
   /** Drop the 4:5 aspect ratio and fill the parent container instead (marquee cell). */
   fill?: boolean;
@@ -45,7 +46,7 @@ export function LightWell({
   return (
     <div
       className={cn(
-        'relative isolate overflow-hidden rounded-md border border-border bg-card',
+        'relative isolate overflow-hidden border border-ink/70 bg-card',
         fill ? 'h-full w-full' : 'aspect-[4/5]',
         className,
       )}
@@ -58,8 +59,8 @@ export function LightWell({
           )}
         >
           {mode === 'cutout' ? (
-            <div className="absolute inset-0 bg-plate">
-              <div className="absolute inset-[8%]">
+            <div className={cn('absolute inset-0', lit ? 'bg-plate-lit' : 'bg-plate')}>
+              <div className="absolute inset-[7%]">
                 <Image
                   src={src}
                   alt={alt}
@@ -72,7 +73,7 @@ export function LightWell({
               </div>
             </div>
           ) : (
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-plate-lit">
               <Image
                 src={src}
                 alt={alt}
@@ -80,15 +81,15 @@ export function LightWell({
                 sizes={sizes}
                 onLoad={() => setLoaded(true)}
                 onError={() => setFailed(true)}
-                className="object-cover [mix-blend-mode:lighten] transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]"
+                className="object-cover transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]"
               />
             </div>
           )}
         </div>
       ) : (
-        <div className="absolute inset-0 bg-plate">
+        <div className={cn('absolute inset-0', lit ? 'bg-plate-lit' : 'bg-plate')}>
           {name && (
-            <span className="absolute inset-0 grid place-items-center px-4 text-center font-mono text-[13px] leading-[18px] text-[#0F0F10]">
+            <span className="absolute inset-0 grid place-items-center px-4 text-center font-heading text-[13px] font-bold uppercase leading-[16px] tracking-[0.04em] text-ink/70">
               {name}
             </span>
           )}

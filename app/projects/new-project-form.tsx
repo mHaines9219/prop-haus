@@ -88,13 +88,13 @@ export function NewProjectForm() {
                   placeholder="Production name (e.g. Nocturne S2, Ep. 4)"
                   maxLength={200}
                   autoFocus
-                  className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                  className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
                   disabled={busy}
                 />
                 <button
                   type="submit"
                   disabled={busy || !name.trim()}
-                  className="h-9 shrink-0 rounded-md border border-emerald-500 px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+                  className="h-9 shrink-0 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
                 >
                   {busy ? 'Creating…' : 'Create project'}
                 </button>
@@ -106,7 +106,7 @@ export function NewProjectForm() {
                 maxLength={4000}
                 rows={3}
                 disabled={busy}
-                className="w-full resize-none rounded-md border border-border bg-surface-inset px-3 py-2 font-mono text-[13px] leading-[19px] text-foreground placeholder:text-text-disabled focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                className="w-full resize-none rounded-md border border-border bg-surface-inset px-3 py-2 font-mono text-[13px] leading-[19px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
               />
               <p className="font-mono text-[11px] leading-[14px] text-text-tertiary">
                 Describe it and Prop Haus drafts the paperwork checklist, then asks what it still needs to know.

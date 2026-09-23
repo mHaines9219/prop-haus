@@ -64,12 +64,12 @@ describe('HeroSearch', () => {
 
   it('lights the pill border while the field is focused', async () => {
     const { container } = render(<HeroSearch />);
-    const pill = container.querySelector('.rounded-full')!;
-    expect(pill).toHaveClass('border-border');
+    const pill = container.querySelector('[data-slot="search-bar"]')!;
+    expect(pill).toHaveClass('border-ink');
     await userEvent.click(input());
     expect(pill).toHaveClass('border-accent');
     await userEvent.tab();
-    expect(pill).toHaveClass('border-border');
+    expect(pill).toHaveClass('border-ink');
   });
 
   it('switches to AI mode, opens the dialog seeded with the query, and remembers the engine', async () => {

@@ -1,21 +1,26 @@
 import './globals.css';
 
 import type { Metadata } from 'next';
-import { Archivo, Spline_Sans_Mono } from 'next/font/google';
+import { Archivo, Fraunces } from 'next/font/google';
 import { Providers } from './providers';
 
-// Nocturne type kit: Archivo is the heading face, Helvetica Neue the reading
-// grotesk (system font, no loading needed), Spline Sans Mono the data face.
+// Party Line type kit (DESIGN.md §5):
+//   Archivo, with its width axis, is the ad-headline gothic. Drawn at 80%
+//   width for headlines/labels/buttons (.font-heading) and at full width for
+//   data (.font-mono, which is Archivo too: the phonebook has no monospace).
+//   Fraunces is the bank-sign serif for page titles and the hero.
+//   Helvetica Neue (system) is the listing body face; nothing to load.
 const archivo = Archivo({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  axes: ['wdth'],
   variable: '--font-archivo',
   display: 'swap',
 });
 
-const splineMono = Spline_Sans_Mono({
+const fraunces = Fraunces({
   subsets: ['latin'],
-  variable: '--font-spline-mono',
+  axes: ['SOFT', 'WONK', 'opsz'],
+  variable: '--font-fraunces',
   display: 'swap',
 });
 
@@ -27,11 +32,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // suppressHydrationWarning: next-themes sets the theme class on <html>
+    // suppressHydrationWarning: next-themes sets the theme attribute on <html>
     // before hydration, which the server render can't know about.
     <html
       lang="en"
-      className={`${archivo.variable} ${splineMono.variable}`}
+      className={`${archivo.variable} ${fraunces.variable}`}
       suppressHydrationWarning
     >
       <body>

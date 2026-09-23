@@ -10,14 +10,12 @@ type Engine = 'keyword' | 'ai';
 const ENGINE_STORAGE_KEY = 'prophaus.searchEngine';
 
 /**
- * Nocturne search pill matching the Setlist landing template:
- * - Pill capsule (rounded-full), bg-card, border that turns accent on focus
+ * Party Line search bar (DESIGN.md §9.2): a ruled listing box, not a pill.
+ * - Ink rule around a cream field; the rule turns coral on focus
  * - Left: magnifier + text input
- * - Right actions (flush, no border): paperclip | AI MODE (rainbow ring) | SEARCH (accent tint)
- * - Below: uppercase hint text
- *
- * The SEARCH end caps the pill with a right-rounded accent tint fill.
- * AI MODE carries a spinning conic-gradient ring via the .ai-ring CSS utility.
+ * - Right, separated by ink rules: attach | AI MODE (a tab that fills coral
+ *   when armed) | SEARCH, the coral phone-number block that caps the bar
+ * - Below: a listing-line hint
  */
 export function HeroSearch() {
   const router = useRouter();
@@ -57,18 +55,17 @@ export function HeroSearch() {
   return (
     <>
       <form onSubmit={handleSubmit} role="search">
-        {/* Pill */}
         <div
+          data-slot="search-bar"
           className={cn(
-            'flex items-center overflow-hidden rounded-full border bg-card transition-colors duration-150',
-            focused ? 'border-accent' : 'border-border',
+            'flex items-stretch border-[2px] bg-plate-lit transition-colors duration-150',
+            focused ? 'border-accent' : 'border-ink',
           )}
           style={{ minHeight: 56 }}
         >
           {/* Search field */}
-          <div className="flex flex-1 items-center gap-3 pl-5 pr-3">
-            {/* Magnifier icon */}
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden className="shrink-0 text-text-tertiary">
+          <div className="flex min-w-0 flex-1 items-center gap-3 pl-4 pr-3">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden className="shrink-0 text-ink/70">
               <circle cx="7" cy="7" r="4.75" />
               <path d="M10.5 10.5 L14 14" strokeLinecap="round" />
             </svg>
@@ -81,25 +78,24 @@ export function HeroSearch() {
               onBlur={() => setFocused(false)}
               aria-label="Search the catalogue"
               placeholder="Search the catalogue"
-              className="h-full min-w-0 flex-1 bg-transparent py-4 text-[15px] text-foreground outline-none placeholder:text-text-tertiary"
+              className="h-full min-w-0 flex-1 bg-transparent py-4 text-[16px] text-ink outline-none placeholder:text-ink/50"
             />
           </div>
 
-          {/* Actions — stretch to full pill height, no gap between them */}
-          <div className="flex self-stretch">
-            {/* Paperclip / attach */}
+          {/* Actions: stretch to full height, ruled apart */}
+          <div className="flex shrink-0 items-stretch">
             <button
               type="button"
               aria-label="Attach a PDF or moodboard"
               title="Attach a PDF or moodboard"
-              className="flex items-center px-4 text-text-tertiary transition-colors duration-150 hover:text-text-secondary"
+              className="hidden items-center border-l-[1.5px] border-ink/40 px-3.5 text-ink/60 transition-colors duration-150 hover:bg-paper-deep hover:text-ink sm:flex"
             >
               <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                 <path d="M13.6 6.2 7.9 11.9a2.1 2.1 0 0 0 3 3l6.1-6.1a3.7 3.7 0 0 0-5.2-5.2L5.4 10a5.2 5.2 0 0 0 7.4 7.4l1.4-1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
 
-            {/* AI MODE — rainbow conic ring via .ai-ring */}
+            {/* AI MODE: a tab, coral-filled when armed */}
             <button
               type="button"
               aria-pressed={engine === 'ai'}
@@ -112,26 +108,19 @@ export function HeroSearch() {
                 }
               }}
               className={cn(
-                'ai-ring flex items-center px-4 font-heading text-[12px] font-bold uppercase tracking-[0.06em] transition-colors duration-150',
-                engine === 'ai' ? 'text-foreground' : 'text-text-secondary hover:text-foreground',
+                'flex items-center border-l-[1.5px] border-ink/40 px-3.5 font-heading text-[12px] font-extrabold uppercase tracking-[0.06em] transition-colors duration-150',
+                engine === 'ai'
+                  ? 'bg-coral-lit text-ink'
+                  : 'text-ink/70 hover:bg-paper-deep hover:text-ink',
               )}
             >
               AI Mode
             </button>
 
-            {/* SEARCH — accent tint fill, right-caps the pill; goes solid dark in light mode */}
+            {/* SEARCH: the coral block */}
             <button
               type="submit"
-              className="search-go flex items-center rounded-r-full px-6 font-heading text-[12px] font-bold uppercase tracking-[0.06em] text-accent transition-colors duration-150"
-              style={{ background: 'color-mix(in srgb, var(--color-accent) 14%, transparent)' }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  'color-mix(in srgb, var(--color-accent) 24%, transparent)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  'color-mix(in srgb, var(--color-accent) 14%, transparent)';
-              }}
+              className="search-go flex items-center border-l-[2px] border-ink bg-accent px-5 font-heading text-[13px] font-extrabold uppercase tracking-[0.06em] text-accent-foreground transition-colors duration-150 hover:bg-primary-hover sm:px-6"
             >
               Search
             </button>
@@ -139,8 +128,9 @@ export function HeroSearch() {
         </div>
 
         {/* Hint */}
-        <p className="mt-3 text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-          Attach PDF / Moodboard — or describe it and let AI mode find it
+        <p className="listing mt-3">
+          <span>Attach a PDF or moodboard</span>
+          <span>Or describe it and let AI mode find it</span>
         </p>
       </form>
 

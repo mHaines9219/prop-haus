@@ -19,7 +19,7 @@ describe('LightWell', () => {
     const { container } = render(<LightWell src="https://x.test/a.jpg" alt="Room" mode="photo" sizes="50vw" />);
     expect(container.querySelector('.bg-plate')).toBeNull();
     const img = screen.getByRole('img', { name: 'Room' });
-    expect(img).toHaveClass('object-cover', '[mix-blend-mode:lighten]');
+    expect(img).toHaveClass('object-cover'); expect(img).not.toHaveClass('mix-blend-multiply');
     expect(img).toHaveAttribute('sizes', '50vw');
   });
 

@@ -3,13 +3,14 @@ import { cn } from '@/lib/utils';
 /**
  * StatusToken — the one status chip for the whole app (DESIGN.md §9.10, §13).
  *
- * A 6px semantic dot + 11px mono uppercase label inside a hairline pill. Dots
- * exist ONLY inside a token, never free-floating. Every status surface (orders,
- * line items, crew requests) maps its domain status onto one of the four
- * canonical tones with the helpers below, so the color language stays uniform.
+ * A listing bullet + an 11px condensed uppercase label inside an ink rule.
+ * The bullet is the "•" from "FERTILIZER • CHEMICALS • LIME", colored by
+ * status. Dots exist ONLY inside a token, never free-floating. Every status
+ * surface (orders, line items, crew requests) maps its domain status onto one
+ * of the four canonical tones with the helpers below.
  *
  * The four tones read from the live `--status-*` tokens in globals.css
- * (bg-status-*), not from hard-coded hex — the source of truth is the theme.
+ * (bg-status-*), which are defined in both the binder and sheet scopes.
  */
 
 export type StatusTone = 'pending' | 'quoted' | 'confirmed' | 'unavailable';
@@ -34,12 +35,12 @@ export function StatusToken({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-[2px] border border-border px-2 py-[3px]',
+        'inline-flex items-center gap-1.5 border border-border-strong bg-card px-2 py-[3px]',
         className,
       )}
     >
-      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
-      <span className="font-mono text-[11px] font-medium uppercase leading-none tracking-[0.06em] text-text-secondary">
+      <span className={cn('h-2 w-2 shrink-0 rounded-full', TONE_DOT[tone])} />
+      <span className="font-mono text-[11px] font-bold uppercase leading-none tracking-[0.06em] text-foreground">
         {label}
       </span>
     </span>
@@ -83,7 +84,7 @@ export function orderStatusSpec(status: string): TokenSpec {
 /**
  * orders.job_status — the user's own board status (active/pending/done). Active
  * reads as standby amber (in motion, the user's attention is on it), pending as
- * house-lights grey (parked), done as go green.
+ * grey (parked), done as go green.
  */
 export function jobStatusSpec(status: string): TokenSpec {
   switch (status) {

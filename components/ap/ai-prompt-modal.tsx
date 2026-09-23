@@ -7,6 +7,11 @@ import { cn } from '@/lib/utils';
 
 export type AIPromptResult = { inspiration: string; budget: number | null };
 
+/**
+ * AI Mode prompt (DESIGN.md §9.6): a cream sheet dropped onto the binder with
+ * a hard ink shadow, like a card laid on the vinyl. Fields are ruled, the
+ * primary action is the coral block.
+ */
 export function AIPromptModal({
   open,
   initialInspiration,
@@ -65,7 +70,8 @@ export function AIPromptModal({
             animate={{ opacity: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
+            data-slot="backdrop"
+            className="fixed inset-0 z-50 bg-scrim/70"
             onClick={onClose}
             aria-hidden
           />
@@ -82,14 +88,14 @@ export function AIPromptModal({
             transition={{ type: 'spring', stiffness: 340, damping: 30, duration: 0.22 }}
             className="fixed inset-x-0 top-[15vh] z-50 mx-auto w-full max-w-lg px-4"
           >
-            <div className="rounded-[14px] border border-border bg-card shadow-lg">
+            <div className="sheet border-[1.5px] border-ink bg-card text-foreground shadow-[var(--shadow-overlay)]">
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center justify-between border-b-2 border-ink px-5 py-4">
                 <div>
-                  <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-text-tertiary">
+                  <p className="font-heading text-[10px] font-extrabold uppercase tracking-[0.12em] text-text-tertiary">
                     AI Mode
                   </p>
-                  <h2 className="font-heading text-[20px] font-bold leading-tight text-foreground">
+                  <h2 className="ad-headline mt-0.5 text-[24px]">
                     Curate a set
                   </h2>
                 </div>
@@ -97,9 +103,9 @@ export function AIPromptModal({
                   type="button"
                   onClick={onClose}
                   aria-label="Close"
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-text-tertiary transition-colors duration-150 hover:text-foreground"
+                  className="flex h-8 w-8 items-center justify-center border border-transparent text-text-tertiary transition-colors duration-150 hover:border-ink hover:text-foreground"
                 >
-                  <X size={18} strokeWidth={1.5} />
+                  <X size={18} strokeWidth={1.75} />
                 </button>
               </div>
 
@@ -109,7 +115,7 @@ export function AIPromptModal({
                 <div className="space-y-2">
                   <label
                     htmlFor="ai-inspiration"
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary"
+                    className="font-heading text-[11px] font-extrabold uppercase tracking-[0.08em] text-text-secondary"
                   >
                     Inspiration
                   </label>
@@ -121,13 +127,13 @@ export function AIPromptModal({
                     placeholder="70s bachelor apartment. Warm, wood-heavy. Think Boogie Nights."
                     rows={4}
                     className={cn(
-                      'w-full resize-none rounded-md border border-border bg-card px-3 py-2.5',
-                      'font-mono text-[14px] leading-relaxed text-foreground outline-none',
+                      'w-full resize-none border border-border bg-input px-3 py-2.5',
+                      'text-[14px] leading-relaxed text-foreground outline-none',
                       'placeholder:text-text-tertiary',
-                      'transition-colors duration-150 focus:border-accent',
+                      'transition-colors duration-150 focus:border-border-strong',
                     )}
                   />
-                  <p className="font-mono text-[11px] leading-[14px] text-text-tertiary">
+                  <p className="text-[12px] leading-[16px] text-text-tertiary">
                     Describe a scene, mood, era, or aesthetic. The more specific, the better.
                   </p>
                 </div>
@@ -136,12 +142,12 @@ export function AIPromptModal({
                 <div className="space-y-2">
                   <label
                     htmlFor="ai-budget"
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary"
+                    className="font-heading text-[11px] font-extrabold uppercase tracking-[0.08em] text-text-secondary"
                   >
                     Budget <span className="text-text-tertiary">(optional)</span>
                   </label>
-                  <div className="flex items-center rounded-md border border-border bg-card transition-colors duration-150 focus-within:border-accent">
-                    <span className="pl-3 font-mono text-[14px] text-text-tertiary select-none">$</span>
+                  <div className="flex items-center border border-border bg-input transition-colors duration-150 focus-within:border-border-strong">
+                    <span className="pl-3 font-mono text-[14px] font-bold text-text-tertiary select-none">$</span>
                     <input
                       id="ai-budget"
                       type="text"
@@ -152,7 +158,7 @@ export function AIPromptModal({
                       className="h-10 min-w-0 flex-1 bg-transparent px-2 font-mono text-[14px] text-foreground outline-none placeholder:text-text-tertiary"
                     />
                   </div>
-                  <p className="font-mono text-[11px] leading-[14px] text-text-tertiary">
+                  <p className="text-[12px] leading-[16px] text-text-tertiary">
                     AI will prioritize items that fit within your production budget.
                   </p>
                 </div>
@@ -162,14 +168,14 @@ export function AIPromptModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-foreground/7"
+                    className="h-9 border-[1.5px] border-border-strong px-4 font-heading text-[11px] font-extrabold uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-surface-inset"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={!inspiration.trim()}
-                    className="h-9 rounded-md border border-accent px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent transition-colors duration-150 hover:bg-accent/12 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="h-9 border-[1.5px] border-ink bg-accent px-5 font-heading text-[11px] font-extrabold uppercase tracking-[0.08em] text-accent-foreground transition-colors duration-150 hover:bg-primary-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Curate my set
                   </button>
