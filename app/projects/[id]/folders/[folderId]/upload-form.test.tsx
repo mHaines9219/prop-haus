@@ -176,11 +176,11 @@ describe('UploadForm', () => {
     renderForm();
     const zone = screen.getByText('Drop paperwork here').closest('div.border-dashed')!;
     fireEvent.dragOver(zone);
-    expect(zone).toHaveClass('border-emerald-500');
+    expect(zone).toHaveClass('border-accent');
     fireEvent.drop(zone, { dataTransfer: { files: [pdf('dropped.pdf')] } });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(((fetchMock.mock.calls[0][1]?.body as FormData).get('file') as File).name).toBe('dropped.pdf');
-    expect(zone).not.toHaveClass('border-emerald-500');
+    expect(zone).not.toHaveClass('border-accent');
   });
 
   it('ignores an empty selection', async () => {

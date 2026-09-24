@@ -138,7 +138,7 @@ export function ContractorCard({
                   'h-9 rounded-md border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] transition-colors duration-150',
                   formOpen
                     ? 'border-border text-text-tertiary hover:text-foreground'
-                    : 'border-emerald-500 text-emerald-400 hover:bg-emerald-500/10',
+                    : 'border-accent text-accent-text hover:bg-accent/15',
                 )}
               >
                 {formOpen ? 'Cancel' : CREW_COPY.ctaLabel}
@@ -164,7 +164,7 @@ export function ContractorCard({
                           <select
                             value={projectId}
                             onChange={(e) => setProjectId(e.target.value)}
-                            className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                            className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground focus:border-accent focus:outline-none"
                           >
                             {projects.map((p) => (
                               <option key={p.id} value={p.id}>
@@ -185,7 +185,7 @@ export function ContractorCard({
                           value={dates}
                           onChange={(e) => setDates(e.target.value)}
                           placeholder="e.g. Sep 12, Sep 15–17"
-                          className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                          className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
                         />
                       </label>
 
@@ -198,7 +198,7 @@ export function ContractorCard({
                           value={location}
                           onChange={(e) => setLocation(e.target.value)}
                           placeholder="Studio, address, or area"
-                          className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+                          className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
                         />
                       </label>
 
@@ -211,7 +211,7 @@ export function ContractorCard({
                           onChange={(e) => setNotes(e.target.value)}
                           placeholder="Call time, scope, anything the contractor should know"
                           rows={3}
-                          className="resize-none rounded-md border-border bg-surface-inset font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-emerald-500 focus:ring-emerald-500/30"
+                          className="resize-none rounded-md border-border bg-surface-inset font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:ring-border-strong"
                         />
                       </label>
 
@@ -222,7 +222,7 @@ export function ContractorCard({
                       <button
                         type="submit"
                         disabled={status === 'submitting'}
-                        className="h-9 rounded-md border border-emerald-500 px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+                        className="h-9 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
                       >
                         {status === 'submitting' ? 'Sending…' : 'Send request'}
                       </button>
@@ -264,7 +264,7 @@ function ContractorAvatar({ name, photo }: { name: string; photo: string | null 
       ) : (
         <span
           aria-hidden
-          className="absolute inset-0 grid place-items-center bg-plate font-mono text-[13px] font-medium text-[#0F0F10]"
+          className="absolute inset-0 grid place-items-center bg-plate font-mono text-[13px] font-medium text-ink"
         >
           {initials(name)}
         </span>

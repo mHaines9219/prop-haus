@@ -5,11 +5,10 @@ import { cn } from '@/lib/utils';
 import { LightWell } from './light-well';
 
 /**
- * Item-detail gallery (DESIGN.md section 9.5): the hero light well sits inside a
- * 24px canvas mat bounded by its own hairline frame — a matted, framed print —
- * with the lit plate pinned on (the hero monitor is always awake). Below, a
- * strip of 64px thumbnail wells; the selected one carries a border-strong
- * frame, and switching re-lights the hero over the well-reveal timing.
+ * Item-detail gallery (DESIGN.md §9.5): the big print in the ad. The hero
+ * well sits inside a ruled mat on cream, printed on brighter stock (lit).
+ * Below, a strip of 64px thumbnail wells; the selected one carries a coral
+ * rule, and switching re-prints the hero over the well-reveal timing.
  */
 export function ItemGallery({ images, name }: { images: string[]; name: string }) {
   const [selected, setSelected] = useState(0);
@@ -17,10 +16,10 @@ export function ItemGallery({ images, name }: { images: string[]; name: string }
 
   return (
     <div className="space-y-4">
-      <div className="border border-border-subtle bg-surface-raised rounded-md p-6">
+      <div className="border-[1.5px] border-ink bg-card p-4 sm:p-6">
         <LightWell
           // Re-key on the source so a thumbnail switch remounts the well and the
-          // new plate lights up cleanly rather than hard-cutting the image.
+          // new plate prints cleanly rather than hard-cutting the image.
           key={heroSrc ?? 'empty'}
           src={heroSrc}
           alt={name}
@@ -46,7 +45,7 @@ export function ItemGallery({ images, name }: { images: string[]; name: string }
                 src={src}
                 alt={`${name} thumbnail ${i + 1}`}
                 sizes="64px"
-                className={cn('w-16 rounded-md', i === selected && '!border-accent ring-1 ring-accent/40')}
+                className={cn('w-16', i === selected && '!border-coral-deep ring-1 ring-coral-deep')}
               />
             </button>
           ))}

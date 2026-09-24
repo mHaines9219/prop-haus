@@ -12,7 +12,7 @@ describe('SeamGrid', () => {
         <span>b</span>
       </SeamGrid>,
     );
-    expect(container.firstElementChild).toHaveClass('grid', 'gap-px', 'bg-border', 'grid-cols-2');
+    expect(container.firstElementChild).toHaveClass('grid', 'gap-2', 'grid-cols-2');
     expect(container.firstElementChild?.children).toHaveLength(2);
   });
 });

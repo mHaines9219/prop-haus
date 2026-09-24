@@ -30,12 +30,16 @@ function formatDataLine(item: CardItem): string | null {
 }
 
 /**
- * Ruled-grid cell (DESIGN.md section 9.4): light well + fixed-slot placard.
- * The whole cell is one link; the well beams up on hover/focus via `.group`.
- * Slots hold their height even when a value is missing so seam rows align.
+ * ItemCard — the ad box (DESIGN.md §9.4). One listing in the directory:
+ * cream stock, an ink rule, the picture, the name as a red condensed
+ * headline, the subcategory as a listing line, the vendor bottom-left and
+ * the price bottom-right in a coral phone-number tag.
  *
- * marquee: spans a 2×2 grid cell on the home page; well fills height, name
- * steps up to 18px Switzer 600 (DESIGN.md v1.1 §9.2).
+ * The card is its own `.sheet`, so it prints as paper whether it sits on the
+ * green vinyl (home page) or on a page (search, category).
+ *
+ * marquee: spans a 2×2 grid cell; the well fills the height and the headline
+ * steps up.
  */
 export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean }) {
   const add = useCart((s) => s.add);
@@ -66,8 +70,8 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
     <Link
       href={`/item/${item.source}/${encodeURIComponent(item.sourceId)}`}
       className={cn(
-        'group rounded-md bg-background p-4',
-        marquee ? 'flex h-full flex-col' : 'block',
+        'group sheet border-[1.5px] border-ink bg-card p-3 text-foreground transition-[box-shadow,transform] duration-150 ease-attend hover:shadow-[3px_3px_0_var(--ink)] motion-safe:hover:-translate-x-px motion-safe:hover:-translate-y-px',
+        marquee ? 'flex h-full flex-col' : 'block h-full',
       )}
     >
       <div className={cn('relative', marquee ? 'flex-1' : undefined)}>
@@ -84,49 +88,47 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
           fill={marquee}
         />
 
-        {/* Quick-add (DESIGN.md §9.4.2): always visible on touch, hover-revealed otherwise */}
+        {/* Quick-add: always visible on touch, hover-revealed otherwise */}
         <button
           type="button"
           aria-label={inCart || added ? 'Added to cart' : 'Add to cart'}
           onClick={handleQuickAdd}
           className={cn(
-            'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card/90 text-foreground transition-opacity duration-[160ms] ease-attend',
+            'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center border-[1.5px] border-ink bg-accent text-accent-foreground transition-opacity duration-[160ms] ease-attend',
             'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
             '[@media(pointer:coarse)]:opacity-100',
           )}
         >
           {inCart || added ? (
-            <Check size={14} strokeWidth={1.5} aria-hidden />
+            <Check size={14} strokeWidth={2.25} aria-hidden />
           ) : (
-            <Plus size={14} strokeWidth={1.5} aria-hidden />
+            <Plus size={14} strokeWidth={2.25} aria-hidden />
           )}
         </button>
       </div>
 
-      {/* Fixed-slot placard (DESIGN.md §9.4.3) */}
+      {/* Fixed-slot placard: heights hold even when a value is missing so rows align */}
       <div className="mt-3">
         <p
           className={cn(
-            'line-clamp-2 font-heading leading-[1.33] text-foreground',
-            marquee
-              ? 'min-h-[48px] text-[18px] font-semibold'
-              : 'min-h-[44px] text-[15px] font-medium',
+            'ad-headline line-clamp-2',
+            marquee ? 'min-h-[36px] text-[18px] leading-[18px]' : 'min-h-[30px] text-[15px] leading-[15px]',
           )}
         >
           {item.name}
         </p>
-        <p className="min-h-[19px] truncate text-[13px] leading-[19px] text-text-tertiary">
-          {item.subcategory ?? ''}
+        <p className="listing mt-1.5 min-h-[14px] truncate">
+          <span>{item.subcategory ?? ''}</span>
         </p>
-        {/* Vendor credit left, camera-report data right — fixed height even when absent */}
-        <div className="mt-2 flex items-baseline justify-between gap-2">
-          <p className="truncate font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-secondary">
+        {/* Vendor credit left, price tag right */}
+        <div className="mt-2.5 flex min-h-[26px] items-end justify-between gap-2">
+          <p className="truncate font-heading text-[11px] font-bold uppercase leading-[14px] tracking-[0.06em] text-foreground/75">
             {SOURCE_META[item.source].name}
           </p>
           {dataLine && (
-            <p className="shrink-0 font-mono text-[13px] leading-[18px] tabular-nums text-text-secondary">
+            <span className="tag shrink-0 font-mono tabular-nums">
               {dataLine}
-            </p>
+            </span>
           )}
         </div>
       </div>

@@ -5,9 +5,10 @@ import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
 /**
- * Dark/light switch in the nav chrome. Dark is the house default (the
- * screening room); light is the paper print. Icon shows the mode you'd
- * switch TO, matching the other quiet icon controls in the bar.
+ * Binder/page switch in the nav chrome. "Dark" is the house default: the
+ * green vinyl binder with cream ads set into it. "Light" opens the book to a
+ * cream page. Icon shows the mode you'd switch TO, matching the other quiet
+ * icon controls in the bar.
  */
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -27,12 +28,12 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="text-text-secondary transition-colors duration-150 hover:text-accent"
+      className="text-paper/85 transition-colors duration-150 hover:text-white"
     >
       {isDark ? (
-        <Sun size={20} strokeWidth={1.5} aria-hidden />
+        <Sun size={19} strokeWidth={1.75} aria-hidden />
       ) : (
-        <Moon size={20} strokeWidth={1.5} aria-hidden />
+        <Moon size={19} strokeWidth={1.75} aria-hidden />
       )}
     </button>
   );

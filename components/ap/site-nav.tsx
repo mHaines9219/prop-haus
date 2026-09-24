@@ -15,28 +15,39 @@ const NAV = [
 ];
 
 /**
- * Nocturne nav: wordmark flush left, all links + icons flush right.
- * No center-aligned nav — the template layout keeps everything on one side.
+ * Party Line nav (DESIGN.md §9.1): the binder's top edge. Always green vinyl,
+ * whatever the theme. The wordmark is a cream index tab, the city a coral
+ * one, like the "Fire 273-3110" tabs along the top of the reference page.
+ * Links are cream condensed gothic, flush right.
  */
 export function SiteNav() {
   return (
-    <header className="sticky top-0 z-40 h-14 bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center px-4 sm:px-6">
-        {/* Wordmark — flush left */}
-        <Link href="/" className="mr-auto flex items-baseline gap-2.5">
-          <span className="font-heading text-[18px] font-bold uppercase leading-none tracking-[0.04em] text-foreground">
+    <header className="sticky top-0 z-40 bg-binder text-paper">
+      <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center px-3 sm:px-5">
+        {/* Index tabs — flush left */}
+        <div className="mr-auto flex items-stretch gap-1.5">
+          <Link
+            href="/"
+            className="flex items-center border-[1.5px] border-ink bg-paper-lit px-2.5 font-heading text-[15px] font-extrabold uppercase leading-none tracking-[0.01em] text-ink transition-colors duration-150 hover:bg-white"
+          >
             Prop Haus
+          </Link>
+          <span
+            aria-hidden
+            className="hidden items-center border-[1.5px] border-ink bg-coral px-2.5 font-heading text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] text-ink sm:flex"
+          >
+            Los Angeles
           </span>
-        </Link>
+        </div>
 
         {/* Nav links + icons — flush right */}
-        <div className="flex items-center gap-6">
-          <nav className="hidden items-center gap-6 md:flex">
+        <div className="flex items-center gap-5">
+          <nav className="hidden items-center gap-5 md:flex">
             {NAV.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
-                className="font-heading text-[13px] font-bold tracking-[-0.028em] text-text-secondary transition-colors duration-150 hover:text-foreground"
+                className="font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-paper/85 underline-offset-[5px] transition-colors duration-150 hover:text-white hover:underline"
               >
                 {n.label}
               </Link>
@@ -48,6 +59,8 @@ export function SiteNav() {
           <AuthControl />
         </div>
       </div>
+      {/* Bottom rule of the binder edge */}
+      <div aria-hidden className="h-px w-full bg-ink/60" />
     </header>
   );
 }
@@ -63,11 +76,11 @@ function CartLink() {
     <Link
       href="/cart"
       aria-label={count > 0 ? `Cart, ${count} items` : 'Cart'}
-      className="relative text-text-secondary transition-colors duration-150 hover:text-foreground"
+      className="relative text-paper/85 transition-colors duration-150 hover:text-white"
     >
-      <ShoppingCart size={18} strokeWidth={1.5} aria-hidden />
+      <ShoppingCart size={19} strokeWidth={1.75} aria-hidden />
       {count > 0 && (
-        <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center overflow-hidden rounded-full bg-accent px-1 font-mono text-[10px] font-medium leading-none text-accent-foreground">
+        <span className="absolute -right-2.5 -top-2 flex h-[17px] min-w-[17px] items-center justify-center overflow-hidden rounded-full border border-ink bg-accent px-1 font-heading text-[10px] font-extrabold leading-none text-accent-foreground">
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
               key={count}
@@ -100,29 +113,13 @@ function AuthControl() {
 
   if (signedIn === null) return null;
 
-  if (!signedIn) {
-    return (
-      <Link
-        href="/login"
-        aria-label="Your account"
-        className="text-text-secondary transition-colors duration-150 hover:text-foreground"
-      >
-        {/* User icon — matches the template's account mark */}
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-          <circle cx="9" cy="6" r="3" />
-          <path d="M3.5 15.5c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" strokeLinecap="round" />
-        </svg>
-      </Link>
-    );
-  }
-
   return (
     <Link
-      href="/account"
+      href={signedIn ? '/account' : '/login'}
       aria-label="Your account"
-      className="text-text-secondary transition-colors duration-150 hover:text-foreground"
+      className="text-paper/85 transition-colors duration-150 hover:text-white"
     >
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <svg width="19" height="19" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
         <circle cx="9" cy="6" r="3" />
         <path d="M3.5 15.5c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" strokeLinecap="round" />
       </svg>

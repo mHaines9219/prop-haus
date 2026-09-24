@@ -89,12 +89,12 @@ export function FolderActions({
           autoFocus
           disabled={busy}
           aria-label="Folder name"
-          className="h-8 w-48 rounded-md border border-border bg-surface-inset px-2 font-mono text-[12px] text-foreground focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+          className="h-8 w-48 rounded-md border border-border bg-surface-inset px-2 font-mono text-[12px] text-foreground focus:border-accent focus:outline-none"
         />
         <button
           type="submit"
           disabled={busy}
-          className="h-8 rounded-md border border-emerald-500 px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-40"
+          className="h-8 rounded-md border border-accent px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-40"
         >
           Save
         </button>

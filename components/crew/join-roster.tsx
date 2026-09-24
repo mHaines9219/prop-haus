@@ -136,7 +136,7 @@ export function JoinRoster() {
               transition={{ type: 'spring', stiffness: 340, damping: 30, duration: 0.22 }}
               className="fixed inset-x-0 top-[8vh] z-50 mx-auto w-full max-w-lg px-4"
             >
-              <div className="max-h-[84vh] overflow-y-auto rounded-[14px] border border-border bg-card shadow-lg">
+              <div className="max-h-[84vh] overflow-y-auto border border-border bg-card shadow-lg">
                 <div className="flex items-center justify-between border-b border-border px-5 py-4">
                   <div>
                     <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-text-tertiary">

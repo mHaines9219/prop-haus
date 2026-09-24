@@ -1,8 +1,18 @@
 /*
- * Design language: NOCTURNE (Aug 2026).
- * Ground: #0b0b0d — near-black, warm-free.
- * Accent: #c8f24a — acid green, the ONLY saturated color.
- * Light theme: achromatic — accent becomes near-black, no color.
+ * Design language: PARTY LINE (Sep 2026).
+ *
+ * A county phonebook: cream ad boxes on a green vinyl binder. Ink rules,
+ * condensed gothic headlines in red, phone-number tags in coral, Helvetica
+ * listings. See DESIGN.md.
+ *
+ * Two scopes, one token set:
+ *   BINDER  (:root, default "dark")  green vinyl ground, cream text on it.
+ *   SHEET   (.sheet, and the whole page under data-theme="light")  a cream
+ *           page of the book: ink text, ink rules, coral tags.
+ * Every semantic token (--background, --card, --border, ...) is defined in
+ * both scopes, so any component built from the tokens reads correctly whether
+ * it sits on the vinyl or on a page. The constants (--binder, --paper, --ink,
+ * --coral) never change: the chrome (nav, footer) and the ad boxes use them.
  */
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
@@ -12,141 +22,149 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* ── surfaces ── */
-  --background: #0b0b0d;
-  --foreground: #e9e9ed;
-  --card: #16161a;
-  --card-foreground: #e9e9ed;
-  --popover: #2c2c33;
-  --popover-foreground: #e9e9ed;
-  --surface-inset: #1a1a1e;
+  /* ── constants: the four materials ── */
+  --binder: #1f4b3b;
+  --binder-deep: #173a2e;
+  --binder-lit: #275a47;
+  --paper: #f3eddc;
+  --paper-lit: #faf6ea;
+  --paper-deep: #e6dec6;
+  --ink: #17140f;
+  --coral: #e8735a;
+  --coral-deep: #c9432b;
+  --coral-lit: #f4a28f;
 
-  /* ── actions: acid green is the sole accent ── */
-  --primary: #c8f24a;
-  --primary-foreground: #0b0b0d;
-  --primary-hover: #d3f56b;
-  --secondary: #1a1a1e;
-  --secondary-foreground: #adaea6;
-  --muted: #1a1a1e;
-  --muted-foreground: color-mix(in srgb, #e9e9ed 72%, transparent);
-  --accent: #c8f24a;
-  --accent-foreground: #0b0b0d;
-  --accent-text: #d3f56b;
+  /* ── BINDER scope: green vinyl ── */
+  --background: var(--binder);
+  --foreground: var(--paper);
+  --card: var(--binder-lit);
+  --card-foreground: var(--paper);
+  --popover: #2d6650;
+  --popover-foreground: var(--paper);
+  --surface-inset: var(--binder-deep);
+  --surface-raised: var(--binder-lit);
 
-  /* ── destructive: red only, never tally ── */
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --destructive-wash: #2a1617;
+  --primary: var(--coral);
+  --primary-foreground: var(--ink);
+  --primary-hover: #ee8168;
+  --secondary: var(--binder-deep);
+  --secondary-foreground: var(--paper);
+  --muted: var(--binder-deep);
+  --muted-foreground: color-mix(in srgb, var(--paper) 72%, transparent);
+  --accent: var(--coral);
+  --accent-foreground: var(--ink);
+  --accent-text: var(--coral-lit);
 
-  /* ── structure ── */
-  --border: color-mix(in srgb, #e9e9ed 16%, transparent);
-  --border-strong: color-mix(in srgb, #e9e9ed 32%, transparent);
-  --input: #16161a;
-  --ring: #c8f24a;
+  --destructive: #ff6a55;
+  --destructive-foreground: var(--ink);
+  --destructive-wash: #3a2a25;
 
-  /* ── light wells ── */
-  --plate: #e3e4de;
-  --plate-lit: #f4f5f0;
-  --well-scrim-opacity: 0;
-  --well-inset: 8%;
+  --border: color-mix(in srgb, var(--paper) 24%, transparent);
+  --border-subtle: color-mix(in srgb, var(--paper) 14%, transparent);
+  --border-strong: color-mix(in srgb, var(--paper) 60%, transparent);
+  --input: var(--binder-deep);
+  --ring: var(--coral);
 
-  /* ── workflow status dots ── */
-  --status-pending: #8d8e86;
-  --status-quoted: #e3b341;
-  --status-confirmed: #58a87c;
-  --status-unavailable: #ef4444;
+  --plate: var(--paper-lit);
+  --plate-lit: #ffffff;
 
-  /* ── text tiers ── */
-  --text-secondary: color-mix(in srgb, #e9e9ed 72%, transparent);
-  --text-tertiary: color-mix(in srgb, #e9e9ed 62%, transparent);
-  --text-disabled: color-mix(in srgb, #e9e9ed 45%, transparent);
+  --status-pending: color-mix(in srgb, var(--paper) 55%, transparent);
+  --status-quoted: #e9b44c;
+  --status-confirmed: #8fd3a8;
+  --status-unavailable: var(--coral);
 
-  /* ── overlay ── */
-  --scrim: #0b0b0d;
-  --shadow-overlay: 0 0 0 1px #4a4a52, 0 16px 40px rgba(0, 0, 0, 0.7);
+  --text-secondary: color-mix(in srgb, var(--paper) 80%, transparent);
+  --text-tertiary: color-mix(in srgb, var(--paper) 64%, transparent);
+  --text-disabled: color-mix(in srgb, var(--paper) 40%, transparent);
+  --text-muted: var(--text-secondary);
+  --text-faint: var(--text-tertiary);
 
-  /* ── shape ── */
-  --radius: 8px;
+  --scrim: var(--binder-deep);
+  --shadow-overlay: 0 0 0 1px var(--ink), 6px 6px 0 rgba(0, 0, 0, 0.35);
 
-  /* ── neutral tonal ramp ── */
-  --color-neutral-100: #f4f4f4;
-  --color-neutral-200: #e3e3e5;
-  --color-neutral-300: #c8c8cc;
-  --color-neutral-400: #adaea6;
-  --color-neutral-500: #8d8e86;
-  --color-neutral-600: #6e6e76;
-  --color-neutral-700: #4a4a52;
-  --color-neutral-800: #2c2c33;
-  --color-neutral-900: #1a1a1e;
-
-  /* ── acid green tonal ramp ── */
-  --color-accent-100: #f2fccf;
-  --color-accent-200: #e6f99e;
-  --color-accent-300: #d3f56b;
-  --color-accent-400: #d3f56b;
-  --color-accent-500: #c8f24a;
-  --color-accent-600: #b4d93f;
-  --color-accent-700: #8fab2e;
-  --color-accent-800: #637820;
-  --color-accent-900: #3a4813;
-
-  /* ── section tokens ── */
-  --color-section: #0b0b0d;
-  --color-section-glow: #17190f;
-  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
-
-  /* ── text aliases ── */
-  --text-muted: color-mix(in srgb, #e9e9ed 72%, transparent);
-  --text-faint: color-mix(in srgb, #e9e9ed 62%, transparent);
+  /* ── shape: a phonebook has no rounded corners ── */
+  --radius: 0px;
 
   /* ── typography ── */
-  --font-heading: "Archivo", "Helvetica Neue", Helvetica, sans-serif;
-  --font-heading-weight: 700;
-  --font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-heading: var(--font-archivo), 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-heading-weight: 800;
+  --font-body: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  /* ── vinyl grain ── */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /*
- * Light theme: achromatic — acid green is suppressed, no saturated color.
- * Background is off-white, ink is near-black.
+ * SHEET scope: a cream page of the book. Applied by PageShell around every
+ * interior page, by each ad box on the home page, and to the whole document
+ * in the light theme.
  */
+.sheet,
 :root[data-theme='light'] {
-  --background: #f4f4f4;
-  --foreground: #1b1b1b;
-  --card: #ffffff;
-  --card-foreground: #1b1b1b;
-  --popover: #ffffff;
-  --popover-foreground: #1b1b1b;
-  --surface-inset: #e7e7e5;
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-lit);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-lit);
+  --popover-foreground: var(--ink);
+  --surface-inset: var(--paper-deep);
+  --surface-raised: var(--paper-lit);
 
-  --primary: #1b1b1b;
-  --primary-foreground: #f4f4f4;
-  --primary-hover: #000000;
-  --secondary: #e7e7e5;
-  --secondary-foreground: #55555c;
-  --muted: #e7e7e5;
-  --muted-foreground: color-mix(in srgb, #1b1b1b 78%, transparent);
-  --accent: #1b1b1b;
-  --accent-foreground: #f4f4f4;
-  --accent-text: #1b1b1b;
+  --primary: var(--coral);
+  --primary-foreground: var(--ink);
+  --primary-hover: #ee8168;
+  --secondary: var(--paper-deep);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-deep);
+  --muted-foreground: color-mix(in srgb, var(--ink) 72%, transparent);
+  --accent: var(--coral);
+  --accent-foreground: var(--ink);
+  --accent-text: var(--coral-deep);
 
-  --border: color-mix(in srgb, #1b1b1b 14%, transparent);
-  --border-strong: color-mix(in srgb, #1b1b1b 30%, transparent);
-  --input: #e7e7e5;
-  --ring: #1b1b1b;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --destructive-wash: #f6dcd6;
 
-  --text-secondary: color-mix(in srgb, #1b1b1b 78%, transparent);
-  --text-tertiary: color-mix(in srgb, #1b1b1b 68%, transparent);
-  --text-disabled: color-mix(in srgb, #1b1b1b 40%, transparent);
+  --border: color-mix(in srgb, var(--ink) 26%, transparent);
+  --border-subtle: color-mix(in srgb, var(--ink) 14%, transparent);
+  --border-strong: var(--ink);
+  --input: var(--paper-lit);
+  --ring: var(--coral-deep);
 
-  --shadow-overlay: 0 0 0 1px #dcdcdc, 0 16px 40px rgba(0, 0, 0, 0.14);
+  --plate: var(--paper-lit);
+  --plate-lit: #ffffff;
 
-  --color-divider: color-mix(in srgb, #1b1b1b 14%, transparent);
-  --text-muted: color-mix(in srgb, #1b1b1b 78%, transparent);
-  --text-faint: color-mix(in srgb, #1b1b1b 68%, transparent);
+  --status-pending: color-mix(in srgb, var(--ink) 45%, transparent);
+  --status-quoted: #c98a1e;
+  --status-confirmed: #2f7d4f;
+  --status-unavailable: var(--coral-deep);
+
+  --text-secondary: color-mix(in srgb, var(--ink) 78%, transparent);
+  --text-tertiary: color-mix(in srgb, var(--ink) 62%, transparent);
+  --text-disabled: color-mix(in srgb, var(--ink) 38%, transparent);
+  --text-muted: var(--text-secondary);
+  --text-faint: var(--text-tertiary);
+
+  --scrim: var(--ink);
+  --shadow-overlay: 0 0 0 1px var(--ink), 6px 6px 0 rgba(23, 20, 15, 0.18);
+
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.09 0 0 0 0 0.08 0 0 0 0 0.06 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @theme inline {
-  /* ── colors ── */
+  /* ── constants ── */
+  --color-binder: var(--binder);
+  --color-binder-deep: var(--binder-deep);
+  --color-binder-lit: var(--binder-lit);
+  --color-paper: var(--paper);
+  --color-paper-lit: var(--paper-lit);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-coral: var(--coral);
+  --color-coral-deep: var(--coral-deep);
+  --color-coral-lit: var(--coral-lit);
+
+  /* ── semantic colors ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -154,6 +172,7 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-surface-inset: var(--surface-inset);
+  --color-surface-raised: var(--surface-raised);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
@@ -168,6 +187,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-wash: var(--destructive-wash);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -182,29 +202,30 @@
   --color-text-disabled: var(--text-disabled);
   --color-scrim: var(--scrim);
 
-  /* ── fonts ── */
-  --font-display: var(--font-archivo), "Archivo", "Helvetica Neue", sans-serif;
-  --font-heading: var(--font-archivo), "Archivo", "Helvetica Neue", sans-serif;
-  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
+  /* ── fonts ──
+     display: Fraunces, the bank-sign serif for page titles and the hero.
+     heading: Archivo drawn condensed (see .font-heading below), the ad headline
+              gothic for names, nav, labels, buttons.
+     mono:    Archivo at full width. The phonebook has no monospace: numbers are
+              bold gothic, so every "data" slot in the app reads like a phone
+              number. Tabular figures come from body { font-variant-numeric }. */
+  --font-display: var(--font-fraunces), 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-heading: var(--font-archivo), 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-archivo), 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
-  /* ── radius ── */
-  --radius-xs: 4px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 14px;
+  /* ── radius: none. The one exception is rounded-full for count bullets. ── */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
   --radius-full: 9999px;
 
   /* ── motion ── */
   --ease-reveal: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-attend: cubic-bezier(0.33, 1, 0.68, 1);
 }
-
-/* ── AI mode ring: spinning rainbow conic gradient border ────────────────── */
-/* @property must be top-level (not inside @layer) for the animation to work */
-@property --ai-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-@keyframes ai-ring-spin { to { --ai-a: 360deg; } }
 
 @layer base {
   html {
@@ -218,84 +239,132 @@
   body {
     font-family: var(--font-body);
     font-variant-numeric: tabular-nums;
-    background: radial-gradient(
-        1200px 720px at 82% -160px,
-        color-mix(in srgb, var(--color-accent) 9%, transparent),
-        transparent 62%
-      ),
+    color: var(--foreground);
+    background-color: var(--background);
+    /* vinyl: grain over a soft sheen that reads as the binder's curve */
+    background-image:
+      var(--grain),
       radial-gradient(
-        1100px 800px at -10% 100%,
-        color-mix(in srgb, black 55%, transparent),
-        transparent 55%
-      ),
-      var(--background);
-  }
-
-  :root[data-theme='light'] body {
-    background: radial-gradient(
-        1200px 720px at 82% -160px,
-        color-mix(in srgb, #ffffff 85%, transparent),
+        900px 600px at 18% -10%,
+        color-mix(in srgb, var(--binder-lit) 70%, transparent),
         transparent 60%
       ),
       radial-gradient(
-        1100px 800px at -10% 100%,
-        color-mix(in srgb, #1b1b1b 7%, transparent),
+        1000px 700px at 100% 110%,
+        color-mix(in srgb, var(--binder-deep) 90%, transparent),
         transparent 55%
-      ),
-      var(--background);
+      );
+  }
+
+  :root[data-theme='light'] body {
+    /* paper: grain only, no sheen */
+    background-image: var(--grain);
+  }
+
+  /* The sheet: a cream page. Inner tokens come from the .sheet scope above. */
+  .sheet {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  /* Archivo's width axis: the ad-headline gothic is drawn at 80% width. */
+  .font-heading {
+    font-stretch: 80%;
+  }
+
+  /* Fraunces at display sizes: bank-sign serif, a little soft. */
+  .font-display {
+    font-variation-settings: 'SOFT' 40, 'WONK' 0;
+    font-optical-sizing: auto;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--coral) 40%, transparent);
   }
 
-  /* AI ring utility — apply to the AI MODE button; the pseudo-elements paint
-     the spinning conic border and its blurred glow behind the button face. */
-  .ai-ring {
-    position: relative;
-    isolation: isolate;
+  /* Native selects inherit the sheet, not the OS */
+  select,
+  option {
+    color: var(--foreground);
+    background-color: var(--card);
   }
-  .ai-ring::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    padding: 1px;
-    border-radius: inherit;
-    background: conic-gradient(from var(--ai-a), #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b18cfe, #ff5f6d);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    z-index: -1;
-    opacity: 0.72;
-    animation: ai-ring-spin 6s linear infinite;
-  }
-  .ai-ring::after {
-    content: "";
-    position: absolute;
-    inset: 4px;
-    border-radius: inherit;
-    background: conic-gradient(from var(--ai-a), #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b18cfe, #ff5f6d);
-    filter: blur(7px);
-    z-index: -2;
-    opacity: 0.22;
-    animation: ai-ring-spin 6s linear infinite;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ai-ring::before, .ai-ring::after { animation: none; }
+}
+
+@layer components {
+  /*
+   * The phone-number tag: a coral block with bold condensed gothic in ink.
+   * The reference has one per ad ("736-2302"); here it is the price on an item
+   * card, the count on a category, the primary action on a form.
+   */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-family: var(--font-heading);
+    font-stretch: 80%;
+    font-weight: 800;
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 6px 9px 5px;
+    border: 1.5px solid var(--ink);
+    white-space: nowrap;
   }
 
-  /* Light theme: SEARCH button goes solid black — the achromatic theme's one full fill */
-  :root[data-theme='light'] .search-go {
-    background: #1b1b1b !important;
-    color: #ffffff !important;
+  .tag-lg {
+    font-size: 17px;
+    padding: 8px 12px 7px;
   }
-  :root[data-theme='light'] .search-go:hover {
-    background: #000000 !important;
+
+  /*
+   * The ad headline: condensed gothic, red, uppercase.
+   * "JERRY ELLIS FARM SERVICE"
+   */
+  .ad-headline {
+    font-family: var(--font-heading);
+    font-stretch: 80%;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.005em;
+    line-height: 0.95;
+    color: var(--accent-text);
+  }
+
+  /*
+   * The listing line: "FERTILIZER • CHEMICALS • LIME". Small caps with coral
+   * bullets between items. Put items in <span>s; bullets are drawn by CSS.
+   */
+  .listing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.55em;
+    row-gap: 0.15em;
+    font-family: var(--font-body);
+    font-size: 11px;
+    line-height: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .listing > * + *::before {
+    content: '•';
+    color: var(--accent-text);
+    margin-right: 0.55em;
+    font-weight: 700;
+  }
+
+  /* Ink rule weights */
+  .rule-heavy {
+    border-color: var(--ink);
+    border-width: 2px;
   }
 }

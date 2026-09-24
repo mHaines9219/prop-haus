@@ -32,7 +32,7 @@ export default async function OrdersPage() {
               </p>
               <Link
                 href="/"
-                className="mt-6 inline-block rounded-md border border-green-500 px-5 py-2.5 font-mono text-[13px] font-medium text-green-500 transition-colors hover:bg-green-500 hover:text-background"
+                className="mt-6 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 Browse catalog
               </Link>

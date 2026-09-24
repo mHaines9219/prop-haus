@@ -1,11 +1,12 @@
+/** An ad box before its copy is pasted up: the rule and four grey slots (DESIGN.md §9.9). */
 export function ItemCardSkeleton() {
   return (
-    <div className="bg-background p-4">
-      <div className="aspect-[4/5] animate-pulse rounded-md border border-border bg-card/50" />
+    <div className="sheet h-full border-[1.5px] border-ink/40 bg-card p-3">
+      <div className="aspect-[4/5] animate-pulse border border-ink/20 bg-surface-inset" />
       <div className="mt-3">
-        <div className="h-[18px] w-4/5 animate-pulse rounded-md bg-card/50" />
-        <div className="mt-2 h-[14px] w-2/5 animate-pulse rounded-md bg-card/50" />
-        <div className="mt-3 h-[11px] w-1/3 animate-pulse rounded-md bg-card/50" />
+        <div className="h-[15px] w-4/5 animate-pulse bg-surface-inset" />
+        <div className="mt-2 h-[11px] w-2/5 animate-pulse bg-surface-inset" />
+        <div className="mt-3 h-[22px] w-1/3 animate-pulse bg-surface-inset" />
       </div>
     </div>
   );

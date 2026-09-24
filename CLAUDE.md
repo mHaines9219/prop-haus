@@ -473,29 +473,40 @@ The moat is:
 Prop Haus should become:
 "the operating system for production sourcing."
 
-# Design Language: ANSWER PRINT (Aug 2026 redesign)
+# Design Language: PARTY LINE (Sep 2026 redesign)
 
-ALL UI uses the ANSWER PRINT design language. The full spec lives in
-DESIGN.md at the repo root: tokens, color system, the light-well image
-treatment, typography, motion patterns, and per-surface component specs. Dark
-first, cinematic, balanced neo-brutalist.
+ALL UI uses the PARTY LINE design language: a county phonebook. Cream ad
+boxes with ink rules on a green vinyl binder, condensed red gothic
+headlines, coral phone-number tags, Helvetica listing lines. The full spec
+lives in DESIGN.md at the repo root: the four materials, the two token
+scopes, typography, rules, motion, and per-surface component specs.
 
-- Stack: Tailwind v4 (tokens via @theme in app/globals.css) + shadcn
-  conventions (components.json, lib/utils cn) + KokonutUI registry
-  (npx shadcn add @kokonutui/<name>, always restyled to the language, never
-  default) + Motion (import from "motion/react").
-- Fonts: Anybody (display, Google), Switzer (body, self-hosted in app/fonts),
-  Spline Sans Mono (all data/numbers). Loaded via next/font in app/layout.tsx.
-- Answer Print components live in components/ap/. The home page (app/page.tsx)
-  is the reference implementation.
+- Stack: Tailwind v4 (tokens via @theme inline in app/globals.css) + shadcn
+  conventions (components.json, lib/utils cn) + Motion (import from
+  "motion/react").
+- Fonts (app/layout.tsx via next/font): Archivo with its width axis is the
+  ad-headline gothic, drawn at 80% width for `font-heading` and at full width
+  for `font-mono` (the phonebook has no monospace; numbers are bold gothic).
+  Fraunces is `font-display`, the bank-sign serif for page titles and the
+  hero. Helvetica Neue (system) is the body face.
+- Two scopes, one token set: `:root` is the BINDER (green vinyl, default
+  theme), `.sheet` is a cream PAGE. PageShell wraps every interior page in a
+  `.sheet`; ItemCard and the home-page ad boxes are each their own `.sheet`.
+  Build from semantic tokens (bg-card, text-text-tertiary, border-border...)
+  and a component prints correctly in either scope. Any new color token needs
+  a value in BOTH blocks in app/globals.css.
 - Every inventory photo renders inside a LightWell
-  (components/ap/light-well.tsx), never as a bare image tile. This is the
-  signature move of the language; see DESIGN.md section 4.
-- Theming: dark is the default. next-themes (wired in app/providers.tsx)
-  toggles a `.light` class on <html>; light token overrides live in
-  app/globals.css next to the dark :root block. Any new color token needs a
-  value in BOTH blocks. The toggle lives in components/ap/site-nav.tsx.
-- Astryx (the previous design system) was FULLY REMOVED in Aug 2026 — no
-  @astryxdesign dependencies, no `astryx` CLI, no app/(legacy)/. Never
-  reintroduce it; ignore stale references in old docs or git history.
-
+  (components/ap/light-well.tsx) on a paper plate with an ink rule, never as a
+  bare image tile. See DESIGN.md section 4.
+- Radius is 0 everywhere (the tokens are 0). Rules, not shadows: 1.5px ink
+  box rules, 2px heavy rules, a hard offset shadow on hover.
+- Component classes: `.ad-headline`, `.listing` (coral bullets between spans),
+  `.tag` (the coral phone-number block). One coral tag per box.
+- Theming: next-themes (app/providers.tsx) toggles `data-theme` on <html>;
+  "dark" is the binder, "light" opens the book to a cream page. The nav and
+  footer are always vinyl (they use the constants bg-binder / text-paper).
+- Never use Tailwind's palette classes (emerald-500, zinc-800) or hard-coded
+  hex in components; use the tokens.
+- Nocturne (Aug 30 2026) and Answer Print (Aug 2026) and Astryx (before that)
+  were all REMOVED. Never reintroduce acid green, tally red, blurred glows, or
+  rounded cards; ignore stale references in old docs, comments, or git history.

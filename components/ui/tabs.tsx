@@ -6,9 +6,9 @@ import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '@/lib/utils';
 
 /**
- * Tabs (Radix, Answer Print skin). A hairline underline rail with 11px mono
- * uppercase triggers; the active trigger carries a 1px foreground rule on the
- * seam. No pills, no fills, radius 0.
+ * Tabs (Radix, Party Line skin). Index tabs along a rule: 11px condensed
+ * uppercase triggers over a hairline; the active one carries a 2px ink rule
+ * on the seam, like the thumb tab you are on. No pills, no fills, radius 0.
  */
 
 function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
@@ -30,9 +30,9 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        'relative -mb-px inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap border-b border-transparent font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150',
+        'relative -mb-px inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent font-heading text-[11px] font-extrabold uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150',
         'hover:text-text-secondary disabled:pointer-events-none disabled:text-text-disabled',
-        'data-[state=active]:border-foreground data-[state=active]:text-foreground',
+        'data-[state=active]:border-border-strong data-[state=active]:text-foreground',
         className,
       )}
       {...props}

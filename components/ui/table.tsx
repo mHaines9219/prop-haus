@@ -3,12 +3,12 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * Table primitives (shadcn shape, Answer Print skin).
+ * Table primitives (shadcn shape, Party Line skin).
  *
- * Rows are full-width list rows with 1px hairline seams and radius 0
- * (DESIGN.md §6, §9.7). Header labels are 11px mono uppercase, hover changes
- * fill only, never a border. The wrapper scrolls sideways on narrow screens so
- * the page body never does.
+ * A ledger: full-width rows with hairline ink seams, a heavy ink rule under
+ * the column heads, radius 0 (DESIGN.md §6, §9.7). Header labels are 11px
+ * condensed uppercase; hover changes fill only, never a border. The wrapper
+ * scrolls sideways on narrow screens so the page body never does.
  */
 
 function Table({ className, ...props }: React.ComponentProps<'table'>) {
@@ -27,7 +27,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
   return (
     <thead
       data-slot="table-header"
-      className={cn('[&_tr]:border-b [&_tr]:border-border', className)}
+      className={cn('[&_tr]:border-b-2 [&_tr]:border-border-strong', className)}
       {...props}
     />
   );
@@ -55,7 +55,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 whitespace-nowrap px-3 text-left align-middle font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary first:pl-4 last:pr-4 sm:first:pl-6 sm:last:pr-6',
+        'h-10 whitespace-nowrap px-3 text-left align-middle font-heading text-[11px] font-extrabold uppercase tracking-[0.08em] text-text-secondary first:pl-4 last:pr-4 sm:first:pl-6 sm:last:pr-6',
         className,
       )}
       {...props}

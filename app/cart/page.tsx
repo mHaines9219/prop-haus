@@ -439,7 +439,7 @@ export default function CartPage() {
                 </div>
 
                 {state.kind === 'error' && (
-                  <p className="font-mono text-[12px] text-[#a8ff3e]">{state.message}</p>
+                  <p className="font-mono text-[12px] text-accent-text">{state.message}</p>
                 )}
 
                 {readiness.kind === 'ready' && (

@@ -67,7 +67,7 @@ export function UploadForm({ projectId, folderId }: { projectId: string; folderI
         }}
         className={
           'flex flex-col items-start gap-3 border border-dashed px-4 py-5 transition-colors duration-150 sm:flex-row sm:items-center sm:justify-between ' +
-          (dragging ? 'border-emerald-500 bg-emerald-500/5' : 'border-border')
+          (dragging ? 'border-accent bg-accent/10' : 'border-border')
         }
       >
         <div className="min-w-0">
@@ -81,7 +81,7 @@ export function UploadForm({ projectId, folderId }: { projectId: string; folderI
         </div>
         <label
           className={
-            'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-emerald-500 px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-emerald-400 transition-colors hover:bg-emerald-500/10 ' +
+            'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 ' +
             (busy ? 'pointer-events-none opacity-50' : '')
           }
         >
