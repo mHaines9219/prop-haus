@@ -176,6 +176,7 @@ export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
           table={table}
           rowHref={(r) => `/projects/${r.id}`}
           columnClass={{
+            name: 'w-full max-w-0',
             scenes: 'hidden sm:table-cell',
             items: 'hidden sm:table-cell',
             documents: 'hidden md:table-cell',

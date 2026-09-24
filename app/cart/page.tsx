@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
 import { useCart, type CartLine } from '@/lib/cart-store';
 import { SOURCE_META, type Source } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { SiteNav } from '@/components/ap/site-nav';
-import { SiteFooter } from '@/components/ap/site-footer';
+import { PageShell } from '@/components/ap/page-shell';
+import { LightWell } from '@/components/ap/light-well';
 import { OutreachDrawer } from '@/components/ap/outreach-drawer';
 import { ApiError, getJson, postJson } from '@/lib/api';
 import { formatAddress, type OrderDefaults } from '@/lib/order-profile';
@@ -142,9 +141,8 @@ export default function CartPage() {
   if (!mounted) return null;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
-      <SiteNav />
-      <main className="flex-1">
+    <>
+      <PageShell>
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
 
           {/* Page header */}
@@ -181,19 +179,14 @@ export default function CartPage() {
                     const vendorName = SOURCE_META[line.item.source as Source]?.name ?? line.item.source;
                     return (
                       <div key={line.item.id} className="flex gap-4 py-5">
-                        <Link href={href} className="shrink-0">
-                          {line.item.images[0] ? (
-                            <Image
-                              src={line.item.images[0]}
-                              alt={line.item.name}
-                              width={96}
-                              height={96}
-                              className="h-24 w-24 rounded-md object-cover"
-                              unoptimized
-                            />
-                          ) : (
-                            <span className="block h-24 w-24 rounded-md bg-surface-raised" />
-                          )}
+                        <Link href={href} className="group shrink-0">
+                          <LightWell
+                            src={line.item.images[0]}
+                            alt={line.item.name}
+                            name={line.item.name}
+                            sizes="96px"
+                            className="w-24"
+                          />
                         </Link>
                         <div className="flex flex-1 flex-col justify-between py-0.5">
                           <div>
@@ -225,7 +218,7 @@ export default function CartPage() {
               </div>
 
               {/* Checkout panel */}
-              <div className="space-y-5">
+              <div className="space-y-5 lg:sticky lg:top-[72px] lg:max-h-[calc(100dvh-88px)] lg:overflow-y-auto">
                 <div className="rounded-md border border-border bg-surface-raised p-5">
                   <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                     Order details
@@ -462,8 +455,7 @@ export default function CartPage() {
             </div>
           )}
         </div>
-      </main>
-      <SiteFooter />
+      </PageShell>
 
       <OutreachDrawer
         message={
@@ -491,7 +483,7 @@ export default function CartPage() {
             : undefined
         }
       />
-    </div>
+    </>
   );
 }
 

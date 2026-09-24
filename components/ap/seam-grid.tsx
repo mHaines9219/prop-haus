@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
  */
 export function SeamGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-4 min-[1680px]:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
       {children}
     </div>
   );

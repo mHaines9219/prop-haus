@@ -95,7 +95,7 @@ export default async function AccountPage() {
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
             Account
           </p>
-          <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
+          <h1 className="mt-2 break-words font-display text-[24px] font-bold leading-tight tracking-[-0.01em] sm:text-[32px]">
             {profile?.full_name || profile?.email || 'Your account'}
           </h1>
         </div>

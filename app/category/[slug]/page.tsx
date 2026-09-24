@@ -21,7 +21,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-[1400px] px-3 py-8 sm:px-5 sm:py-10">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"

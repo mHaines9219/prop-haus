@@ -9,7 +9,7 @@ export function SiteFooter() {
       <div aria-hidden className="h-px w-full bg-ink/60" />
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 px-3 py-8 sm:px-5 md:flex-row md:items-start md:justify-between">
         <div className="flex items-baseline gap-3">
-          <span className="font-heading text-[14px] font-extrabold uppercase leading-none tracking-[0.04em] text-paper">
+          <span className="shrink-0 whitespace-nowrap font-heading text-[14px] font-extrabold uppercase leading-none tracking-[0.04em] text-paper">
             Prop Haus
           </span>
           <span className="font-heading text-[11px] font-bold uppercase leading-none tracking-[0.14em] text-paper/70">

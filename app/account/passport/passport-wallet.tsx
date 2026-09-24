@@ -150,7 +150,7 @@ function DocumentRow({
       <div className="min-w-0 flex-1 space-y-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
           {document ? (
-            <span className="font-mono text-[13px] text-foreground">
+            <span className="min-w-0 break-all font-mono text-[13px] text-foreground">
               <a href={`/api/account/passport/${kind}`} className="underline underline-offset-4">
                 {document.name}
               </a>

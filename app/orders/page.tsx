@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { listOrders } from '@/lib/orders';
 import { requireOrgId } from '@/lib/session';
-import { SiteNav } from '@/components/ap/site-nav';
-import { SiteFooter } from '@/components/ap/site-footer';
+import { PageShell } from '@/components/ap/page-shell';
 import { StatusToken, orderStatusSpec } from '@/components/ap/status-token';
 
 export default async function OrdersPage() {
@@ -10,65 +9,61 @@ export default async function OrdersPage() {
   const orders = await listOrders(orgId);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
-      <SiteNav />
-      <main className="flex-1">
-        <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
+    <PageShell>
+      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-12 md:py-16">
 
-          <div className="mb-10">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-              Production sourcing
-            </p>
-            <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
-              Orders
-            </h1>
-          </div>
-
-          {orders.length === 0 ? (
-            <div className="py-24 text-center">
-              <p className="font-display text-[22px] font-bold">No orders yet</p>
-              <p className="mt-2 text-[15px] text-text-secondary">
-                Build a cart and place your first order.
-              </p>
-              <Link
-                href="/"
-                className="mt-6 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                Browse catalog
-              </Link>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {orders.map((order) => {
-                const vendorCount = new Set(order.items.map((i) => i.vendor)).size;
-                const placedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                });
-                return (
-                  <Link
-                    key={order.id}
-                    href={`/orders/${order.id}`}
-                    className="flex items-center gap-4 py-5 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-colors hover:bg-surface-raised"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium leading-snug">
-                        Order #{order.id.slice(0, 8).toUpperCase()}
-                      </p>
-                      <p className="mt-0.5 font-mono text-[12px] text-text-tertiary">
-                        {placedDate} · {order.items.length} item{order.items.length !== 1 ? 's' : ''} · {vendorCount} vendor{vendorCount !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    <StatusToken {...orderStatusSpec(order.status)} />
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+        <div className="mb-10">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+            Production sourcing
+          </p>
+          <h1 className="mt-2 font-display text-[32px] font-bold leading-tight tracking-[-0.01em]">
+            Orders
+          </h1>
         </div>
-      </main>
-      <SiteFooter />
-    </div>
+
+        {orders.length === 0 ? (
+          <div className="py-24 text-center">
+            <p className="font-display text-[22px] font-bold">No orders yet</p>
+            <p className="mt-2 text-[15px] text-text-secondary">
+              Build a cart and place your first order.
+            </p>
+            <Link
+              href="/"
+              className="mt-6 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              Browse catalog
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {orders.map((order) => {
+              const vendorCount = new Set(order.items.map((i) => i.vendor)).size;
+              const placedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              });
+              return (
+                <Link
+                  key={order.id}
+                  href={`/orders/${order.id}`}
+                  className="flex items-center gap-4 py-5 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-colors hover:bg-surface-raised"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium leading-snug">
+                      Order #{order.id.slice(0, 8).toUpperCase()}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[12px] text-text-tertiary">
+                      {placedDate} · {order.items.length} item{order.items.length !== 1 ? 's' : ''} · {vendorCount} vendor{vendorCount !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <StatusToken {...orderStatusSpec(order.status)} />
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </PageShell>
   );
 }

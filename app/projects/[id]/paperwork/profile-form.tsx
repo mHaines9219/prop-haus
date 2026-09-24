@@ -122,9 +122,9 @@ export function ProfileForm({
   return (
     <div className="flex flex-col gap-10">
       <section>
-        <div className="flex items-baseline justify-between border-b border-border pb-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-border pb-2">
           <h2 className="text-[18px] font-semibold leading-[24px] text-foreground">Tell us about the production</h2>
-          <div className="flex items-baseline gap-4">
+          <div className="flex items-baseline gap-4 whitespace-nowrap">
             {provider === 'mock' && (
               <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-tertiary" title="Set OPENROUTER_API_KEY to use the model">
                 Mock intake
@@ -191,7 +191,7 @@ export function ProfileForm({
 
       <Group label="Where">
         <Row label="City" open={open.has('locations.city')}>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             <TextInput label="City" placeholder="City" value={profile.locations?.city} onCommit={(v) => (v ? edit({ locations: { city: v } }) : edit({}, ['locations.city']))} />
             <TextInput label="State or region" placeholder="State or region" value={profile.locations?.region} onCommit={(v) => (v ? edit({ locations: { region: v } }) : edit({}, ['locations.region']))} />
             <TextInput label="Country" placeholder="Country" value={profile.locations?.country} onCommit={(v) => (v ? edit({ locations: { country: v } }) : edit({}, ['locations.country']))} />
