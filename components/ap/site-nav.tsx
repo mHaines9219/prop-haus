@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingCart } from 'lucide-react';
+import { Menu, ShoppingCart, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
@@ -21,6 +21,7 @@ const NAV = [
  * Links are cream condensed gothic, flush right.
  */
 export function SiteNav() {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header className="sticky top-0 z-40 bg-binder text-paper">
       <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center px-3 sm:px-5">
@@ -57,10 +58,35 @@ export function SiteNav() {
           <ThemeToggle />
           <CartLink />
           <AuthControl />
+          <button
+            type="button"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="text-paper/85 transition-colors duration-150 hover:text-white md:hidden"
+          >
+            {menuOpen ? <X size={19} strokeWidth={1.75} aria-hidden /> : <Menu size={19} strokeWidth={1.75} aria-hidden />}
+          </button>
         </div>
       </div>
       {/* Bottom rule of the binder edge */}
       <div aria-hidden className="h-px w-full bg-ink/60" />
+      {menuOpen && (
+        <nav className="border-b border-ink/60 bg-binder md:hidden">
+          <div className="mx-auto flex w-full max-w-[1400px] flex-col px-3 py-2 sm:px-5">
+            {NAV.map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                onClick={() => setMenuOpen(false)}
+                className="py-2.5 font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-paper/85 underline-offset-[5px] transition-colors duration-150 hover:text-white hover:underline"
+              >
+                {n.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
     </header>
   );
 }

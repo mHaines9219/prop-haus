@@ -41,7 +41,7 @@ export default async function ProjectsPage({
           </h1>
           <Link
             href={showArchived ? '/projects' : '/projects?archived=1'}
-            className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:text-foreground"
+            className="whitespace-nowrap font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:text-foreground"
           >
             {showArchived ? 'Hide archived' : 'Show archived'}
           </Link>

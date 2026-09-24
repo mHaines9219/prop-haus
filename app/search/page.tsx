@@ -102,7 +102,7 @@ function SearchInner() {
   const error = showAi ? ai.error : keyword.error;
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto w-full max-w-[1400px] px-3 py-8 sm:px-5 sm:py-10">
       <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
         Search
       </p>
@@ -351,7 +351,7 @@ export default function SearchPage() {
     <PageShell>
       <Suspense
         fallback={
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6">
+          <div className="mx-auto w-full max-w-[1400px] px-3 py-10 sm:px-5">
             <p className="font-mono text-[13px] text-text-tertiary">Loading.</p>
           </div>
         }

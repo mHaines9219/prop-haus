@@ -198,17 +198,17 @@ function Envelope({ message }: { message: DrawerMessage }) {
     <dl className="space-y-1.5 font-mono text-[13px]">
       <div className="flex gap-3">
         <dt className="w-14 shrink-0 text-text-tertiary">To</dt>
-        <dd className="min-w-0 break-all text-foreground">{message.to || 'No address on file'}</dd>
+        <dd className="min-w-0 break-words text-foreground">{message.to || 'No address on file'}</dd>
       </div>
       {message.cc.length > 0 && (
         <div className="flex gap-3">
           <dt className="w-14 shrink-0 text-text-tertiary">Cc</dt>
-          <dd className="min-w-0 break-all text-foreground">{message.cc.join(', ')}</dd>
+          <dd className="min-w-0 break-words text-foreground">{message.cc.join(', ')}</dd>
         </div>
       )}
       <div className="flex gap-3">
         <dt className="w-14 shrink-0 text-text-tertiary">Reply to</dt>
-        <dd className="min-w-0 break-all text-foreground">{message.replyTo}</dd>
+        <dd className="min-w-0 break-words text-foreground">{message.replyTo}</dd>
       </div>
       {message.status && (
         <div className="flex items-center gap-3">

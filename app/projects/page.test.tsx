@@ -150,8 +150,7 @@ describe('ProjectsPage', () => {
     expect(cells.slice(1, 3).map((c) => c.textContent)).toEqual(['2', '3']);
     // Documents is a mark, not a count: a check with a tooltip saying the checklist is accounted for.
     const done = within(cells[3]!).getByLabelText('Paperwork complete');
-    expect(done).toHaveAttribute('aria-describedby', within(cells[3]!).getByRole('tooltip').id);
-    expect(within(cells[3]!).getByRole('tooltip')).toHaveTextContent(
+    expect(document.getElementById(done.getAttribute('aria-describedby')!)).toHaveTextContent(
       'Every document on this project’s checklist is attached, on file, or marked not applicable.',
     );
     expect(within(row).getAllByRole('img')).toHaveLength(2);
@@ -160,8 +159,8 @@ describe('ProjectsPage', () => {
     const archived = screen.getByRole('link', { name: 'Archived Short' }).closest('tr')!;
     const archivedCells = within(archived).getAllByRole('cell');
     expect(archivedCells.slice(1, 3).map((c) => c.textContent)).toEqual(['1', '0']);
-    within(archivedCells[3]!).getByLabelText('Paperwork needed');
-    expect(within(archivedCells[3]!).getByRole('tooltip')).toHaveTextContent(
+    const needed = within(archivedCells[3]!).getByLabelText('Paperwork needed');
+    expect(document.getElementById(needed.getAttribute('aria-describedby')!)).toHaveTextContent(
       '2 documents on the checklist still need to be submitted.',
     );
     expect(within(archived).queryAllByRole('img')).toHaveLength(0);

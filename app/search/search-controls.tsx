@@ -1,6 +1,6 @@
 'use client';
 
-import { ImagePlus, Search, X } from 'lucide-react';
+import { ImagePlus, Search, Sparkles, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
@@ -179,10 +179,10 @@ export function SearchControls({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           aria-label="Attach a moodboard"
-          className="hidden h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:border-border-strong hover:text-text-secondary sm:flex"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:border-border-strong hover:text-text-secondary sm:px-3"
         >
           <ImagePlus size={16} strokeWidth={1.5} aria-hidden />
-          Moodboard
+          <span className="hidden sm:inline">Moodboard</span>
         </button>
 
         {!hasFiles && (
@@ -197,14 +197,16 @@ export function SearchControls({
                 setModalOpen(true);
               }
             }}
+            aria-label="Ask AI"
             className={cn(
-              'hidden h-9 shrink-0 items-center rounded-md border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:flex',
+              'flex h-9 shrink-0 items-center rounded-md border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:px-3',
               engine === 'ai'
                 ? 'border-accent text-accent-text'
                 : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary',
             )}
           >
-            Ask AI
+            <Sparkles size={16} strokeWidth={1.5} aria-hidden className="sm:hidden" />
+            <span className="hidden sm:inline">Ask AI</span>
           </button>
         )}
 

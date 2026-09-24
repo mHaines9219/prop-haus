@@ -53,11 +53,11 @@ export function CrewDirectory({
     <>
       {/* Filter rail */}
       <div className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div
             role="group"
             aria-label="Filter crew by role"
-            className="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0"
+            className="flex flex-wrap gap-2"
           >
             <FilterChip
               label="All crew"
@@ -91,7 +91,7 @@ export function CrewDirectory({
 
       {/* Grid */}
       <section className="border-t border-border">
-        <div className="mx-auto w-full max-w-[1600px]">
+        <div className="mx-auto w-full max-w-[1400px]">
           {visible.length === 0 ? (
             <div className="px-4 py-24 text-center sm:px-6">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
@@ -113,11 +113,11 @@ export function CrewDirectory({
               )}
             </div>
           ) : (
-            /* Ruled grid: gap-px over a border-colored parent creates 1px hairline seams.
+            /* Ad boxes (DESIGN.md §6): each cell carries its own rule, the grid draws no seams.
                Keyed on the role so a filter change re-runs the grid-arrive stagger. */
             <div
               key={role ?? 'all'}
-              className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className="grid items-start gap-2 p-4 sm:grid-cols-2 sm:gap-3 sm:p-6 lg:grid-cols-3 xl:grid-cols-4"
             >
               {visible.map((c, i) => (
                 <motion.div
@@ -130,7 +130,7 @@ export function CrewDirectory({
                     damping: 34,
                     delay: Math.min(i, 12) * 0.04,
                   }}
-                  className="bg-background"
+                  className="border-[1.5px] border-ink"
                 >
                   <ContractorCard contractor={c} projects={projects} initialProjectId={initialProjectId} />
                 </motion.div>

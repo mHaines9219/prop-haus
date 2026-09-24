@@ -135,7 +135,7 @@ export default async function OrderPage({ params }: Props) {
           const summary = summaryByVendor.get(vendor);
           return (
             <div key={vendor} className="mb-8">
-              <div className="flex items-baseline justify-between border-b border-border pb-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
                 <h2 className="font-heading text-[15px] font-bold tracking-[-0.02em]">{vendor}</h2>
                 {summary && (
                   <p className="font-mono text-[12px] tabular-nums text-text-tertiary">
@@ -194,7 +194,7 @@ function OrderItemRow({ item }: { item: OrderItem }) {
           href={item.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium leading-snug hover:underline"
+          className="line-clamp-2 font-medium leading-snug hover:underline"
         >
           {item.name}
         </a>
@@ -202,7 +202,7 @@ function OrderItemRow({ item }: { item: OrderItem }) {
           <p className="mt-1 font-mono text-[12px] text-text-tertiary">{item.statusNote}</p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
         {item.status === 'quoted' && item.quotedCents != null && (
           <span className="font-mono text-[13px] font-medium tabular-nums text-foreground">
             ${(item.quotedCents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}

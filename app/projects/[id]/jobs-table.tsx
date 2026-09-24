@@ -191,7 +191,13 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         <DataTable
           table={table}
           rowHref={(r) => `/orders/${r.id}`}
-          columnClass={{ status: 'hidden sm:table-cell', vendors: 'hidden md:table-cell', items: 'hidden sm:table-cell' }}
+          columnClass={{
+            order: 'w-full max-w-0',
+            status: 'hidden sm:table-cell',
+            vendors: 'hidden md:table-cell',
+            items: 'hidden sm:table-cell',
+            updated: 'hidden sm:table-cell',
+          }}
           emptyBody="No orders match that filter."
         />
       </div>

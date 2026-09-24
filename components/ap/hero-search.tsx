@@ -23,6 +23,7 @@ export function HeroSearch() {
   const [engine, setEngine] = useState<Engine>('keyword');
   const [focused, setFocused] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +34,14 @@ export function HeroSearch() {
   useEffect(() => {
     window.localStorage.setItem(ENGINE_STORAGE_KEY, engine);
   }, [engine]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const sync = () => setCompact(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,7 +73,7 @@ export function HeroSearch() {
           style={{ minHeight: 56 }}
         >
           {/* Search field */}
-          <div className="flex min-w-0 flex-1 items-center gap-3 pl-4 pr-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 pl-3 pr-2 sm:gap-3 sm:pl-4 sm:pr-3">
             <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden className="shrink-0 text-ink/70">
               <circle cx="7" cy="7" r="4.75" />
               <path d="M10.5 10.5 L14 14" strokeLinecap="round" />
@@ -77,7 +86,7 @@ export function HeroSearch() {
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               aria-label="Search the catalogue"
-              placeholder="Search the catalogue"
+              placeholder={compact ? 'Search' : 'Search the catalogue'}
               className="h-full min-w-0 flex-1 bg-transparent py-4 text-[16px] text-ink outline-none placeholder:text-ink/50"
             />
           </div>
@@ -108,7 +117,7 @@ export function HeroSearch() {
                 }
               }}
               className={cn(
-                'flex items-center border-l-[1.5px] border-ink/40 px-3.5 font-heading text-[12px] font-extrabold uppercase tracking-[0.06em] transition-colors duration-150',
+                'flex items-center border-l-[1.5px] border-ink/40 px-2.5 font-heading text-[12px] font-extrabold uppercase tracking-[0.06em] transition-colors duration-150 sm:px-3.5',
                 engine === 'ai'
                   ? 'bg-coral-lit text-ink'
                   : 'text-ink/70 hover:bg-paper-deep hover:text-ink',
@@ -120,7 +129,7 @@ export function HeroSearch() {
             {/* SEARCH: the coral block */}
             <button
               type="submit"
-              className="search-go flex items-center border-l-[2px] border-ink bg-accent px-5 font-heading text-[13px] font-extrabold uppercase tracking-[0.06em] text-accent-foreground transition-colors duration-150 hover:bg-primary-hover sm:px-6"
+              className="search-go flex items-center border-l-[2px] border-ink bg-accent px-3 font-heading text-[13px] font-extrabold uppercase tracking-[0.06em] text-accent-foreground transition-colors duration-150 hover:bg-primary-hover sm:px-6"
             >
               Search
             </button>

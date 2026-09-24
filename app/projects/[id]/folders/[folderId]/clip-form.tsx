@@ -338,7 +338,7 @@ function PreviewRow({
   onDiscard: () => void;
 }) {
   return (
-    <div className="mt-4 flex items-center gap-5 border-t border-border pt-4">
+    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-border pt-4">
       <div className="h-20 w-20 shrink-0">
         <LightWell src={image} alt={name} mode="photo" name={name} sizes="80px" fill />
       </div>
@@ -352,7 +352,7 @@ function PreviewRow({
           <p className="mt-1 font-mono text-[11px] text-status-quoted">Already in this folder</p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 basis-full items-center gap-3 sm:basis-auto">
         <button
           type="button"
           onClick={onSave}

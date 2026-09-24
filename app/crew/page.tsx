@@ -3,8 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { currentOrgId } from '@/lib/session';
 import { listProjectSummaries, type ProjectSummary } from '@/lib/projects';
-import { SiteNav } from '@/components/ap/site-nav';
-import { SiteFooter } from '@/components/ap/site-footer';
+import { PageShell } from '@/components/ap/page-shell';
 import { CrewDirectory } from '@/components/crew/crew-directory';
 import type { Contractor } from '@/components/crew/contractor-card';
 import { JoinRoster } from '@/components/crew/join-roster';
@@ -54,68 +53,62 @@ export default async function CrewPage({
   const hiringFor = typeof project === 'string' ? (projects.find((p) => p.id === project) ?? null) : null;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
-      <SiteNav />
+    <PageShell>
+      {/* Header */}
+      <section>
+        <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-16 sm:px-6 md:pt-24">
+          {hiringFor && (
+            <Link
+              href={`/projects/${hiringFor.id}`}
+              className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
+            >
+              <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
+              {hiringFor.name}
+            </Link>
+          )}
+          <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
+            {hiringFor ? `Hiring for ${hiringFor.name}` : CREW_COPY.eyebrow}
+          </p>
+          <h1 className="mt-5 max-w-[640px] font-display text-[40px] font-bold leading-[1.06] tracking-[-0.01em] [text-wrap:balance] md:text-[56px] md:leading-[60px]">
+            {CREW_COPY.headline}
+          </h1>
+          <p className="mt-5 max-w-[480px] text-[15px] leading-[23px] text-text-secondary">
+            {CREW_COPY.blurb}
+          </p>
+        </div>
+      </section>
 
-      <main className="flex-1">
-        {/* Header */}
-        <section>
-          <div className="mx-auto w-full max-w-[1600px] px-4 pb-12 pt-16 sm:px-6 md:pt-24">
-            {hiringFor && (
-              <Link
-                href={`/projects/${hiringFor.id}`}
-                className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
-              >
-                <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
-                {hiringFor.name}
-              </Link>
-            )}
+      {/* Filter rail + ruled grid */}
+      <CrewDirectory
+        contractors={contractors}
+        initialRole={initialRole}
+        projects={projects}
+        initialProjectId={hiringFor?.id ?? null}
+      />
+
+      {/* Contractor-facing: get listed on the roster */}
+      <section className="border-t border-border">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col items-start justify-between gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center">
+          <div>
             <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
-              {hiringFor ? `Hiring for ${hiringFor.name}` : CREW_COPY.eyebrow}
+              {CREW_COPY.joinEyebrow}
             </p>
-            <h1 className="mt-5 max-w-[640px] font-display text-[40px] font-bold leading-[1.06] tracking-[-0.01em] [text-wrap:balance] md:text-[56px] md:leading-[60px]">
-              {CREW_COPY.headline}
-            </h1>
-            <p className="mt-5 max-w-[480px] text-[15px] leading-[23px] text-text-secondary">
-              {CREW_COPY.blurb}
+            <p className="mt-3 max-w-[480px] text-[15px] leading-[23px] text-text-secondary">
+              {CREW_COPY.joinBlurb}
             </p>
           </div>
-        </section>
+          <JoinRoster />
+        </div>
+      </section>
 
-        {/* Filter rail + ruled grid */}
-        <CrewDirectory
-          contractors={contractors}
-          initialRole={initialRole}
-          projects={projects}
-          initialProjectId={hiringFor?.id ?? null}
-        />
-
-        {/* Contractor-facing: get listed on the roster */}
-        <section className="border-t border-border">
-          <div className="mx-auto flex w-full max-w-[1600px] flex-col items-start justify-between gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center">
-            <div>
-              <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
-                {CREW_COPY.joinEyebrow}
-              </p>
-              <p className="mt-3 max-w-[480px] text-[15px] leading-[23px] text-text-secondary">
-                {CREW_COPY.joinBlurb}
-              </p>
-            </div>
-            <JoinRoster />
-          </div>
-        </section>
-
-        {/* Footer note */}
-        <section className="border-t border-border">
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-12 sm:px-6">
-            <p className="font-mono text-[11px] uppercase leading-[14px] tracking-[0.08em] text-text-disabled">
-              {CREW_COPY.footerNote}
-            </p>
-          </div>
-        </section>
-      </main>
-
-      <SiteFooter />
-    </div>
+      {/* Footer note */}
+      <section className="border-t border-border">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6">
+          <p className="font-mono text-[11px] uppercase leading-[14px] tracking-[0.08em] text-text-disabled">
+            {CREW_COPY.footerNote}
+          </p>
+        </div>
+      </section>
+    </PageShell>
   );
 }

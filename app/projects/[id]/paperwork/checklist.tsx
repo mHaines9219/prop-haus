@@ -284,7 +284,7 @@ function ChecklistRow({ projectId, item }: { projectId: string; item: ChecklistI
           </span>
         </button>
 
-        <div className="flex shrink-0 items-center gap-3 pl-6 sm:justify-end sm:pl-0">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 pl-6 sm:justify-end sm:pl-0">
           {primary && renderAction(primary, true)}
           <StatusToken {...checklistStatusSpec(item.status, item.fulfillment)} />
         </div>

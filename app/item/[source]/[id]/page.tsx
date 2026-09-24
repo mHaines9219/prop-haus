@@ -84,7 +84,7 @@ export default async function ItemPage({
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
         <Link
           href={`/category/${item.category}`}
           className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
@@ -93,7 +93,7 @@ export default async function ItemPage({
           {categoryName(item.category)}
         </Link>
 
-        <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="mt-6 grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12">
           <ItemGallery images={item.images} name={item.name} />
 
           <div className="lg:pt-2">

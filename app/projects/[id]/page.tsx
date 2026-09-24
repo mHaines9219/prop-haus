@@ -191,7 +191,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                   </div>
                 </Link>
               </div>
-              <div className="flex min-h-[64px] items-center gap-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
+              <div className="flex min-h-[64px] flex-wrap items-center gap-x-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
                 <Link
                   href={`/projects/${project.id}/folders/${paperwork.id}`}
                   className="flex min-w-0 flex-1 items-center gap-4 py-3"
@@ -210,7 +210,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                     </p>
                   </div>
                 </Link>
-                <div className="shrink-0 py-3">
+                <div className="shrink-0 basis-full pb-3 sm:basis-auto sm:py-3">
                   <FolderActions
                     projectId={project.id}
                     folderId={paperwork.id}
@@ -234,7 +234,7 @@ function SceneRow({ projectId, folder }: { projectId: string; folder: ProjectFol
 
   // Link and row controls are siblings — a button inside an anchor is invalid markup.
   return (
-    <div className="flex min-h-[64px] items-center gap-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
+    <div className="flex min-h-[64px] flex-wrap items-center gap-x-4 border-b border-border transition-colors duration-150 hover:bg-surface-inset">
       <Link
         href={`/projects/${projectId}/folders/${folder.id}`}
         className="flex min-w-0 flex-1 items-center gap-4 py-3"
@@ -259,7 +259,7 @@ function SceneRow({ projectId, folder }: { projectId: string; folder: ProjectFol
           </p>
         </div>
       </Link>
-      <div className="shrink-0 py-3">
+      <div className="shrink-0 basis-full pb-3 sm:basis-auto sm:py-3">
         <FolderActions
           projectId={projectId}
           folderId={folder.id}

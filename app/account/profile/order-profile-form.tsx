@@ -366,7 +366,7 @@ function ContactFields({
   const set = (k: keyof Contact) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...c, [k]: e.target.value });
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
       <input className={INPUT} value={c.name ?? ''} onChange={set('name')} placeholder="Name" />
       <input className={INPUT} type="email" value={c.email ?? ''} onChange={set('email')} placeholder="Email" />
       <input className={INPUT} type="tel" value={c.phone ?? ''} onChange={set('phone')} placeholder="Phone" />
@@ -431,7 +431,7 @@ function CoiUpload({
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
       {document ? (
-        <span className="font-mono text-[13px] text-foreground">
+        <span className="min-w-0 break-all font-mono text-[13px] text-foreground">
           <a href="/api/account/insurance/coi" className="underline underline-offset-4">
             {document.name}
           </a>

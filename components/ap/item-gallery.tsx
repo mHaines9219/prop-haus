@@ -25,7 +25,7 @@ export function ItemGallery({ images, name }: { images: string[]; name: string }
           alt={name}
           name={name}
           lit
-          sizes="(max-width: 1024px) 100vw, 600px"
+          sizes="(max-width: 768px) 100vw, 600px"
           className="mx-auto max-w-[600px]"
         />
       </div>
