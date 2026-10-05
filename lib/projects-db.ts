@@ -3,6 +3,7 @@ import { createAdminClient } from './supabase/admin';
 import type { ClipMeta, SavedSource } from './types';
 import type { FolderKind, Project, ProjectDocument, ProjectFolder, ProjectItem } from './projects';
 import { normalizeProjectProfile } from './project-profile';
+import { DEFAULT_PROJECT_STATUS, isProjectStatus } from './project-status';
 
 /**
  * Row <-> object mapping for the projects schema, kept apart from the
@@ -58,6 +59,8 @@ type ProjectRow = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  /** Absent on rows written before 20261005120000_project_status.sql; read as the default. */
+  status?: string | null;
   profile?: unknown;
   project_folders: ProjectFolderRow[] | null;
 };
@@ -122,6 +125,7 @@ export function toProject(r: ProjectRow): Project {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     ...(r.archived_at ? { archivedAt: r.archived_at } : {}),
+    status: isProjectStatus(r.status) ? r.status : DEFAULT_PROJECT_STATUS,
     profile: normalizeProjectProfile(r.profile),
     // Scene folders in their display order, paperwork last.
     folders: (r.project_folders ?? []).map(toProjectFolder).sort(compareFolders),

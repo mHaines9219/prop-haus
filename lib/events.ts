@@ -20,6 +20,7 @@ export const EVENT_TYPES = [
   'outbound_click', // vendor click-out won; payload: { itemId, source, surface }
   'project_created',
   'project_submitted',
+  'project_status_changed', // payload: { projectId, status } — the user's own Dashboard status
   'paywall_hit', // strongest upgrade signal; payload: { feature, metric? }
   'document_uploaded', // payload: { kind, vendor? }
   'order_placed', // payload: { orderId, itemCount, vendorCount }

@@ -1,5 +1,6 @@
 // /projects dashboard: session gate, archived toggle, empty states, and the
-// sortable, searchable table with one row per production.
+// sortable, filterable, searchable table with one row per production and
+// the user's own status control in each row.
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -69,6 +70,7 @@ function project(over: Partial<Project> = {}): Project {
   return {
     id: 'p-1',
     orgId: ORG_ID,
+    status: 'active',
     profile: {},
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00.000Z',
@@ -147,9 +149,10 @@ describe('ProjectsPage', () => {
     expect(screen.getByRole('link', { name: 'Nocturne' })).toHaveAttribute('href', '/projects/p-1');
     const row = screen.getByRole('link', { name: 'Nocturne' }).closest('tr')!;
     const cells = within(row).getAllByRole('cell');
-    expect(cells.slice(1, 3).map((c) => c.textContent)).toEqual(['2', '3']);
+    expect(within(cells[1]!).getByRole('combobox', { name: 'Status for Nocturne' })).toHaveValue('active');
+    expect(cells.slice(2, 4).map((c) => c.textContent)).toEqual(['2', '3']);
     // Documents is a mark, not a count: a check with a tooltip saying the checklist is accounted for.
-    const done = within(cells[3]!).getByLabelText('Paperwork complete');
+    const done = within(cells[4]!).getByLabelText('Paperwork complete');
     expect(document.getElementById(done.getAttribute('aria-describedby')!)).toHaveTextContent(
       'Every document on this project’s checklist is attached, on file, or marked not applicable.',
     );
@@ -158,8 +161,8 @@ describe('ProjectsPage', () => {
 
     const archived = screen.getByRole('link', { name: 'Archived Short' }).closest('tr')!;
     const archivedCells = within(archived).getAllByRole('cell');
-    expect(archivedCells.slice(1, 3).map((c) => c.textContent)).toEqual(['1', '0']);
-    const needed = within(archivedCells[3]!).getByLabelText('Paperwork needed');
+    expect(archivedCells.slice(2, 4).map((c) => c.textContent)).toEqual(['1', '0']);
+    const needed = within(archivedCells[4]!).getByLabelText('Paperwork needed');
     expect(document.getElementById(needed.getAttribute('aria-describedby')!)).toHaveTextContent(
       '2 documents on the checklist still need to be submitted.',
     );
@@ -169,7 +172,7 @@ describe('ProjectsPage', () => {
     expect(screen.getAllByText(/Sep \d+$/)).toHaveLength(2);
 
     // Column headers are the sort controls; the archive column has no visible label.
-    expect(screen.getAllByRole('button', { name: /^(Project|Scenes|Items|Documents|Updated)$/ })).toHaveLength(5);
+    expect(screen.getAllByRole('button', { name: /^(Project|Status|Scenes|Items|Documents|Updated)$/ })).toHaveLength(6);
   });
 
   it('sorts by last update, re-sorts by name on demand, searches by name and opens a row on click', async () => {
@@ -191,9 +194,76 @@ describe('ProjectsPage', () => {
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'meri');
     expect(names()).toEqual(['Meridian']);
 
-    await userEvent.click(screen.getByRole('link', { name: 'Meridian' }).closest('tr')!.querySelectorAll('td')[1]!);
+    await userEvent.click(screen.getByRole('link', { name: 'Meridian' }).closest('tr')!.querySelectorAll('td')[2]!);
     expect(nav.router.push).toHaveBeenCalledWith('/projects/p-3');
     await userEvent.click(screen.getByTestId('archive-p-3'));
     expect(nav.router.push).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters projects by the status tabs, keeps every status as a tab, and offers to clear a filter with no matches', async () => {
+    signIn();
+    projects.listProjects.mockResolvedValue([
+      project({ id: 'p-1', name: 'Nocturne', status: 'active' }),
+      project({ id: 'p-2', name: 'Aurora', status: 'done' }),
+      project({ id: 'p-3', name: 'Meridian', status: 'active' }),
+    ]);
+    render(await ProjectsPage(props()));
+    const names = () => screen.queryAllByRole('link', { name: /Nocturne|Aurora|Meridian/ }).map((l) => l.textContent);
+
+    // Every status is a tab, even Pending at zero: the user assigns these.
+    const tabs = screen.getByRole('tablist', { name: 'Filter projects by status' });
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['All3', 'Active2', 'Pending0', 'Done1']);
+    expect(names()).toHaveLength(3);
+
+    await userEvent.click(within(tabs).getByRole('tab', { name: /Done/ }));
+    expect(names()).toEqual(['Aurora']);
+
+    await userEvent.click(within(tabs).getByRole('tab', { name: /Pending/ }));
+    expect(names()).toEqual([]);
+    expect(screen.getByText('No projects match that filter.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(names()).toHaveLength(3);
+
+    // The status label is searchable too.
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'done');
+    expect(names()).toEqual(['Aurora']);
+  });
+
+  it('lets the user set a status from the row: the write goes out, the tabs recount, and the row follows the filter', async () => {
+    signIn();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      projects.listProjects.mockResolvedValue([
+        project({ id: 'p-1', name: 'Nocturne', status: 'active' }),
+        project({ id: 'p-2', name: 'Aurora', status: 'active' }),
+      ]);
+      render(await ProjectsPage(props()));
+      const tabs = screen.getByRole('tablist', { name: 'Filter projects by status' });
+      const tabText = () => within(tabs).getAllByRole('tab').map((t) => t.textContent);
+      expect(tabText()).toEqual(['All2', 'Active2', 'Pending0', 'Done0']);
+
+      await userEvent.click(within(tabs).getByRole('tab', { name: /Active/ }));
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status for Nocturne' }), 'done');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0]!;
+      expect(url).toBe('/api/projects/p-1/status');
+      expect(init?.method).toBe('PATCH');
+      expect(JSON.parse(String(init?.body))).toEqual({ status: 'done' });
+
+      // Marked done while the Active tab is on: the row leaves the list and the counts move.
+      expect(screen.queryByRole('link', { name: 'Nocturne' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Aurora' })).toBeInTheDocument();
+      expect(tabText()).toEqual(['All2', 'Active1', 'Pending0', 'Done1']);
+      await vi.waitFor(() => expect(nav.router.refresh).toHaveBeenCalled());
+      // Picking a status is not a click on the row.
+      expect(nav.router.push).not.toHaveBeenCalled();
+
+      await userEvent.click(within(tabs).getByRole('tab', { name: /Done/ }));
+      expect(screen.getByRole('combobox', { name: 'Status for Nocturne' })).toHaveValue('done');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

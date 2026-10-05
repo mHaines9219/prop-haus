@@ -1,22 +1,34 @@
 'use client';
 
 /**
- * The /projects dashboard list as a sortable, searchable table
+ * The /projects dashboard list as a sortable, filterable, searchable table
  * (components/ap/data-table.tsx). One row per production; rows link to
- * /projects/[id]. The archive control sits in its own column so it never
- * fights the row link.
+ * /projects/[id]. The Status column is the user's own tag (active | pending |
+ * done), set right in the row with ProjectStatusSelect, and the thing the
+ * facet tabs filter on. The archive control sits in its own column so it
+ * never fights the row link.
  */
 
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, CircleHelp } from 'lucide-react';
 import { LightWell } from '@/components/ap/light-well';
+import { ProjectStatusSelect } from '@/components/ap/project-status-select';
 import { Tooltip } from '@/components/ap/tooltip';
 import {
   DataTable,
+  DataTableFacetTabs,
   DataTableSearch,
   createDataColumns,
   useDataTable,
+  type FacetOption,
 } from '@/components/ap/data-table';
+import {
+  PROJECT_STATUSES,
+  PROJECT_STATUS_LABEL,
+  PROJECT_STATUS_RANK,
+  type ProjectStatus,
+} from '@/lib/project-status';
 import { ArchiveButton } from './archive-button';
 import type { ProjectRow } from './rows';
 
@@ -28,11 +40,28 @@ function formatDate(iso: string): string {
 
 const col = createDataColumns<ProjectRow>();
 
+/** What the Status cell needs from the table: a way to report a pick so the facets re-filter at once. */
+type ProjectsTableMeta = { onStatus: (id: string, status: ProjectStatus) => void };
+
 const columns = col.columns([
   col.accessor('name', {
     header: 'Project',
     sortFn: 'text',
     cell: ({ row }) => <ProjectCell row={row.original} />,
+  }),
+  col.accessor('status', {
+    header: 'Status',
+    filterFn: 'equals',
+    sortFn: (a, b, id) =>
+      PROJECT_STATUS_RANK[a.getValue<ProjectStatus>(id)] - PROJECT_STATUS_RANK[b.getValue<ProjectStatus>(id)],
+    cell: ({ row, table }) => (
+      <ProjectStatusSelect
+        projectId={row.original.id}
+        value={row.original.status}
+        label={`Status for ${row.original.name}`}
+        onChange={(status) => (table.options.meta as ProjectsTableMeta | undefined)?.onStatus(row.original.id, status)}
+      />
+    ),
   }),
   col.accessor('scenes', {
     header: 'Scenes',
@@ -154,21 +183,55 @@ function ProjectCell({ row }: { row: ProjectRow }) {
 const SORT = [{ id: 'updated', desc: true }];
 
 function searchText(r: ProjectRow): string {
-  return r.name;
+  return [r.name, PROJECT_STATUS_LABEL[r.status]].join(' ');
 }
 
 export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
+  // Picks the user makes in a row, ahead of the server round-trip, so the
+  // facet counts and the active filter follow the pick without a flash. The
+  // server render wins once router.refresh() lands new rows.
+  const [picks, setPicks] = useState<Record<string, ProjectStatus>>({});
+  const rows = useMemo(
+    () => projects.map((p) => (picks[p.id] && picks[p.id] !== p.status ? { ...p, status: picks[p.id] } : p)),
+    [projects, picks],
+  );
+  const onStatus = useCallback((id: string, status: ProjectStatus) => {
+    setPicks((p) => ({ ...p, [id]: status }));
+  }, []);
+  // New rows from the server carry the saved statuses; drop the interim picks.
+  useEffect(() => {
+    setPicks({});
+  }, [projects]);
+  const meta = useMemo<ProjectsTableMeta>(() => ({ onStatus }), [onStatus]);
+
   const table = useDataTable({
-    data: projects,
+    data: rows,
     columns,
     getRowId: (r) => r.id,
     initialSorting: SORT,
     search: searchText,
+    meta,
   });
+
+  // Every status is a tab, even at zero: the user assigns these, so an empty
+  // Done bucket is information, not noise.
+  const facets: FacetOption[] = PROJECT_STATUSES.map((s) => ({
+    value: s,
+    label: PROJECT_STATUS_LABEL[s],
+    count: rows.filter((p) => p.status === s).length,
+  }));
 
   return (
     <div>
-      <div className="flex justify-end py-4">
+      <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-end sm:justify-between">
+        <DataTableFacetTabs
+          table={table}
+          columnId="status"
+          label="Filter projects by status"
+          allCount={rows.length}
+          options={facets}
+          className="min-w-0 flex-1"
+        />
         <DataTableSearch table={table} label="Search projects" placeholder="Search projects" />
       </div>
       <div className="-mx-4 border-t border-border sm:-mx-6">
@@ -182,7 +245,7 @@ export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
             documents: 'hidden md:table-cell',
             updated: 'hidden sm:table-cell',
           }}
-          emptyBody="No projects match that search."
+          emptyBody="No projects match that filter."
         />
       </div>
     </div>

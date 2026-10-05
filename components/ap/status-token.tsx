@@ -97,6 +97,21 @@ export function jobStatusSpec(status: string): TokenSpec {
   }
 }
 
+/**
+ * projects.status — the user's own Dashboard status (active/pending/done).
+ * Same tones as the per-order job status: active amber, pending grey, done green.
+ */
+export function projectStatusSpec(status: string): TokenSpec {
+  switch (status) {
+    case 'active':
+      return { tone: 'quoted', label: 'ACTIVE' };
+    case 'done':
+      return { tone: 'confirmed', label: 'DONE' };
+    default:
+      return { tone: 'pending', label: 'PENDING' };
+  }
+}
+
 /** order_documents.status — filled/awaiting_signature/signed/manual/failed/skipped. */
 export function documentStatusSpec(status: string): TokenSpec {
   switch (status) {

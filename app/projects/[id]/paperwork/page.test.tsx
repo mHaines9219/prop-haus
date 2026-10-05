@@ -19,6 +19,7 @@ function project(profile: Project['profile'] = {}): Project {
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-01T00:00:00.000Z',
+    status: 'active',
     profile,
     folders: [],
   };
