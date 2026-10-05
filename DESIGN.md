@@ -156,7 +156,7 @@ Gallery: the print on white stock inside a ruled mat, thumbnails ruled coral whe
 Modal and drawer: a `.sheet` with a 1.5px ink rule and the hard overlay shadow (`0 0 0 1px ink, 6px 6px 0 rgba(0,0,0,.35)`), laid on a 70% scrim. Header closed by a 2px rule. Primary action is the coral block, secondary is outlined ink.
 
 ### 9.7 Tables and tabs
-Ledger: 2px ink rule under condensed 11px column heads, hairline row seams, hover changes fill only. Tabs are index tabs on a hairline; the active one carries a 2px ink rule on the seam.
+Ledger: 2px ink rule under condensed 11px column heads, hairline row seams, hover changes fill only. Tabs are index tabs on a hairline; the active one carries a 2px ink rule on the seam. The Dashboard's project rows carry the user's own status (`projects.status`: ACTIVE / PENDING / DONE) as `ProjectStatusSelect`, a StatusToken that opens: a native select under the bullet-and-label token with a 14px chevron, writing optimistically and rolling back with a §9.9 error line. The table's index tabs filter on it. It is independent of the per-order job status inside a project's Jobs section (`JobStatusSelect`, same shape).
 
 ### 9.8 Forms
 Inputs: 1px hairline on ad stock, solid ink on hover/focus, no glow. Labels: 11px condensed caps. Primary submit: coral block with ink rule. Secondary: outlined ink. Chips and pressed toggles: `border-accent text-accent-text`.

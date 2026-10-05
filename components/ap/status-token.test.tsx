@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { StatusToken, crewStatusSpec, itemStatusSpec, jobStatusSpec, orderStatusSpec } from './status-token';
+import { StatusToken, crewStatusSpec, itemStatusSpec, jobStatusSpec, orderStatusSpec, projectStatusSpec } from './status-token';
 
 /**
  * One chip for every status surface. The mappings are the contract: each
@@ -22,6 +22,15 @@ describe('StatusToken', () => {
 });
 
 describe('domain mappings', () => {
+  it.each([
+    ['active', 'quoted', 'ACTIVE'],
+    ['pending', 'pending', 'PENDING'],
+    ['done', 'confirmed', 'DONE'],
+    ['garbage', 'pending', 'PENDING'],
+  ])('projects.status %s → %s/%s', (status, tone, label) => {
+    expect(projectStatusSpec(status)).toEqual({ tone, label });
+  });
+
   it.each([
     ['active', 'quoted', 'ACTIVE'],
     ['pending', 'pending', 'PENDING'],

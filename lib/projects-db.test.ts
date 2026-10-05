@@ -94,8 +94,14 @@ describe('toProjectFolder', () => {
 describe('toProject', () => {
   it('maps the project and omits archivedAt when null', () => {
     const p = toProject(projectRow());
-    expect(p).toEqual({ id: 'p1', orgId: 'o1', name: 'Nocturne', createdAt: '2026-09-01T00:00:00Z', updatedAt: '2026-09-02T00:00:00Z', profile: {}, folders: [] });
+    expect(p).toEqual({ id: 'p1', orgId: 'o1', name: 'Nocturne', createdAt: '2026-09-01T00:00:00Z', updatedAt: '2026-09-02T00:00:00Z', status: 'active', profile: {}, folders: [] });
     expect(toProject(projectRow({ archived_at: '2026-09-05T00:00:00Z' })).archivedAt).toBe('2026-09-05T00:00:00Z');
+  });
+
+  it('reads the user status, falling back to active for legacy or unknown values', () => {
+    expect(toProject(projectRow({ status: 'done' })).status).toBe('done');
+    expect(toProject(projectRow({ status: null })).status).toBe('active');
+    expect(toProject(projectRow({ status: 'shipped' })).status).toBe('active');
   });
 
   it('orders scene folders by position then createdAt, with paperwork last', () => {

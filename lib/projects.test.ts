@@ -18,6 +18,7 @@ import {
   renameFolder,
   sceneFolders,
   setProjectArchived,
+  setProjectStatus,
   DEFAULT_SCENE_FOLDER_NAME,
   PAPERWORK_FOLDER_NAME,
   type Project,
@@ -52,6 +53,7 @@ function project(folders: ProjectFolder[]): Project {
   return {
     id: 'p1',
     orgId: 'o1',
+    status: 'active',
     profile: {},
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00Z',
@@ -196,6 +198,19 @@ describe.skipIf(!HAS_DB)('organization scoping (integration)', () => {
 
   it('returns null for an unknown id', async () => {
     expect(await setProjectArchived(ORG_A, 'nope', true)).toBeNull();
+  });
+
+  it('starts every project active and lets its own org set the status', async () => {
+    const p = await createProject(ORG_A, 'taggable');
+    expect(p.status).toBe('active');
+
+    const done = await setProjectStatus(ORG_A, p.id, 'done');
+    expect(done?.status).toBe('done');
+    expect((await getProject(ORG_A, p.id))?.status).toBe('done');
+
+    expect(await setProjectStatus(ORG_B, p.id, 'pending')).toBeNull();
+    expect((await getProject(ORG_A, p.id))?.status).toBe('done');
+    expect(await setProjectStatus(ORG_A, 'nope', 'pending')).toBeNull();
   });
 
   it('hides another org’s project from getProject', async () => {

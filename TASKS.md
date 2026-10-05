@@ -554,6 +554,10 @@ active | pending | done) set from the jobs row and the job detail header
 (`components/ap/job-status-select.tsx`), with the board's facet tabs
 filtering on it; the vendor lifecycle stays as the read-only Confirmation
 column. Migration `20260921120000_order_job_status.sql`.
+Oct 5 2026: the Dashboard's projects carry their own status (`projects.status`:
+active | pending | done) set from the /projects row through
+`components/ap/project-status-select.tsx`, with the table's facet tabs
+filtering on it. Migration `20261005120000_project_status.sql`.
 Sep 21 2026 restructure: the Dashboard is PROJECTS ONLY. `/jobs` and the
 Jobs tab are gone (next.config redirects `/jobs` → `/projects`). What the
 board showed now lives on each project page (`app/projects/[id]/page.tsx`)

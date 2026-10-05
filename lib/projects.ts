@@ -9,6 +9,7 @@ import {
   paperworkBucket,
 } from './paperwork';
 import type { ProjectProfile } from './project-profile';
+import type { ProjectStatus } from './project-status';
 
 /**
  * A project is a production. It owns folders:
@@ -34,6 +35,8 @@ export type Project = {
   updatedAt: string;
   /** Soft-hidden from the project list when set. */
   archivedAt?: string;
+  /** The user's own Dashboard tag (lib/project-status.ts): active | pending | done. */
+  status: ProjectStatus;
   /** What intake has learned about the production (lib/project-profile.ts). Empty until described. */
   profile: ProjectProfile;
   /** Scene folders in display order, then the paperwork folder. */
@@ -304,6 +307,29 @@ export async function setProjectArchived(
         archived_at: archived ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .select('id'),
+  );
+  if (updated.length === 0) return null;
+  return (await getProject(orgId, id)) ?? null;
+}
+
+/**
+ * Set the user's own Dashboard status on a project. Scoped by org so one org
+ * cannot tag another's. Returns null when the project does not exist OR is
+ * not theirs.
+ */
+export async function setProjectStatus(
+  orgId: string,
+  id: string,
+  status: ProjectStatus,
+): Promise<Project | null> {
+  const updated = orThrow<{ id: string }[]>(
+    'setProjectStatus',
+    await db()
+      .from('projects')
+      .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('org_id', orgId)
       .select('id'),

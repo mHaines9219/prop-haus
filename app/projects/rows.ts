@@ -6,12 +6,15 @@
 
 import { allItems, projectItemCount, sceneFolders, type Project } from '@/lib/projects';
 import type { PaperworkStanding } from '@/lib/requirements/store';
+import type { ProjectStatus } from '@/lib/project-status';
 
 export type ProjectThumb = { itemId: string; name: string; image: string };
 
 export type ProjectRow = {
   id: string;
   name: string;
+  /** The user's own Dashboard tag (active | pending | done); what the table's facet tabs filter on. */
+  status: ProjectStatus;
   scenes: number;
   items: number;
   /** Where the paperwork checklist stands (lib/requirements/store.ts). */
@@ -25,6 +28,7 @@ export function toProjectRow(p: Project, paperwork: PaperworkStanding): ProjectR
   return {
     id: p.id,
     name: p.name,
+    status: p.status,
     scenes: sceneFolders(p).length,
     items: projectItemCount(p),
     paperwork,
