@@ -36,8 +36,17 @@ drop table if exists public.vendor_requests;
 -- ---------------------------------------------------------------------------
 -- Documents (W9/COI metadata) + its storage bucket
 -- ---------------------------------------------------------------------------
-delete from storage.objects where bucket_id = 'documents';
-delete from storage.buckets where id = 'documents';
+-- Best effort: newer Supabase images forbid direct deletes on storage tables
+-- from SQL ("Use the Storage API instead"). The bucket is empty on a fresh
+-- stack, so skipping is harmless there; production already ran this.
+do $$
+begin
+  delete from storage.objects where bucket_id = 'documents';
+  delete from storage.buckets where id = 'documents';
+exception when others then
+  raise notice 'skipped documents bucket removal: %', sqlerrm;
+end
+$$;
 drop table if exists public.documents;
 
 -- ---------------------------------------------------------------------------

@@ -35,3 +35,7 @@ coverage
 playwright-report
 test-results
 e2e/.auth
+
+# scratch output (local experiments, filled PDFs)
+tmp/
+/test.pdf
