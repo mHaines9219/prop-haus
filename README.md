@@ -39,6 +39,35 @@ service role):
 CATALOG_DATABASE_URL=postgresql://catalog_writer:<password>@db.<ref>.supabase.co:5432/postgres pnpm db:load
 ```
 
+## Database migrations
+
+The hosted Supabase project is the only database. Schema changes go through
+`supabase/migrations/` and nothing else: no psql against production, no Studio
+SQL editor. Merging to main applies them (the `migrate` job in
+`.github/workflows/ci.yml` runs `supabase db push` after the checks pass).
+
+```bash
+supabase migration new <name>      # always: real, unique timestamp
+# edit the new file, then prove it replays from scratch (CI does the same):
+supabase start && supabase stop --no-backup
+pnpm db:migrations                 # local files vs remote history, side by side
+```
+
+`pnpm db:migrations` and `pnpm db:push` wrap the CLI with the database password
+from `CATALOG_DATABASE_URL`, because the CLI hangs on its password prompt when
+stdin is not a terminal. `pnpm db:push` is for emergencies only; the normal
+path is merging.
+
+If the two columns of `pnpm db:migrations` ever disagree, do not work around
+it with psql. A local file with no remote row means it was never pushed
+(`pnpm db:push` applies it). A remote row with no local file means someone
+applied SQL outside this flow: write the file, then
+`supabase migration repair --linked --status applied <version>`.
+
+The `migrate` job needs two repository secrets: `SUPABASE_ACCESS_TOKEN` (a
+personal access token from supabase.com/dashboard/account/tokens) and
+`SUPABASE_DB_PASSWORD` (the postgres password, the one in `CATALOG_DATABASE_URL`).
+
 ## AI search modes
 
 The Ask AI bar accepts a text query and/or a moodboard (images + PDFs, drag-drop). Switch between modes in the dropdown to compare cost vs quality:

@@ -5,9 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# PRs cancel their superseded runs. Pushes to main never cancel: the migrate
+# job below applies schema to production and must run to completion.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NEXT_TELEMETRY_DISABLED: '1'
@@ -28,6 +30,15 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Two files with the same version stamp make `supabase db push` refuse the
+      # whole directory. Catch it on the PR, not on main.
+      - name: Migration versions are unique
+        run: |
+          dups=$(ls supabase/migrations/*.sql | xargs -n1 basename | cut -d_ -f1 | sort | uniq -d)
+          if [ -n "$dups" ]; then
+            echo "::error::Duplicate migration versions: $dups"
+            exit 1
+          fi
       - run: pnpm typecheck
       - run: pnpm test:coverage
       - uses: actions/upload-artifact@v4
@@ -101,3 +112,54 @@ jobs:
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup
+
+  # Merging to main is what applies a migration to production. Nothing else
+  # should: no psql, no Studio SQL editor. Runs only after the hermetic checks
+  # and the integration run (which replayed every migration from scratch on a
+  # fresh local stack) both pass.
+  #
+  # Needs two repository secrets:
+  #   SUPABASE_ACCESS_TOKEN  personal access token, supabase.com/dashboard/account/tokens
+  #   SUPABASE_DB_PASSWORD   the project's postgres password (the one in CATALOG_DATABASE_URL)
+  migrate:
+    name: Apply migrations to production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: supabase-migrate-production
+      cancel-in-progress: false
+    env:
+      SUPABASE_PROJECT_REF: euhyuodaylryedwnvwdd
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # --include-all: apply every local file the remote history lacks, even
+      # one whose timestamp is older than the remote head (two PRs merged out
+      # of timestamp order). Each file runs in its own transaction.
+      - name: Push pending migrations
+        run: supabase db push --linked --include-all --yes
+
+      # Drift check. After the push, every local file must have a remote row
+      # and every remote row a local file. A one-sided row means someone
+      # applied or recorded something outside this job.
+      - name: Verify history matches
+        run: |
+          supabase migration list --linked | tee migration-list.txt
+          if grep -E '^\s*[0-9]{14}\s*\|\s*\|' migration-list.txt; then
+            echo "::error::Local migrations with no remote history row (push did not apply them)"
+            exit 1
+          fi
+          if grep -E '^\s*\|\s*[0-9]{14}' migration-list.txt; then
+            echo "::error::Remote history rows with no local file. Someone applied a migration outside CI; add the file or repair the history."
+            exit 1
+          fi

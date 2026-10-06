@@ -85,8 +85,11 @@ begin
   from (select id from catalog.prop_items where keyword_tsv is not null limit 5) s;
 
   if ids is null or cardinality(ids) < 5 then
-    raise exception 'need at least 5 already-populated rows to measure arm A; found %',
+    -- Measurement only: on an empty catalog (fresh local stack, CI) there is
+    -- nothing to time. Skip rather than abort the migration chain.
+    raise notice 'SKIPPED: need at least 5 already-populated rows to measure arm A; found %',
       coalesce(cardinality(ids), 0);
+    return;
   end if;
 
   foreach one_id in array ids loop
@@ -106,8 +109,9 @@ begin
   from (select id from catalog.prop_items where keyword_tsv is null limit 5) s;
 
   if ids is null or cardinality(ids) < 5 then
-    raise exception 'need at least 5 unpopulated rows to measure arm B; found %',
+    raise notice 'SKIPPED: need at least 5 unpopulated rows to measure arm B; found %',
       coalesce(cardinality(ids), 0);
+    return;
   end if;
 
   foreach one_id in array ids loop

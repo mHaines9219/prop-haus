@@ -18,6 +18,8 @@
     "db:load": "tsx scripts/load-catalog.ts",
     "db:dump": "tsx scripts/dump-catalog.ts",
     "db:recategorize": "tsx scripts/recategorize.ts",
+    "db:migrations": "node --env-file=.env.local scripts/supabase-linked.mjs migration list --linked",
+    "db:push": "node --env-file=.env.local scripts/supabase-linked.mjs db push --linked --include-all",
     "simulate:vendor": "tsx --env-file=.env.local scripts/simulate-vendor-responses.ts",
     "eval:search": "tsx --env-file=.env.local scripts/eval-search.ts",
     "eval:scenes": "tsx --env-file=.env.local scripts/eval-scenes.ts",

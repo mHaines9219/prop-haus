@@ -20,7 +20,7 @@
 -- ============================================================================
 
 alter table public.orders
-  add column project_id uuid references public.projects(id) on delete set null;
+  add column project_id text references public.projects(id) on delete set null;
 
 create index orders_project_idx on public.orders (project_id);
 
@@ -28,7 +28,7 @@ comment on column public.orders.project_id is
   'The production this order was placed for. Null for orders placed without a project.';
 
 alter table public.crew_requests
-  add column project_id uuid references public.projects(id) on delete set null;
+  add column project_id text references public.projects(id) on delete set null;
 
 create index crew_requests_project_idx on public.crew_requests (project_id);
 

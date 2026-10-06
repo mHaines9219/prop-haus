@@ -97,7 +97,9 @@ begin
   from (select id from catalog.prop_items where keyword_tsv is null order by id limit 50) s;
 
   if lo is null then
-    raise exception 'no unpopulated rows left to measure';
+    -- Measurement only: skip on an empty catalog instead of aborting the chain.
+    raise notice 'SKIPPED: no unpopulated rows left to measure';
+    return;
   end if;
 
   t0 := clock_timestamp();
