@@ -13,8 +13,10 @@ import { cn } from '@/lib/utils';
  * into the paper and only the object is "printed". Full-bleed photos print
  * as-is, edge to edge.
  *
- * The plate is always paper, whichever scope the well sits in: a photo never
- * prints on green vinyl.
+ * The plate is always cream, whichever scope or theme the well sits in: a
+ * photo never prints on green vinyl, and by lamplight it sits on the charcoal
+ * card like a print in a black-paged album. Lettering on the plate is `jet`,
+ * the near-black that does not flip with the theme.
  */
 export function LightWell({
   src,
@@ -89,7 +91,7 @@ export function LightWell({
       ) : (
         <div className={cn('absolute inset-0', lit ? 'bg-plate-lit' : 'bg-plate')}>
           {name && (
-            <span className="absolute inset-0 grid place-items-center px-4 text-center font-heading text-[13px] font-bold uppercase leading-[16px] tracking-[0.04em] text-ink/70">
+            <span className="absolute inset-0 grid place-items-center px-4 text-center font-heading text-[13px] font-bold uppercase leading-[16px] tracking-[0.04em] text-jet/70">
               {name}
             </span>
           )}

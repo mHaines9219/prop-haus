@@ -67,14 +67,14 @@ export function HeroSearch() {
         <div
           data-slot="search-bar"
           className={cn(
-            'flex items-stretch border-[2px] bg-plate-lit transition-colors duration-150',
+            'flex items-stretch border-[2px] bg-input transition-colors duration-150',
             focused ? 'border-accent' : 'border-ink',
           )}
           style={{ minHeight: 56 }}
         >
           {/* Search field */}
           <div className="flex min-w-0 flex-1 items-center gap-2 pl-3 pr-2 sm:gap-3 sm:pl-4 sm:pr-3">
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden className="shrink-0 text-ink/70">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden className="shrink-0 text-foreground/70">
               <circle cx="7" cy="7" r="4.75" />
               <path d="M10.5 10.5 L14 14" strokeLinecap="round" />
             </svg>
@@ -87,7 +87,7 @@ export function HeroSearch() {
               onBlur={() => setFocused(false)}
               aria-label="Search the catalogue"
               placeholder={compact ? 'Search' : 'Search the catalogue'}
-              className="h-full min-w-0 flex-1 bg-transparent py-4 text-[16px] text-ink outline-none placeholder:text-ink/50"
+              className="h-full min-w-0 flex-1 bg-transparent py-4 text-[16px] text-foreground outline-none placeholder:text-foreground/50"
             />
           </div>
 
@@ -97,7 +97,7 @@ export function HeroSearch() {
               type="button"
               aria-label="Attach a PDF or moodboard"
               title="Attach a PDF or moodboard"
-              className="hidden items-center border-l-[1.5px] border-ink/40 px-3.5 text-ink/60 transition-colors duration-150 hover:bg-paper-deep hover:text-ink sm:flex"
+              className="hidden items-center border-l-[1.5px] border-ink/40 px-3.5 text-foreground/60 transition-colors duration-150 hover:bg-paper-deep hover:text-foreground sm:flex"
             >
               <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                 <path d="M13.6 6.2 7.9 11.9a2.1 2.1 0 0 0 3 3l6.1-6.1a3.7 3.7 0 0 0-5.2-5.2L5.4 10a5.2 5.2 0 0 0 7.4 7.4l1.4-1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -119,8 +119,8 @@ export function HeroSearch() {
               className={cn(
                 'flex items-center border-l-[1.5px] border-ink/40 px-2.5 font-heading text-[12px] font-extrabold uppercase tracking-[0.06em] transition-colors duration-150 sm:px-3.5',
                 engine === 'ai'
-                  ? 'bg-coral-lit text-ink'
-                  : 'text-ink/70 hover:bg-paper-deep hover:text-ink',
+                  ? 'bg-coral-lit text-jet'
+                  : 'text-foreground/70 hover:bg-paper-deep hover:text-foreground',
               )}
             >
               AI Mode

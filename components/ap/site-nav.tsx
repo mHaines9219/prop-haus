@@ -16,26 +16,27 @@ const NAV = [
 
 /**
  * Party Line nav (DESIGN.md §9.1): the binder's top edge. Always green vinyl,
- * whatever the theme. The wordmark is a cream index tab, the city a coral
- * one, like the "Fire 273-3110" tabs along the top of the reference page.
- * Links are cream condensed gothic, flush right.
+ * whatever the theme (near-black by lamplight). The wordmark is a paper
+ * index tab, the city a coral one, like the "Fire 273-3110" tabs along the
+ * top of the reference page. Links are cream condensed gothic, flush right:
+ * `binder-foreground`, the one lettering color that never flips with the theme.
  */
 export function SiteNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-40 bg-binder text-paper">
+    <header className="sticky top-0 z-40 bg-binder text-binder-foreground">
       <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center px-3 sm:px-5">
         {/* Index tabs — flush left */}
         <div className="mr-auto flex items-stretch gap-1.5">
           <Link
             href="/"
-            className="flex items-center border-[1.5px] border-ink bg-paper-lit px-2.5 font-heading text-[15px] font-extrabold uppercase leading-none tracking-[0.01em] text-ink transition-colors duration-150 hover:bg-white"
+            className="flex items-center border-[1.5px] border-ink bg-paper-lit px-2.5 font-heading text-[15px] font-extrabold uppercase leading-none tracking-[0.01em] text-ink transition-colors duration-150 hover:bg-paper"
           >
             Prop Haus
           </Link>
           <span
             aria-hidden
-            className="hidden items-center border-[1.5px] border-ink bg-coral px-2.5 font-heading text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] text-ink sm:flex"
+            className="hidden items-center border-[1.5px] border-ink bg-coral px-2.5 font-heading text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] text-jet sm:flex"
           >
             Los Angeles
           </span>
@@ -48,7 +49,7 @@ export function SiteNav() {
               <Link
                 key={n.href}
                 href={n.href}
-                className="font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-paper/85 underline-offset-[5px] transition-colors duration-150 hover:text-white hover:underline"
+                className="font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-binder-foreground/85 underline-offset-[5px] transition-colors duration-150 hover:text-binder-foreground hover:underline"
               >
                 {n.label}
               </Link>
@@ -63,7 +64,7 @@ export function SiteNav() {
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className="text-paper/85 transition-colors duration-150 hover:text-white md:hidden"
+            className="text-binder-foreground/85 transition-colors duration-150 hover:text-binder-foreground md:hidden"
           >
             {menuOpen ? <X size={19} strokeWidth={1.75} aria-hidden /> : <Menu size={19} strokeWidth={1.75} aria-hidden />}
           </button>
@@ -79,7 +80,7 @@ export function SiteNav() {
                 key={n.href}
                 href={n.href}
                 onClick={() => setMenuOpen(false)}
-                className="py-2.5 font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-paper/85 underline-offset-[5px] transition-colors duration-150 hover:text-white hover:underline"
+                className="py-2.5 font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-binder-foreground/85 underline-offset-[5px] transition-colors duration-150 hover:text-binder-foreground hover:underline"
               >
                 {n.label}
               </Link>
@@ -102,7 +103,7 @@ function CartLink() {
     <Link
       href="/cart"
       aria-label={count > 0 ? `Cart, ${count} items` : 'Cart'}
-      className="relative text-paper/85 transition-colors duration-150 hover:text-white"
+      className="relative text-binder-foreground/85 transition-colors duration-150 hover:text-binder-foreground"
     >
       <ShoppingCart size={19} strokeWidth={1.75} aria-hidden />
       {count > 0 && (
@@ -143,7 +144,7 @@ function AuthControl() {
     <Link
       href={signedIn ? '/account' : '/login'}
       aria-label="Your account"
-      className="text-paper/85 transition-colors duration-150 hover:text-white"
+      className="text-binder-foreground/85 transition-colors duration-150 hover:text-binder-foreground"
     >
       <svg width="19" height="19" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
         <circle cx="9" cy="6" r="3" />

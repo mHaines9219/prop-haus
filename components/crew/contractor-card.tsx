@@ -264,7 +264,7 @@ function ContractorAvatar({ name, photo }: { name: string; photo: string | null 
       ) : (
         <span
           aria-hidden
-          className="absolute inset-0 grid place-items-center bg-plate font-mono text-[13px] font-medium text-ink"
+          className="absolute inset-0 grid place-items-center bg-plate font-mono text-[13px] font-medium text-jet"
         >
           {initials(name)}
         </span>
