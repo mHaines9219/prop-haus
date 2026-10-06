@@ -24,7 +24,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
       <div className="mx-auto w-full max-w-[1400px] px-3 py-8 sm:px-5 sm:py-10">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary ink-underline hover:text-foreground"
         >
           <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
           Catalog

@@ -29,7 +29,7 @@ export default async function OrdersPage() {
             </p>
             <Link
               href="/"
-              className="mt-6 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="mt-6 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text lift-sm hover:bg-accent hover:text-accent-foreground"
             >
               Browse catalog
             </Link>
@@ -47,7 +47,7 @@ export default async function OrdersPage() {
                 <Link
                   key={order.id}
                   href={`/orders/${order.id}`}
-                  className="flex items-center gap-4 py-5 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-colors hover:bg-surface-raised"
+                  className="flex items-center gap-4 py-5 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-[background-color,transform] duration-200 ease-attend hover:bg-surface-raised motion-safe:hover:translate-x-1"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium leading-snug">

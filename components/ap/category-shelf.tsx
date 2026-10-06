@@ -30,11 +30,11 @@ export function CategoryShelf({ categories }: { categories: Category[] }) {
             <Link
               key={cat.name}
               href={cat.href}
-              className={`@container sheet group relative flex flex-col justify-between overflow-hidden border-[1.5px] border-ink bg-card p-4 text-foreground transition-[box-shadow,transform] duration-150 ease-attend hover:shadow-[3px_3px_0_var(--ink)] motion-safe:hover:-translate-x-px motion-safe:hover:-translate-y-px sm:p-5${i === categories.length - 1 && categories.length % 2 !== 0 ? ' col-span-2 lg:col-span-1' : ''}`}
+              className={`@container sheet group relative flex flex-col justify-between overflow-hidden border-[1.5px] border-ink bg-card p-4 text-foreground lift sm:p-5${i === categories.length - 1 && categories.length % 2 !== 0 ? ' col-span-2 lg:col-span-1' : ''}`}
               style={{ minHeight: 168 }}
             >
               {hasCategoryDrawing(cat.name) ? (
-                <CategoryDrawing name={cat.name} className="mx-auto w-full max-w-[300px] text-ink" />
+                <CategoryDrawing name={cat.name} className="mx-auto w-full max-w-[300px] text-ink transition-transform duration-[420ms] ease-reveal motion-safe:group-hover:scale-[1.04]" />
               ) : (
                 <p
                   className="ad-headline"

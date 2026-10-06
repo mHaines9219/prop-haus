@@ -70,7 +70,7 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
     <Link
       href={`/item/${item.source}/${encodeURIComponent(item.sourceId)}`}
       className={cn(
-        'group sheet border-[1.5px] border-ink bg-card p-3 text-foreground transition-[box-shadow,transform] duration-150 ease-attend hover:shadow-[3px_3px_0_var(--ink)] motion-safe:hover:-translate-x-px motion-safe:hover:-translate-y-px',
+        'group sheet lift border-[1.5px] border-ink bg-card p-3 text-foreground',
         marquee ? 'flex h-full flex-col' : 'block h-full',
       )}
     >
@@ -88,15 +88,16 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
           fill={marquee}
         />
 
-        {/* Quick-add: always visible on touch, hover-revealed otherwise */}
+        {/* Quick-add: always visible on touch; rises in with the hover otherwise */}
         <button
           type="button"
           aria-label={inCart || added ? 'Added to cart' : 'Add to cart'}
           onClick={handleQuickAdd}
           className={cn(
-            'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center border-[1.5px] border-ink bg-accent text-accent-foreground transition-opacity duration-[160ms] ease-attend',
+            'absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center border-[1.5px] border-ink bg-accent text-accent-foreground transition-[opacity,transform,background-color] duration-200 ease-attend hover:bg-primary-hover motion-safe:hover:scale-110',
             'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
-            '[@media(pointer:coarse)]:opacity-100',
+            'motion-safe:translate-y-1.5 motion-safe:group-hover:translate-y-0 motion-safe:group-focus-within:translate-y-0',
+            '[@media(pointer:coarse)]:translate-y-0 [@media(pointer:coarse)]:opacity-100',
           )}
         >
           {inCart || added ? (

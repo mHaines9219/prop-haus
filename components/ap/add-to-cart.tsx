@@ -37,8 +37,8 @@ export function AddToCart({ item }: { item: PropItem }) {
       }}
       className={
         added
-          ? 'flex h-11 w-full items-center justify-center gap-2 border-[1.5px] border-border bg-card font-heading text-[14px] font-extrabold uppercase tracking-[0.05em] text-foreground transition-colors duration-150 hover:bg-surface-inset active:scale-[0.98]'
-          : 'flex h-11 w-full items-center justify-center gap-2 border-[1.5px] border-accent bg-accent font-heading text-[14px] font-extrabold uppercase tracking-[0.05em] text-accent-foreground transition-colors duration-150 hover:bg-primary-hover active:scale-[0.98]'
+          ? 'flex h-11 w-full items-center justify-center gap-2 border-[1.5px] border-border bg-card font-heading text-[14px] font-extrabold uppercase tracking-[0.05em] text-foreground lift-sm hover:bg-surface-inset'
+          : 'flex h-11 w-full items-center justify-center gap-2 border-[1.5px] border-accent bg-accent font-heading text-[14px] font-extrabold uppercase tracking-[0.05em] text-accent-foreground lift-sm hover:bg-primary-hover'
       }
     >
       {added ? (

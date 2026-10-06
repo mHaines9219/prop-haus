@@ -87,7 +87,7 @@ export default async function ItemPage({
       <div className="mx-auto w-full max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
         <Link
           href={`/category/${item.category}`}
-          className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary ink-underline hover:text-foreground"
         >
           <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
           {categoryName(item.category)}
