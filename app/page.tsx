@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { catalogFacets } from '@/lib/catalog-db';
 import { HowItWorks } from '@/components/ap/how-it-works';
+import { PageTransition } from '@/components/ap/page-transition';
 import { CategoryShelf } from '@/components/ap/category-shelf';
 import { HeroSearch } from '@/components/ap/hero-search';
 import { SiteFooter } from '@/components/ap/site-footer';
@@ -47,96 +48,98 @@ export default async function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col text-foreground">
       <SiteNav />
-      <main className="flex-1">
-        {/* The big ad (DESIGN.md §9.2): the page's one full-width listing */}
-        <section>
-          <div className="mx-auto w-full max-w-[1400px] px-3 pt-3 sm:px-5 sm:pt-5">
-            <div className="sheet border-[1.5px] border-ink bg-card text-foreground shadow-[4px_4px_0_rgba(0,0,0,0.3)]">
-              <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10 lg:p-10">
-                {/* Copy */}
-                <div className="min-w-0">
-                  <p className="listing">
-                    <span>Props</span>
-                    <span>Set dressing</span>
-                    <span>Crew</span>
-                    <span>Paperwork</span>
-                  </p>
+      <main className="flex flex-1 flex-col">
+        <PageTransition>
+          {/* The big ad (DESIGN.md §9.2): the page's one full-width listing */}
+          <section>
+            <div className="mx-auto w-full max-w-[1400px] px-3 pt-3 sm:px-5 sm:pt-5">
+              <div className="sheet border-[1.5px] border-ink bg-card text-foreground shadow-[4px_4px_0_rgba(0,0,0,0.3)]">
+                <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10 lg:p-10">
+                  {/* Copy */}
+                  <div className="min-w-0">
+                    <p className="listing">
+                      <span>Props</span>
+                      <span>Set dressing</span>
+                      <span>Crew</span>
+                      <span>Paperwork</span>
+                    </p>
 
-                  <h1
-                    className="font-display mt-4 font-bold text-foreground"
-                    style={{
-                      fontSize: 'clamp(42px, 6vw, 82px)',
-                      lineHeight: 0.98,
-                      letterSpacing: '-0.015em',
-                    }}
-                  >
-                    <span className="block">Every prop house.</span>
-                    <span className="block">One pull.</span>
-                  </h1>
+                    <h1
+                      className="font-display mt-4 font-bold text-foreground"
+                      style={{
+                        fontSize: 'clamp(42px, 6vw, 82px)',
+                        lineHeight: 0.98,
+                        letterSpacing: '-0.015em',
+                      }}
+                    >
+                      <span className="block">Every prop house.</span>
+                      <span className="block">One pull.</span>
+                    </h1>
 
-                  <p className="mt-4 font-sans text-[15px] font-bold italic leading-[20px] text-accent-text sm:text-[16px]">
-                    Working to keep your production dressed.
-                  </p>
+                    <p className="mt-4 font-sans text-[15px] font-bold italic leading-[20px] text-accent-text sm:text-[16px]">
+                      Working to keep your production dressed.
+                    </p>
 
-                  <p
-                    className="mt-4 max-w-[54ch] text-[15px] leading-[23px] text-text-secondary"
-                  >
-                    Aggregated rental inventory from LA prop houses, every piece searchable in one
-                    place. Find it, hold it, check out in one click.
-                  </p>
+                    <p
+                      className="mt-4 max-w-[54ch] text-[15px] leading-[23px] text-text-secondary"
+                    >
+                      Aggregated rental inventory from LA prop houses, every piece searchable in one
+                      place. Find it, hold it, check out in one click.
+                    </p>
 
-                  <div className="mt-7 max-w-[720px]">
-                    <HeroSearch />
+                    <div className="mt-7 max-w-[720px]">
+                      <HeroSearch />
+                    </div>
+
+                    {/* Suggestion links: a listing line of what people ask for */}
+                    <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
+                      <span className="font-heading text-[10px] font-extrabold uppercase tracking-[0.12em] text-text-tertiary">
+                        Try
+                      </span>
+                      {SUGGESTIONS.map((s) => (
+                        <Link
+                          key={s}
+                          href={`/search?q=${encodeURIComponent(s)}`}
+                          className="text-[13px] leading-[18px] text-text-secondary underline decoration-accent-text/60 decoration-[1.5px] underline-offset-[4px] transition-[color,text-decoration-color,text-underline-offset] duration-200 ease-attend hover:text-accent-text hover:decoration-accent-text hover:underline-offset-[7px]"
+                        >
+                          {s}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Suggestion links: a listing line of what people ask for */}
-                  <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
-                    <span className="font-heading text-[10px] font-extrabold uppercase tracking-[0.12em] text-text-tertiary">
-                      Try
-                    </span>
-                    {SUGGESTIONS.map((s) => (
-                      <Link
-                        key={s}
-                        href={`/search?q=${encodeURIComponent(s)}`}
-                        className="text-[13px] leading-[18px] text-text-secondary underline decoration-accent-text/60 decoration-[1.5px] underline-offset-[4px] transition-colors duration-150 hover:text-accent-text hover:decoration-accent-text"
-                      >
-                        {s}
-                      </Link>
-                    ))}
+                  {/* The line drawing */}
+                  <div className="hidden min-w-0 items-center justify-center lg:flex">
+                    <LineDrawing className="w-full max-w-[460px] text-ink" />
                   </div>
                 </div>
 
-                {/* The line drawing */}
-                <div className="hidden min-w-0 items-center justify-center lg:flex">
-                  <LineDrawing className="w-full max-w-[460px] text-ink" />
-                </div>
-              </div>
-
-              {/* Bottom line: the two phone numbers of the ad */}
-              <div className="grid grid-cols-2 border-t-2 border-ink">
-                <div className="px-5 py-4 sm:px-8 lg:px-10">
-                  <p className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.01em] text-foreground sm:text-[32px]">
-                    {fmtBig(facets.total)}
-                  </p>
-                  <p className="mt-1.5 font-heading text-[11px] font-extrabold uppercase leading-[14px] tracking-[0.08em] text-accent-text">
-                    Pieces in the catalog
-                  </p>
-                </div>
-                <div className="border-l-2 border-ink px-5 py-4 text-right sm:px-8 lg:px-10">
-                  <p className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.01em] text-foreground sm:text-[32px]">
-                    {houses > 0 ? houses : '—'}
-                  </p>
-                  <p className="mt-1.5 font-heading text-[11px] font-extrabold uppercase leading-[14px] tracking-[0.08em] text-accent-text">
-                    Prop houses · Los Angeles
-                  </p>
+                {/* Bottom line: the two phone numbers of the ad */}
+                <div className="grid grid-cols-2 border-t-2 border-ink">
+                  <div className="px-5 py-4 sm:px-8 lg:px-10">
+                    <p className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.01em] text-foreground sm:text-[32px]">
+                      {fmtBig(facets.total)}
+                    </p>
+                    <p className="mt-1.5 font-heading text-[11px] font-extrabold uppercase leading-[14px] tracking-[0.08em] text-accent-text">
+                      Pieces in the catalog
+                    </p>
+                  </div>
+                  <div className="border-l-2 border-ink px-5 py-4 text-right sm:px-8 lg:px-10">
+                    <p className="font-mono text-[26px] font-extrabold leading-none tracking-[-0.01em] text-foreground sm:text-[32px]">
+                      {houses > 0 ? houses : '—'}
+                    </p>
+                    <p className="mt-1.5 font-heading text-[11px] font-extrabold uppercase leading-[14px] tracking-[0.08em] text-accent-text">
+                      Prop houses · Los Angeles
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <HowItWorks />
-        <CategoryShelf categories={categories} />
+          <HowItWorks />
+          <CategoryShelf categories={categories} />
+        </PageTransition>
       </main>
       <SiteFooter />
     </div>

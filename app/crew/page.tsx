@@ -60,7 +60,7 @@ export default async function CrewPage({
           {hiringFor && (
             <Link
               href={`/projects/${hiringFor.id}`}
-              className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors duration-150 hover:text-foreground"
+              className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-text-secondary ink-underline hover:text-foreground"
             >
               <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
               {hiringFor.name}

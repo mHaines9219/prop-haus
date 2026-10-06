@@ -135,7 +135,7 @@ export function ContractorCard({
                 type="button"
                 onClick={() => setStatus(formOpen ? 'idle' : 'open')}
                 className={cn(
-                  'h-9 rounded-md border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] transition-colors duration-150',
+                  'lift-sm h-9 rounded-md border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em]',
                   formOpen
                     ? 'border-border text-text-tertiary hover:text-foreground'
                     : 'border-accent text-accent-text hover:bg-accent/15',
@@ -222,7 +222,7 @@ export function ContractorCard({
                       <button
                         type="submit"
                         disabled={status === 'submitting'}
-                        className="h-9 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
+                        className="h-9 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text lift-sm hover:bg-accent/15 disabled:opacity-50"
                       >
                         {status === 'submitting' ? 'Sending…' : 'Send request'}
                       </button>

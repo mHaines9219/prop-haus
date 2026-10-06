@@ -163,7 +163,7 @@ export default function CartPage() {
               </p>
               <Link
                 href="/"
-                className="mt-6 inline-block rounded-md border border-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background"
+                className="mt-6 inline-block rounded-md border border-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background"
               >
                 Browse catalog
               </Link>
@@ -439,7 +439,7 @@ export default function CartPage() {
                   <button
                     onClick={handlePlaceOrder}
                     disabled={state.kind === 'submitting'}
-                    className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {state.kind === 'submitting'
                       ? 'Placing order and sending…'

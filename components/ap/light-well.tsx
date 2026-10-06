@@ -70,7 +70,7 @@ export function LightWell({
                   sizes={sizes}
                   onLoad={() => setLoaded(true)}
                   onError={() => setFailed(true)}
-                  className="object-contain mix-blend-multiply transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]"
+                  className="object-contain mix-blend-multiply transition-transform duration-[420ms] ease-reveal motion-safe:group-hover:scale-[1.06]"
                 />
               </div>
             </div>
@@ -83,7 +83,7 @@ export function LightWell({
                 sizes={sizes}
                 onLoad={() => setLoaded(true)}
                 onError={() => setFailed(true)}
-                className="object-cover transition-transform duration-[240ms] ease-attend motion-safe:group-hover:scale-[1.025]"
+                className="object-cover transition-transform duration-[420ms] ease-reveal motion-safe:group-hover:scale-[1.06]"
               />
             </div>
           )}

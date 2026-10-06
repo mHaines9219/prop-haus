@@ -73,7 +73,7 @@ Every inventory photo prints on paper inside a hairline ink rule (`components/ap
 - `mode="cutout"` (default; most scraped inventory has a white background): the image is inset 7% on a paper plate with `mix-blend-mode: multiply`, so the white vanishes and only the object is printed, like the line drawings in the reference.
 - `mode="photo"`: full-bleed on white stock, no blend.
 - `lit`: brighter (pure white) stock, used for the hero print on the item page.
-- Hover inside a `.group` scales the print 2.5%.
+- Hover inside a `.group` scales the print 6% over 420ms `--ease-reveal`, so the picture visibly leans toward the reader.
 
 ---
 
@@ -137,8 +137,10 @@ The vinyl has a grain (an inline SVG `feTurbulence` at 9% white, 6% by lamplight
 
 ## 8. Motion
 
-- Paste-up: `opacity 0→1, y 6→0`, spring 380/34, staggered 35ms per cell, capped at 12 cells.
-- Lift on hover: `translate(-1px,-1px)` + hard shadow `3px 3px 0 ink`, 150ms `--ease-attend`.
+- Page paste-up: every page arrives through `PageTransition` (`components/ap/page-transition.tsx`): `opacity 0→1, y 10→0`, 420ms `--ease-reveal`, keyed on the pathname so it replays on each navigation. Entrance only; there is no exit.
+- Cell paste-up: `opacity 0→1, y 6→0`, spring 380/34, staggered 35ms per cell, capped at 12 cells.
+- Lift on hover (`.lift`): `translate(-3px,-3px)` + hard shadow `4px 4px 0 ink`, 200ms `--ease-attend`; `:active` sets the box back down in 70ms. Buttons and index tabs use `.lift-sm` (`-2px`, `3px 3px 0`). The coral tag inside a lifted box brightens to `--primary-hover`.
+- Ink underline (`.ink-underline`): text links draw a 1.5px pencil line left to right over 260ms instead of toggling `text-decoration`.
 - Print reveal: photo fades in over 320ms `--ease-reveal` once loaded.
 - Modals: fade + 20px rise, spring 340/30; backdrop is `--scrim` at 70%, no blur.
 - Everything respects `prefers-reduced-motion` via Motion's `useReducedMotion`.

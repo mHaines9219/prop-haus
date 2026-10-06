@@ -67,9 +67,9 @@ export function HowItWorks() {
           {STEPS.map((step) => (
             <div
               key={step.n}
-              className="sheet flex flex-col gap-3 border-[1.5px] border-ink bg-card p-4 text-foreground sm:p-5"
+              className="sheet lift group flex flex-col gap-3 border-[1.5px] border-ink bg-card p-4 text-foreground sm:p-5"
             >
-              <span className="text-foreground/80">{step.icon}</span>
+              <span className="text-foreground/80 transition-[color,transform] duration-300 ease-reveal motion-safe:group-hover:-translate-y-0.5 group-hover:text-accent-text">{step.icon}</span>
               <p className="ad-headline text-[22px]">
                 <span className="text-foreground/45">{step.n}</span>
                 {' '}

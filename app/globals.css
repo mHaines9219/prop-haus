@@ -434,6 +434,77 @@
   }
 
   /*
+   * The lift (DESIGN.md §8): a hovered box comes off the page and casts a
+   * hard ink shadow; pressing it sets it back down. Boxes (ad boxes, category
+   * ads) use .lift; buttons and index tabs use the smaller .lift-sm. With
+   * reduced motion the shadow still appears, the box just does not move.
+   */
+  .lift,
+  .lift-sm {
+    transition-property: transform, box-shadow, background-color, color, border-color, opacity;
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-attend);
+    will-change: transform;
+  }
+  @media (hover: hover) {
+    .lift:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+    .lift-sm:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+  }
+  .lift:active,
+  .lift-sm:active {
+    transform: translate(0, 0);
+    box-shadow: 1px 1px 0 var(--ink);
+    transition-duration: 70ms;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lift:hover,
+    .lift-sm:hover,
+    .lift:active,
+    .lift-sm:active {
+      transform: none;
+    }
+  }
+
+  /* The phone number answers: the tag brightens when its box lifts. */
+  .tag {
+    transition: background-color 200ms var(--ease-attend);
+  }
+  .lift:hover .tag {
+    background: var(--primary-hover);
+  }
+
+  /*
+   * The ink underline: a pencil line drawn left to right under a text link.
+   * Replaces the instant hover:underline on nav links and back links.
+   */
+  .ink-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1.5px;
+    padding-bottom: 1px;
+    transition:
+      background-size 260ms var(--ease-attend),
+      color 150ms var(--ease-attend);
+  }
+  .ink-underline:hover,
+  .ink-underline:focus-visible {
+    background-size: 100% 1.5px;
+  }
+
+  /* A stamping ad sets itself back down: the lift yields while the stamp plays. */
+  .category-ad[data-stamping]:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  /*
    * The category drawing (components/ap/category-drawings.tsx). Two groups:
    * the furniture (.drawing-objects) and the hatched floor (.drawing-floor),
    * each turning about the bottom centre of its own box so a sway reads as

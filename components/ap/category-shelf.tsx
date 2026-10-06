@@ -94,7 +94,7 @@ function CategoryAd({
       href={cat.href}
       onClick={onClick}
       data-stamping={stamping ? '' : undefined}
-      className={`@container sheet category-ad group relative flex flex-col justify-between overflow-hidden border-[1.5px] border-ink bg-card p-4 text-foreground transition-[box-shadow,translate] duration-150 ease-attend hover:shadow-[3px_3px_0_var(--ink)] motion-safe:hover:-translate-x-px motion-safe:hover:-translate-y-px data-[stamping]:hover:translate-x-0 data-[stamping]:hover:translate-y-0 data-[stamping]:hover:shadow-none sm:p-5${stretch ? ' col-span-2 lg:col-span-1' : ''}`}
+      className={`@container sheet category-ad group relative flex flex-col justify-between overflow-hidden border-[1.5px] border-ink bg-card p-4 text-foreground lift sm:p-5${stretch ? ' col-span-2 lg:col-span-1' : ''}`}
       style={{ minHeight: 168 }}
     >
       {drawn ? (
