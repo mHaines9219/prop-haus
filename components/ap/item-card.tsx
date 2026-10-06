@@ -121,7 +121,7 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
           <span>{item.subcategory ?? ''}</span>
         </p>
         {/* Vendor credit left, price tag right */}
-        <div className="mt-2.5 flex min-h-[26px] items-end justify-between gap-2">
+        <div className="mt-2.5 flex min-h-[27px] items-end justify-between gap-2">
           <p className="truncate font-heading text-[11px] font-bold uppercase leading-[14px] tracking-[0.06em] text-foreground/75">
             {SOURCE_META[item.source].name}
           </p>
