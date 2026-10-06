@@ -1,6 +1,13 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { CategoryShelf } from './category-shelf';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nav, resetNavigation } from '@/test/mocks/next-navigation';
+import { CategoryShelf, STAMP_MS } from './category-shelf';
+
+const reduceMotion = { value: false };
+vi.mock('motion/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('motion/react')>()),
+  useReducedMotion: () => reduceMotion.value,
+}));
 
 // The home-page category tiles: link targets, ordinal + count formatting, and
 // the odd-count last tile stretching across both columns.
@@ -41,5 +48,59 @@ describe('CategoryShelf', () => {
   it('formats a count that rounds to a whole thousand without a trailing .0', () => {
     render(<CategoryShelf categories={[{ name: 'Decor', href: '/d', count: 12040 }]} />);
     expect(screen.getByRole('link')).toHaveTextContent('12k items');
+  });
+});
+
+// The drawing's click: a stamp plays, then the route is pushed. Anything
+// that should not be held (modified clicks, reduced motion, tiles with no
+// drawing) falls through to the plain link.
+describe('CategoryShelf stamp on click', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    resetNavigation();
+    reduceMotion.value = false;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('holds a plain click on a drawn tile for the stamp, then pushes the route', () => {
+    render(<CategoryShelf categories={cats} />);
+    const lighting = screen.getByRole('link', { name: /Lighting/ });
+    expect(lighting).not.toHaveAttribute('data-stamping');
+
+    const cancelled = !fireEvent.click(lighting);
+    expect(cancelled).toBe(true);
+    expect(lighting).toHaveAttribute('data-stamping');
+    expect(nav.router.push).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(STAMP_MS);
+    expect(nav.router.push).toHaveBeenCalledWith('/category/lighting');
+  });
+
+  it('lets a modified click through so a new tab opens as usual', () => {
+    render(<CategoryShelf categories={cats} />);
+    const lighting = screen.getByRole('link', { name: /Lighting/ });
+    expect(fireEvent.click(lighting, { metaKey: true })).toBe(true);
+    expect(lighting).not.toHaveAttribute('data-stamping');
+    vi.advanceTimersByTime(STAMP_MS);
+    expect(nav.router.push).not.toHaveBeenCalled();
+  });
+
+  it('does not hold a tile that has no drawing', () => {
+    render(<CategoryShelf categories={cats} />);
+    const seating = screen.getByRole('link', { name: /Seating/ });
+    expect(fireEvent.click(seating)).toBe(true);
+    expect(seating).not.toHaveAttribute('data-stamping');
+  });
+
+  it('navigates at once under reduced motion', () => {
+    reduceMotion.value = true;
+    render(<CategoryShelf categories={cats} />);
+    const lighting = screen.getByRole('link', { name: /Lighting/ });
+    expect(fireEvent.click(lighting)).toBe(true);
+    expect(lighting).not.toHaveAttribute('data-stamping');
+    vi.advanceTimersByTime(STAMP_MS);
+    expect(nav.router.push).not.toHaveBeenCalled();
   });
 });

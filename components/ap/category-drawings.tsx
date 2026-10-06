@@ -5,11 +5,15 @@ import type { ReactNode } from 'react';
  * meta-category, drawn the way the big ad's room is: 2px strokes, 1.25px
  * detail lines, round caps, a hatched floor line. Decorative; the category
  * name stays in the link text.
+ *
+ * Each entry is the furniture only. CategoryDrawing adds the floor as its own
+ * group so the two can move independently: on hover the pieces boil like a
+ * pencil test while the floor hatching shimmies; on click the pieces stamp
+ * down and spring back (app/globals.css, "category drawing").
  */
 const DRAWINGS: Record<string, ReactNode> = {
   'Wall Decor & Mirrors': (
     <>
-      <Floor />
       <circle cx="72" cy="14" r="2" />
       <path d="M52 30 L72 14 L92 30" strokeWidth="1.25" />
       <rect x="28" y="30" width="88" height="64" />
@@ -24,7 +28,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Lighting': (
     <>
-      <Floor />
       <path d="M60 8 V40" />
       <path d="M36 74 h48 l-8 -34 h-32 z" />
       <path d="M42 62 h36" strokeWidth="1.25" />
@@ -40,7 +43,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Signage': (
     <>
-      <Floor />
       <path d="M112 122 V92 M128 122 V92 M100 122 h40" />
       <path d="M40 40 h130 l30 26 l-30 26 h-130 z" />
       <path d="M52 52 h112 l18 14 l-18 14 h-112 z" strokeWidth="1.25" />
@@ -54,7 +56,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Accessories & Props': (
     <>
-      <Floor />
       <path d="M52 122 q-6 0 -4 -8 l12 -30 q2 -6 8 -6 h104 q6 0 8 6 l12 30 q2 8 -4 8 z" />
       <circle cx="120" cy="100" r="17" />
       <circle cx="120" cy="100" r="8" strokeWidth="1.25" />
@@ -72,7 +73,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Kitchen & Tableware': (
     <>
-      <Floor />
       <path d="M44 120 q-12 -16 -6 -36 h60 q6 20 -6 36 z" />
       <path d="M52 84 q16 -10 32 0" />
       <circle cx="68" cy="74" r="3" />
@@ -90,7 +90,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Furniture': (
     <>
-      <Floor />
       <path d="M42 92 V70 q0 -10 10 -10 h80 q10 0 10 10 v22" />
       <path d="M42 92 q-12 0 -12 12 v18 h20 v-22 q0 -8 -8 -8 z" />
       <path d="M142 92 q12 0 12 12 v18 h-20 v-22 q0 -8 8 -8 z" />
@@ -105,7 +104,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Textiles & Rugs': (
     <>
-      <Floor />
       <path d="M32 22 h84" />
       <circle cx="30" cy="22" r="3" strokeWidth="1.5" /><circle cx="118" cy="22" r="3" strokeWidth="1.5" />
       <path d="M44 24 v44 q10 -8 20 0 q10 8 20 0 q10 -8 20 0 v-44" />
@@ -123,7 +121,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Bed & Bath': (
     <>
-      <Floor />
       <path d="M30 122 V52 q0 -6 6 -6 q6 0 6 6 v70" />
       <path d="M42 88 h96 v16 h-96" />
       <path d="M46 88 v-10 q0 -4 4 -4 h28 q4 0 4 4 v10" strokeWidth="1.5" />
@@ -141,7 +138,6 @@ const DRAWINGS: Record<string, ReactNode> = {
   ),
   'Other': (
     <>
-      <Floor />
       <rect x="36" y="66" width="64" height="56" />
       <path d="M44 66 v56 M92 66 v56" strokeWidth="1.25" />
       <path d="M54 106 v-22 m-5 6 l5 -6 l5 6 M64 106 v-22 m-5 6 l5 -6 l5 6" strokeWidth="1.5" />
@@ -182,9 +178,12 @@ export function CategoryDrawing({ name, className }: { name: string; className?:
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      className={className}
+      className={['category-drawing', className].filter(Boolean).join(' ')}
     >
-      {drawing}
+      <g className="drawing-floor">
+        <Floor />
+      </g>
+      <g className="drawing-objects">{drawing}</g>
     </svg>
   );
 }
