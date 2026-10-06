@@ -432,4 +432,104 @@
     border-color: var(--ink);
     border-width: 2px;
   }
+
+  /*
+   * The category drawing (components/ap/category-drawings.tsx). Two groups:
+   * the furniture (.drawing-objects) and the hatched floor (.drawing-floor),
+   * each turning about the bottom centre of its own box so a sway reads as
+   * a piece rocking on its feet, not a picture spinning.
+   *
+   * Hover is a dance: the pieces sway and hop on a loop while the floor
+   * hatching shuffles under them in half-beats. Click is a stamp: one squash
+   * into the floor, a spring back, an ink flash to coral, then the page
+   * turns (CategoryShelf holds the navigation for STAMP_MS). The stamp rule
+   * sits after the hover rule at equal specificity so it wins while both
+   * apply. All of it is gated on prefers-reduced-motion.
+   */
+  .category-drawing .drawing-objects,
+  .category-drawing .drawing-floor {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .category-ad:hover .drawing-objects,
+    .category-ad:focus-visible .drawing-objects {
+      animation: drawing-sway 1.1s ease-in-out infinite;
+    }
+    .category-ad:hover .drawing-floor,
+    .category-ad:focus-visible .drawing-floor {
+      animation: drawing-shuffle 0.55s steps(2, jump-none) infinite;
+    }
+
+    .category-ad[data-stamping] .drawing-objects {
+      animation: drawing-stamp 420ms var(--ease-attend) both;
+    }
+    .category-ad[data-stamping] .drawing-floor {
+      animation: drawing-kick 420ms var(--ease-attend) both;
+    }
+    .category-ad[data-stamping] .category-drawing {
+      animation: drawing-ink-flash 420ms var(--ease-attend) both;
+    }
+  }
+
+  @keyframes drawing-sway {
+    0%,
+    100% {
+      transform: rotate(-2.5deg) translateY(0);
+    }
+    25% {
+      transform: rotate(0deg) translateY(-3px);
+    }
+    50% {
+      transform: rotate(2.5deg) translateY(0);
+    }
+    75% {
+      transform: rotate(0deg) translateY(-3px);
+    }
+  }
+  @keyframes drawing-shuffle {
+    0% {
+      transform: translateX(-2px);
+    }
+    100% {
+      transform: translateX(2px);
+    }
+  }
+  @keyframes drawing-stamp {
+    0% {
+      transform: translateY(0) scale(1, 1);
+    }
+    35% {
+      transform: translateY(5px) scale(1.08, 0.86);
+    }
+    65% {
+      transform: translateY(-4px) scale(0.96, 1.06);
+    }
+    85% {
+      transform: translateY(1px) scale(1.02, 0.98);
+    }
+    100% {
+      transform: translateY(0) scale(1, 1);
+    }
+  }
+  @keyframes drawing-kick {
+    0%,
+    100% {
+      transform: scaleX(1);
+    }
+    35% {
+      transform: scaleX(1.06);
+    }
+  }
+  @keyframes drawing-ink-flash {
+    0%,
+    100% {
+      color: var(--ink);
+    }
+    35%,
+    55% {
+      color: var(--accent-text);
+    }
+  }
 }
