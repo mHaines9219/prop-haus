@@ -502,9 +502,16 @@ scopes, typography, rules, motion, and per-surface component specs.
   box rules, 2px heavy rules, a hard offset shadow on hover.
 - Component classes: `.ad-headline`, `.listing` (coral bullets between spans),
   `.tag` (the coral phone-number block). One coral tag per box.
-- Theming: next-themes (app/providers.tsx) toggles `data-theme` on <html>;
-  "dark" is the binder, "light" opens the book to a cream page. The nav and
-  footer are always vinyl (they use the constants bg-binder / text-paper).
+- Theming: next-themes (app/providers.tsx) toggles `data-theme` on <html>.
+  "light" (default) is the book by day: green vinyl, cream pages, black ink.
+  "dark" is the same book by lamplight: the MATERIALS move (near-black vinyl
+  with a trace of green, warm charcoal card stock, cream ink) and both scopes follow, because
+  they are written in terms of the materials. Never pure black or white. Two
+  constants never flip: `binder-foreground` (cream lettering on the vinyl
+  chrome: nav, footer, section eyebrows) and `jet` (near-black lettering on a
+  coral tag or a photo plate). Use them instead of `text-paper` / `text-ink`
+  wherever the color must NOT invert at night. Photo plates stay cream in
+  both themes.
 - Never use Tailwind's palette classes (emerald-500, zinc-800) or hard-coded
   hex in components; use the tokens.
 - Nocturne (Aug 30 2026) and Answer Print (Aug 2026) and Astryx (before that)

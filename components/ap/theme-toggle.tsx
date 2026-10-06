@@ -5,10 +5,11 @@ import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
 /**
- * Binder/page switch in the nav chrome. "Dark" is the house default: the
- * green vinyl binder with cream ads set into it. "Light" opens the book to a
- * cream page. Icon shows the mode you'd switch TO, matching the other quiet
- * icon controls in the bar.
+ * Day/lamplight switch in the nav chrome. "Light" is the house default: the
+ * green vinyl binder with cream pages set into it. "Dark" is the same book by
+ * lamplight: near-black vinyl, charcoal card stock, cream ink (see the theme
+ * block in app/globals.css). Icon shows the mode you'd switch TO, matching
+ * the other quiet icon controls in the bar.
  */
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -28,7 +29,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="text-paper/85 transition-colors duration-150 hover:text-white"
+      className="text-binder-foreground/85 transition-colors duration-150 hover:text-binder-foreground"
     >
       {isDark ? (
         <Sun size={19} strokeWidth={1.75} aria-hidden />

@@ -21,6 +21,17 @@ The four materials, and nothing else:
 
 The rule the whole system follows: **text is printed on paper, never on vinyl, except chrome.** Anything a user reads sits in an ad box or on a page sheet. The vinyl is only ever a ground with cream labels on it (nav links, section eyebrows, the footer credit).
 
+The same four materials by lamplight (the `dark` theme):
+
+| Material | By day (`light`, default) | By lamplight (`dark`) |
+|---|---|---|
+| **Binder** | `#1f4b3b` | `#0e1512` near-black with a trace of green |
+| **Paper** | `#f3eddc` / `#faf6ea` | `#221f1a` / `#2a2620` warm charcoal card |
+| **Ink** | `#17140f` | `#ebe3cf` cream, a shade under the day page |
+| **Coral** | `#e8735a` / `#c9432b` | unchanged; the headline red lifts to `#f29a84` on dark card |
+
+Nothing in the dark theme is pure black or pure white. Two fixed colors sit outside the materials: **binder-foreground** (`#f3eddc` day, `#e6ddc8` night), the cream lettering on the vinyl chrome, and **jet** (`#17140f`, both themes), the lettering on a coral tag and on a photo plate. A photo always prints on a cream plate, in either theme: by lamplight it reads like a print in a black-paged album.
+
 ---
 
 ## 2. Principles
@@ -38,8 +49,10 @@ The rule the whole system follows: **text is printed on paper, never on vinyl, e
 
 The tokens are defined twice in `app/globals.css`:
 
-- **BINDER** (`:root`, the default theme, `data-theme="dark"`): background is vinyl, foreground is cream, cards are a lifted green, borders are cream at 24%.
-- **SHEET** (`.sheet`, and `:root[data-theme="light"]`): background is paper, foreground is ink, cards are ad stock, borders are ink at 26%, strong borders are solid ink.
+- **BINDER** (`:root`): background is vinyl, foreground is `binder-foreground` (cream), cards are a lifted green, borders are cream at 24%.
+- **SHEET** (`.sheet`): background is paper, foreground is ink, cards are ad stock, borders are ink at 26%, strong borders are solid ink.
+
+Both scopes are written in terms of the materials (`--paper`, `--ink`, `--binder*`), and the theme redefines only the materials (plus a few literal tints tuned for cream). So `:root[data-theme="dark"]` turns every sheet into charcoal card with cream ink and every binder surface into a near-black green, without a second copy of the token set.
 
 `@theme inline` maps every semantic token straight to its variable, so a `bg-card` or `text-text-tertiary` utility re-resolves wherever a `.sheet` starts. **Components never need to know which scope they are in.** Build from the semantic tokens and the component prints correctly on either surface.
 
@@ -47,9 +60,9 @@ Where a scope starts:
 
 - `PageShell` wraps `<main>` in a `.sheet` with a 1.5px ink rule and a 2px gutter to the vinyl. Every interior page is a page of the book.
 - `ItemCard`, the category boxes, the how-it-works boxes, the hero ad, and the AI modal are each their own `.sheet`, so they print as paper on the home page's vinyl.
-- The light theme puts the whole document in the sheet scope: the book lies open. The nav and footer stay vinyl in both themes because they use the constants (`bg-binder`, `text-paper`), not the semantic tokens.
+- The nav and footer stay vinyl in both themes because they use the material constants (`bg-binder`, `text-binder-foreground`), not the semantic tokens.
 
-Constants are exposed as utilities for chrome and for anything that must not flip: `bg-binder`, `bg-paper`, `bg-paper-lit`, `bg-paper-deep`, `text-ink`, `border-ink`, `bg-coral`, `text-coral-deep`, `bg-coral-lit`.
+Material constants are exposed as utilities for chrome and for anything that must read as that material in both themes: `bg-binder`, `bg-paper`, `bg-paper-lit`, `bg-paper-deep`, `text-ink`, `border-ink`, `bg-coral`, `text-coral-deep`, `bg-coral-lit`. Remember they MOVE with the theme: `border-ink` is a black rule by day and a cream rule by lamplight, which is what a rule on the page should do. For lettering that must stay the same color in both themes use the two fixed constants instead: `text-binder-foreground` (on the vinyl chrome) and `text-jet` (on a coral tag or a photo plate).
 
 ---
 
@@ -94,29 +107,31 @@ Scale (px): eyebrow 10–11 · listing 11 · caption 12–13 · body 14–15 · 
 
 ## 7. Color tokens
 
-Binder scope → sheet scope:
+Binder scope → sheet scope, by day; the lamplight column shows what moves under `data-theme="dark"`:
 
-| Token | Binder | Sheet |
-|---|---|---|
-| `background` | `#1f4b3b` | `#f3eddc` |
-| `foreground` | paper | ink |
-| `card` | `#275a47` | `#faf6ea` |
-| `surface-inset` | `#173a2e` | `#e6dec6` |
-| `border` | paper 24% | ink 26% |
-| `border-strong` | paper 60% | ink |
-| `accent` (block) | coral | coral |
-| `accent-text` | `#f4a28f` | `#c9432b` |
-| `accent-foreground` | ink | ink |
-| `destructive` | `#ff6a55` | `#b3261e` |
-| `status-pending` | paper 55% | ink 45% |
-| `status-quoted` | `#e9b44c` | `#c98a1e` |
-| `status-confirmed` | `#8fd3a8` | `#2f7d4f` |
-| `status-unavailable` | coral | `#c9432b` |
-| `text-secondary` / `tertiary` | paper 80% / 64% | ink 78% / 62% |
+| Token | Binder | Sheet | Sheet by lamplight |
+|---|---|---|---|
+| `background` | binder `#1f4b3b` | paper `#f3eddc` | paper `#221f1a` |
+| `foreground` | binder-foreground | ink | ink `#ebe3cf` |
+| `card` | `#275a47` | `#faf6ea` | `#2a2620` |
+| `surface-inset` | `#173a2e` | `#e6dec6` | `#1a1713` |
+| `input` | `#173a2e` | `#faf6ea` | `#1a1713` (set in, not lifted) |
+| `border` | binder-foreground 24% | ink 26% | cream 26% |
+| `border-strong` | binder-foreground 60% | ink | cream |
+| `accent` (block) | coral | coral | coral |
+| `accent-text` | `#f4a28f` | `#c9432b` | `#f29a84` |
+| `accent-foreground` | jet | jet | jet |
+| `plate` / `plate-lit` | `#faf6ea` / `#fff` | `#faf6ea` / `#fff` | `#ede5d1` / `#f7f2e6` |
+| `destructive` | `#ff6a55` | `#b3261e` | `#ff7a66` on jet |
+| `status-pending` | binder-foreground 55% | ink 45% | cream 45% |
+| `status-quoted` | `#e9b44c` | `#c98a1e` | `#e9b44c` |
+| `status-confirmed` | `#8fd3a8` | `#2f7d4f` | `#8fd3a8` |
+| `status-unavailable` | coral | `#c9432b` | coral |
+| `text-secondary` / `tertiary` | binder-foreground 80% / 64% | ink 78% / 62% | cream 78% / 62% |
 
-Any new color token needs a value in **both** blocks.
+Any new color token needs a value in **both** scope blocks. Write it in terms of the materials where you can; if it is a literal tint tuned for cream paper (a status green, a destructive red), give it a lamplight value in the `:root[data-theme='dark'] .sheet` block too.
 
-The vinyl has a grain (an inline SVG `feTurbulence` at 9% white) over two soft radial sheens. Paper has the same grain at 5% ink and no sheen.
+The vinyl has a grain (an inline SVG `feTurbulence` at 9% white, 6% by lamplight) over two soft radial sheens. By day the paper is flat; by lamplight the card stock shows a faint cream grain (3.5%) so it reads as stock, not as a panel.
 
 ---
 
