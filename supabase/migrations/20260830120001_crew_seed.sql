@@ -46,7 +46,7 @@ insert into public.contractors (name, photo, skills, city, rate_low, rate_high, 
   'los_angeles',
   70000,
   85000,
-  'Former prop master's lead with a sharp eye for continuity and placement. Comfortable running a small crew on commercial and editorial sets.'
+  'Former prop master''s lead with a sharp eye for continuity and placement. Comfortable running a small crew on commercial and editorial sets.'
 ),
 
 -- PLACEHOLDER contractor 5
