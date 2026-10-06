@@ -6,23 +6,34 @@
  * listings. See DESIGN.md.
  *
  * Two scopes, one token set:
- *   BINDER  (:root, default "dark")  green vinyl ground, cream text on it.
- *   SHEET   (.sheet, and the whole page under data-theme="light")  a cream
- *           page of the book: ink text, ink rules, coral tags.
+ *   BINDER  (:root)  green vinyl ground, cream lettering on it.
+ *   SHEET   (.sheet) a page of the book: ink text, ink rules, coral tags.
  * Every semantic token (--background, --card, --border, ...) is defined in
  * both scopes, so any component built from the tokens reads correctly whether
- * it sits on the vinyl or on a page. The constants (--binder, --paper, --ink,
- * --coral) never change: the chrome (nav, footer) and the ad boxes use them.
+ * it sits on the vinyl or on a page.
+ *
+ * Two themes, one set of materials:
+ *   LIGHT (default)        the book by day: green vinyl, cream pages, black ink.
+ *   DARK  (data-theme=dark) the book by lamplight: the vinyl goes near-black
+ *                          with a trace of green, the page stock goes to warm
+ *                          charcoal card,
+ *                          and the ink prints cream. Coral stays coral, and a
+ *                          photo still prints on a cream plate.
+ * The theme only redefines the MATERIALS (--binder*, --paper*, --ink) plus a
+ * handful of literal tints; both scopes are written in terms of the materials,
+ * so they follow. Two constants never move: --binder-foreground (the cream
+ * lettering on the vinyl chrome) and --jet (the near-black lettering on a
+ * coral tag or a photo plate).
  */
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 :root {
-  /* ── constants: the four materials ── */
+  /* ── materials, by day ── */
   --binder: #1f4b3b;
   --binder-deep: #173a2e;
   --binder-lit: #275a47;
@@ -34,48 +45,52 @@
   --coral-deep: #c9432b;
   --coral-lit: #f4a28f;
 
+  /* ── fixed in both themes ── */
+  --binder-foreground: var(--paper); /* cream lettering on the vinyl chrome */
+  --jet: #17140f; /* lettering on a coral tag, on a photo plate */
+
   /* ── BINDER scope: green vinyl ── */
   --background: var(--binder);
-  --foreground: var(--paper);
+  --foreground: var(--binder-foreground);
   --card: var(--binder-lit);
-  --card-foreground: var(--paper);
+  --card-foreground: var(--binder-foreground);
   --popover: #2d6650;
-  --popover-foreground: var(--paper);
+  --popover-foreground: var(--binder-foreground);
   --surface-inset: var(--binder-deep);
   --surface-raised: var(--binder-lit);
 
   --primary: var(--coral);
-  --primary-foreground: var(--ink);
+  --primary-foreground: var(--jet);
   --primary-hover: #ee8168;
   --secondary: var(--binder-deep);
-  --secondary-foreground: var(--paper);
+  --secondary-foreground: var(--binder-foreground);
   --muted: var(--binder-deep);
-  --muted-foreground: color-mix(in srgb, var(--paper) 72%, transparent);
+  --muted-foreground: color-mix(in srgb, var(--binder-foreground) 72%, transparent);
   --accent: var(--coral);
-  --accent-foreground: var(--ink);
+  --accent-foreground: var(--jet);
   --accent-text: var(--coral-lit);
 
   --destructive: #ff6a55;
-  --destructive-foreground: var(--ink);
+  --destructive-foreground: var(--jet);
   --destructive-wash: #3a2a25;
 
-  --border: color-mix(in srgb, var(--paper) 24%, transparent);
-  --border-subtle: color-mix(in srgb, var(--paper) 14%, transparent);
-  --border-strong: color-mix(in srgb, var(--paper) 60%, transparent);
+  --border: color-mix(in srgb, var(--binder-foreground) 24%, transparent);
+  --border-subtle: color-mix(in srgb, var(--binder-foreground) 14%, transparent);
+  --border-strong: color-mix(in srgb, var(--binder-foreground) 60%, transparent);
   --input: var(--binder-deep);
   --ring: var(--coral);
 
   --plate: var(--paper-lit);
   --plate-lit: #ffffff;
 
-  --status-pending: color-mix(in srgb, var(--paper) 55%, transparent);
+  --status-pending: color-mix(in srgb, var(--binder-foreground) 55%, transparent);
   --status-quoted: #e9b44c;
   --status-confirmed: #8fd3a8;
   --status-unavailable: var(--coral);
 
-  --text-secondary: color-mix(in srgb, var(--paper) 80%, transparent);
-  --text-tertiary: color-mix(in srgb, var(--paper) 64%, transparent);
-  --text-disabled: color-mix(in srgb, var(--paper) 40%, transparent);
+  --text-secondary: color-mix(in srgb, var(--binder-foreground) 80%, transparent);
+  --text-tertiary: color-mix(in srgb, var(--binder-foreground) 64%, transparent);
+  --text-disabled: color-mix(in srgb, var(--binder-foreground) 40%, transparent);
   --text-muted: var(--text-secondary);
   --text-faint: var(--text-tertiary);
 
@@ -95,12 +110,11 @@
 }
 
 /*
- * SHEET scope: a cream page of the book. Applied by PageShell around every
- * interior page, by each ad box on the home page, and to the whole document
- * in the light theme.
+ * SHEET scope: a page of the book. Applied by PageShell around every interior
+ * page and by each ad box on the home page. Written in terms of the materials,
+ * so by day it is ink on cream and by lamplight it is cream on charcoal card.
  */
-.sheet,
-:root[data-theme='light'] {
+.sheet {
   --background: var(--paper);
   --foreground: var(--ink);
   --card: var(--paper-lit);
@@ -111,14 +125,14 @@
   --surface-raised: var(--paper-lit);
 
   --primary: var(--coral);
-  --primary-foreground: var(--ink);
+  --primary-foreground: var(--jet);
   --primary-hover: #ee8168;
   --secondary: var(--paper-deep);
   --secondary-foreground: var(--ink);
   --muted: var(--paper-deep);
   --muted-foreground: color-mix(in srgb, var(--ink) 72%, transparent);
   --accent: var(--coral);
-  --accent-foreground: var(--ink);
+  --accent-foreground: var(--jet);
   --accent-text: var(--coral-deep);
 
   --destructive: #b3261e;
@@ -151,6 +165,55 @@
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.09 0 0 0 0 0.08 0 0 0 0 0.06 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/*
+ * DARK theme: the book by lamplight. Only the materials move, plus the few
+ * literal tints that were tuned for cream paper. Nothing here is pure black
+ * or pure white: the vinyl goes near-black with a trace of its green, the
+ * card keeps its warmth, the ink is the cream of the day page a shade dimmer.
+ */
+:root[data-theme='dark'] {
+  --binder: #0e1512;
+  --binder-deep: #090e0b;
+  --binder-lit: #151f1a;
+  --paper: #221f1a;
+  --paper-lit: #2a2620;
+  --paper-deep: #1a1713;
+  --ink: #ebe3cf;
+  --binder-foreground: #e6ddc8;
+
+  /* binder-scope literals */
+  --popover: #182320;
+  --destructive-wash: #2f201c;
+  --shadow-overlay: 0 0 0 1px var(--ink), 6px 6px 0 rgba(0, 0, 0, 0.5);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+:root[data-theme='dark'] .sheet {
+  /* the headline red reads as lit coral on dark card, as it does on vinyl */
+  --accent-text: #f29a84;
+  --ring: var(--coral);
+
+  --destructive: #ff7a66;
+  --destructive-foreground: var(--jet);
+  --destructive-wash: #3b2420;
+
+  /* fields are set into the card, not lifted off it */
+  --input: var(--paper-deep);
+
+  /* a photo still prints on cream, a shade down from the day plate */
+  --plate: #ede5d1;
+  --plate-lit: #f7f2e6;
+
+  --status-quoted: #e9b44c;
+  --status-confirmed: #8fd3a8;
+  --status-unavailable: var(--coral);
+
+  --scrim: #0b0a08;
+  --shadow-overlay: 0 0 0 1px var(--ink), 6px 6px 0 rgba(0, 0, 0, 0.5);
+
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.96 0 0 0 0 0.88 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 @theme inline {
   /* ── constants ── */
   --color-binder: var(--binder);
@@ -163,6 +226,8 @@
   --color-coral: var(--coral);
   --color-coral-deep: var(--coral-deep);
   --color-coral-lit: var(--coral-lit);
+  --color-binder-foreground: var(--binder-foreground);
+  --color-jet: var(--jet);
 
   /* ── semantic colors ── */
   --color-background: var(--background);
@@ -229,11 +294,11 @@
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
-  :root[data-theme='light'] {
-    color-scheme: light;
+  :root[data-theme='dark'] {
+    color-scheme: dark;
   }
 
   body {
@@ -256,15 +321,15 @@
       );
   }
 
-  :root[data-theme='light'] body {
-    /* paper: grain only, no sheen */
-    background-image: var(--grain);
-  }
-
-  /* The sheet: a cream page. Inner tokens come from the .sheet scope above. */
+  /* The sheet: a page. Inner tokens come from the .sheet scope above. */
   .sheet {
     background-color: var(--background);
     color: var(--foreground);
+  }
+
+  /* By lamplight the card stock shows its tooth: the sheet grain, cream, faint. */
+  :root[data-theme='dark'] .sheet {
+    background-image: var(--grain);
   }
 
   /* Archivo's width axis: the ad-headline gothic is drawn at 80% width. */
@@ -306,7 +371,7 @@
     align-items: center;
     gap: 0.35em;
     background: var(--accent);
-    color: var(--accent-foreground);
+    color: var(--jet);
     font-family: var(--font-heading);
     font-stretch: 80%;
     font-weight: 800;
@@ -431,5 +496,111 @@
   .ink-underline:hover,
   .ink-underline:focus-visible {
     background-size: 100% 1.5px;
+  }
+
+  /* A stamping ad sets itself back down: the lift yields while the stamp plays. */
+  .category-ad[data-stamping]:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  /*
+   * The category drawing (components/ap/category-drawings.tsx). Two groups:
+   * the furniture (.drawing-objects) and the hatched floor (.drawing-floor),
+   * each turning about the bottom centre of its own box so a sway reads as
+   * a piece rocking on its feet, not a picture spinning.
+   *
+   * Hover is a dance: the pieces sway and hop on a loop while the floor
+   * hatching shuffles under them in half-beats. Click is a stamp: one squash
+   * into the floor, a spring back, an ink flash to coral, then the page
+   * turns (CategoryShelf holds the navigation for STAMP_MS). The stamp rule
+   * sits after the hover rule at equal specificity so it wins while both
+   * apply. All of it is gated on prefers-reduced-motion.
+   */
+  .category-drawing .drawing-objects,
+  .category-drawing .drawing-floor {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .category-ad:hover .drawing-objects,
+    .category-ad:focus-visible .drawing-objects {
+      animation: drawing-sway 1.1s ease-in-out infinite;
+    }
+    .category-ad:hover .drawing-floor,
+    .category-ad:focus-visible .drawing-floor {
+      animation: drawing-shuffle 0.55s steps(2, jump-none) infinite;
+    }
+
+    .category-ad[data-stamping] .drawing-objects {
+      animation: drawing-stamp 420ms var(--ease-attend) both;
+    }
+    .category-ad[data-stamping] .drawing-floor {
+      animation: drawing-kick 420ms var(--ease-attend) both;
+    }
+    .category-ad[data-stamping] .category-drawing {
+      animation: drawing-ink-flash 420ms var(--ease-attend) both;
+    }
+  }
+
+  @keyframes drawing-sway {
+    0%,
+    100% {
+      transform: rotate(-2.5deg) translateY(0);
+    }
+    25% {
+      transform: rotate(0deg) translateY(-3px);
+    }
+    50% {
+      transform: rotate(2.5deg) translateY(0);
+    }
+    75% {
+      transform: rotate(0deg) translateY(-3px);
+    }
+  }
+  @keyframes drawing-shuffle {
+    0% {
+      transform: translateX(-2px);
+    }
+    100% {
+      transform: translateX(2px);
+    }
+  }
+  @keyframes drawing-stamp {
+    0% {
+      transform: translateY(0) scale(1, 1);
+    }
+    35% {
+      transform: translateY(5px) scale(1.08, 0.86);
+    }
+    65% {
+      transform: translateY(-4px) scale(0.96, 1.06);
+    }
+    85% {
+      transform: translateY(1px) scale(1.02, 0.98);
+    }
+    100% {
+      transform: translateY(0) scale(1, 1);
+    }
+  }
+  @keyframes drawing-kick {
+    0%,
+    100% {
+      transform: scaleX(1);
+    }
+    35% {
+      transform: scaleX(1.06);
+    }
+  }
+  @keyframes drawing-ink-flash {
+    0%,
+    100% {
+      color: var(--ink);
+    }
+    35%,
+    55% {
+      color: var(--accent-text);
+    }
   }
 }

@@ -21,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem={false}>
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     </ThemeProvider>
   );

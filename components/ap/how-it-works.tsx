@@ -58,7 +58,7 @@ export function HowItWorks() {
   return (
     <section id="how">
       <div className="mx-auto w-full max-w-[1400px] px-3 py-10 sm:px-5 sm:py-14">
-        <p className="mb-3 flex items-center gap-2.5 font-heading text-[11px] font-extrabold uppercase tracking-[0.14em] text-paper/80">
+        <p className="mb-3 flex items-center gap-2.5 font-heading text-[11px] font-extrabold uppercase tracking-[0.14em] text-binder-foreground/80">
           <span aria-hidden className="inline-block h-[3px] w-6 bg-coral" />
           How Prop Haus works
         </p>
