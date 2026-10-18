@@ -86,7 +86,13 @@ describe('buildChecklist', () => {
     const coi = items.get('certificate_of_insurance')!;
     expect(coi.status).toBe('complete');
     expect(coi.document).toEqual({ name: 'coi.pdf', source: 'account' });
-    expect(coi.requiredBy).toEqual(['Omega Cinema Props']);
+    // Every house asks for a COI (lib/vendors.ts ASKED_EVERYWHERE); Omega also states minimums.
+    expect(coi.requiredBy).toEqual(['Omega Cinema Props', 'Prop Heaven']);
+
+    // Both houses hold a card for a first rental; nothing on the passport yet, so it is open.
+    const card = items.get('credit_card_authorization')!;
+    expect(card.requiredBy).toEqual(['Omega Cinema Props', 'Prop Heaven']);
+    expect(card.status).toBe('missing');
 
     expect(items.get('w9')?.requiredBy).toEqual(['Prop Heaven']);
     expect(items.get('vendor_rental_agreement')?.requiredBy).toEqual(['Omega Cinema Props']);

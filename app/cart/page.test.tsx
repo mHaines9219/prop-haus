@@ -66,8 +66,8 @@ const READY_PRODUCTION = {
   contactEmail: 'sam@nocturne.example',
   formsOnBehalf: true,
 };
-const readyResponse = (defaults = READY_DEFAULTS) =>
-  json({ ready: true, missing: [], defaults, production: READY_PRODUCTION });
+const readyResponse = (defaults = READY_DEFAULTS, passport: unknown = { documents: {} }) =>
+  json({ ready: true, missing: [], defaults, production: READY_PRODUCTION, passport });
 /** A profile short of the given things; `production` is what it does have. */
 const incompleteResponse = (missing: string[], production: Record<string, unknown> = { formsOnBehalf: false }) =>
   json({ ready: false, missing, defaults: {}, production });
@@ -100,14 +100,21 @@ const DRAFTS = [
   }),
 ];
 
-/** Readiness answers ready unless overridden; checkout and preview are routed separately. */
+/** Readiness answers ready unless overridden; checkout, preview and passport uploads are routed separately. */
 function stubRoutes(
   checkout: Handler = () => json({ id: 'order-1' }, 201),
   readiness: Handler = () => readyResponse(),
   preview: Handler = () => json({ drafts: DRAFTS }),
+  passport: Handler = () => json({ error: 'unexpected upload' }, 500),
 ) {
   return stubFetch((url, init) =>
-    url === '/api/checkout' ? checkout(url, init) : url === '/api/checkout/preview' ? preview(url, init) : readiness(url, init),
+    url === '/api/checkout'
+      ? checkout(url, init)
+      : url === '/api/checkout/preview'
+        ? preview(url, init)
+        : url.startsWith('/api/account/passport/')
+          ? passport(url, init)
+          : readiness(url, init),
   );
 }
 
@@ -276,23 +283,29 @@ describe('readiness', () => {
     await renderCart();
     expect(await screen.findByLabelText('Start')).toHaveValue('2026-09-03');
     expect(screen.getByLabelText('End')).toHaveValue('2026-09-10');
-    expect(screen.getByLabelText('Street')).toHaveValue('4100 W Alameda Ave');
-    expect(screen.getByLabelText('Suite, stage, building')).toHaveValue('');
-    expect(screen.getByLabelText('City')).toHaveValue('Burbank');
-    expect(screen.getByLabelText('State')).toHaveValue('CA');
-    expect(screen.getByLabelText('ZIP')).toHaveValue('91505');
-    expect(screen.getByLabelText('Access notes')).toHaveValue('Dock B, ask for Sam');
     expect(screen.getByLabelText('Shoot details')).toHaveValue('');
+    // No address fields: pickup is assumed, and the profile's delivery defaults are ignored.
+    expect(screen.queryByLabelText('Street')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Access notes')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Place order and send/ })).toBeEnabled();
   });
 
-  it('leaves the form blank when the profile has no defaults, keeping any notes', async () => {
+  it('leaves the dates blank when the profile has no window', async () => {
     stubRoutes(undefined, () => readyResponse({ deliveryNotes: 'Meet at the gate' }));
     await renderCart();
     expect(await screen.findByLabelText('Start')).toHaveValue('');
     expect(screen.getByLabelText('End')).toHaveValue('');
-    expect(screen.getByLabelText('Street')).toHaveValue('');
-    expect(screen.getByLabelText('Access notes')).toHaveValue('Meet at the gate');
+  });
+
+  it('states that pickup is assumed and explains why there is no delivery option', async () => {
+    stubRoutes();
+    await renderCart();
+    expect(await screen.findByText("Pickup and return at each vendor's dock.")).toBeInTheDocument();
+    const why = screen.getByLabelText('Why there is no delivery option');
+    // The tooltip portals to the body once mounted, so it arrives a tick after the trigger.
+    const tip = await screen.findByRole('tooltip');
+    expect(why).toHaveAttribute('aria-describedby', tip.id);
+    expect(tip).toHaveTextContent('Some prop houses deliver, but most do not, so there is no delivery option here.');
   });
 
   it('asks for the production in the same form when the profile is short, prefilled with what it has', async () => {
@@ -379,8 +392,6 @@ describe('placing the order', () => {
       ],
       rentalStart: '2026-09-03',
       rentalEnd: '2026-09-10',
-      deliveryAddress: { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' },
-      deliveryNotes: 'Dock B, ask for Sam',
       messages: [],
       idempotencyKey: UUID,
     });
@@ -432,7 +443,7 @@ describe('placing the order', () => {
     await screen.findByText('Your production');
     await user.click(await placeOrder());
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Still needed: Company legal name, Ordering contact name, Ordering contact email, Authorization to complete forms, Rental dates, Location.',
+      'Still needed: Company legal name, Ordering contact name, Ordering contact email, Authorization to complete forms, Rental dates.',
     );
     expect(screen.getByLabelText('Company legal name')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByRole('checkbox')).toHaveAttribute('aria-invalid', 'true');
@@ -444,10 +455,6 @@ describe('placing the order', () => {
     await user.click(screen.getByRole('checkbox'));
     fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-09-05' } });
     fireEvent.change(screen.getByLabelText('End'), { target: { value: '2026-09-12' } });
-    await user.type(screen.getByLabelText('Street'), '1 Stage Rd');
-    await user.type(screen.getByLabelText('City'), 'LA');
-    await user.type(screen.getByLabelText('State'), 'CA');
-    await user.type(screen.getByLabelText('ZIP'), '90028');
     await user.click(await placeOrder());
     await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
     const body = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
@@ -499,12 +506,12 @@ describe('the request form', () => {
   it('labels every field so a vendor-facing request can be filled by keyboard', async () => {
     stubRoutes();
     await renderCart();
-    for (const label of ['Start', 'End', 'Street', 'Suite, stage, building', 'City', 'State', 'ZIP', 'Access notes']) {
+    for (const label of ['Start', 'End']) {
       expect(await screen.findByLabelText(label), label).toBeInTheDocument();
     }
     expect(screen.getByLabelText('Shoot details')).toBeInTheDocument();
     expect(screen.getByText('Dates requested')).toBeInTheDocument();
-    expect(screen.getByText('Location')).toBeInTheDocument();
+    expect(screen.queryByText('Location')).not.toBeInTheDocument();
   });
 
   it('sends what the user typed with the order, and the preview sees the same request', async () => {
@@ -514,11 +521,6 @@ describe('the request form', () => {
     await screen.findByLabelText('Start');
     setDate('Start', '2026-09-05');
     setDate('End', '2026-09-12');
-    await user.clear(screen.getByLabelText('Street'));
-    await user.type(screen.getByLabelText('Street'), '1 Stage Rd');
-    await user.type(screen.getByLabelText('Suite, stage, building'), 'Stage 4');
-    await user.clear(screen.getByLabelText('Access notes'));
-    await user.type(screen.getByLabelText('Access notes'), '  Gate 3  ');
     await user.type(screen.getByLabelText('Shoot details'), 'Two-day commercial, living room set');
 
     await user.click(screen.getByRole('button', { name: 'Review the emails' }));
@@ -527,10 +529,9 @@ describe('the request form', () => {
     expect(preview).toMatchObject({
       rentalStart: '2026-09-05',
       rentalEnd: '2026-09-12',
-      deliveryAddress: { line1: '1 Stage Rd', line2: 'Stage 4', city: 'Burbank', state: 'CA', zip: '91505' },
-      deliveryNotes: 'Gate 3',
       shootDetails: 'Two-day commercial, living room set',
     });
+    expect(preview).not.toHaveProperty('deliveryAddress');
 
     await user.click(screen.getByRole('button', { name: /^Place order and send/ }));
     await waitFor(() => expect(nav.router.push).toHaveBeenCalled());
@@ -538,10 +539,10 @@ describe('the request form', () => {
     expect(body).toMatchObject({
       rentalStart: '2026-09-05',
       rentalEnd: '2026-09-12',
-      deliveryAddress: { line1: '1 Stage Rd', line2: 'Stage 4', city: 'Burbank', state: 'CA', zip: '91505' },
-      deliveryNotes: 'Gate 3',
       shootDetails: 'Two-day commercial, living room set',
     });
+    expect(body).not.toHaveProperty('deliveryAddress');
+    expect(body).not.toHaveProperty('deliveryNotes');
   });
 
   it('redrafts the emails once the user stops typing, not on every keystroke', async () => {
@@ -556,15 +557,14 @@ describe('the request form', () => {
     expect(JSON.parse(last[1]?.body as string)).toMatchObject({ shootDetails: 'Living room' });
   });
 
-  it('refuses the click until the dates and a location are filled, naming what is missing', async () => {
+  it('refuses the click until the dates are filled, naming what is missing, and needs nothing about location', async () => {
     const user = userEvent.setup();
     const fetchMock = stubRoutes(undefined, () => readyResponse({}));
     await renderCart();
     await user.click(await placeOrder());
-    expect(screen.getByRole('alert')).toHaveTextContent('Still needed: Rental dates, Location.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Still needed: Rental dates.');
     expect(screen.getByLabelText('Start')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByLabelText('Street')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByLabelText('Access notes')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Shoot details')).not.toHaveAttribute('aria-invalid', 'true');
     expect(checkoutCalls(fetchMock)).toHaveLength(0);
 
     setDate('Start', '2026-09-05');
@@ -572,20 +572,10 @@ describe('the request form', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Start')).not.toHaveAttribute('aria-invalid', 'true');
     await user.click(await placeOrder());
-    expect(screen.getByRole('alert')).toHaveTextContent('Still needed: Location.');
-    expect(checkoutCalls(fetchMock)).toHaveLength(0);
-
-    await user.type(screen.getByLabelText('Street'), '1 Stage Rd');
-    await user.type(screen.getByLabelText('City'), 'LA');
-    await user.type(screen.getByLabelText('State'), 'CA');
-    await user.type(screen.getByLabelText('ZIP'), '90028');
-    await user.click(await placeOrder());
     await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
-    expect(JSON.parse(checkoutCalls(fetchMock)[0][1]?.body as string)).toMatchObject({
-      rentalStart: '2026-09-05',
-      rentalEnd: '2026-09-12',
-      deliveryAddress: { line1: '1 Stage Rd', city: 'LA', state: 'CA', zip: '90028' },
-    });
+    const sent = JSON.parse(checkoutCalls(fetchMock)[0][1]?.body as string);
+    expect(sent).toMatchObject({ rentalStart: '2026-09-05', rentalEnd: '2026-09-12' });
+    expect(sent).not.toHaveProperty('deliveryAddress');
   });
 
   it('flags an end date before the start', async () => {
@@ -601,7 +591,7 @@ describe('the request form', () => {
 
   it('on a 422 for the request shows the gaps without rereading the profile', async () => {
     const user = userEvent.setup();
-    const fetchMock = stubRoutes(() => json({ error: 'request is incomplete', missing: ['Location'] }, 422));
+    const fetchMock = stubRoutes(() => json({ error: 'request is incomplete', missing: ['Rental dates'] }, 422));
     await renderCart();
     await user.click(await placeOrder());
     expect(await screen.findByRole('alert')).toHaveTextContent('Still needed');
@@ -660,8 +650,6 @@ describe('Review the emails', () => {
       ],
       rentalStart: '2026-09-03',
       rentalEnd: '2026-09-10',
-      deliveryAddress: { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' },
-      deliveryNotes: 'Dock B, ask for Sam',
     });
   });
 
@@ -742,5 +730,104 @@ describe('Review the emails', () => {
     await user.click(await placeOrder());
     await waitFor(() => expect(nav.router.push).toHaveBeenCalled());
     expect(checkoutBody(fetchMock).messages).toEqual([]);
+  });
+});
+
+describe('documents', () => {
+  const COI_DOC = { storagePath: 'org/coi/c.pdf', name: 'Nocturne-COI.pdf', mime: 'application/pdf', uploadedAt: '2026-08-02T00:00:00Z' };
+  const CARD_DOC = { storagePath: 'org/passport/card.pdf', name: 'card-auth.pdf', mime: 'application/pdf', uploadedAt: '2026-10-18T00:00:00Z' };
+  const passportCalls = (fn: ReturnType<typeof stubRoutes>) => fn.mock.calls.filter(([url]) => String(url).startsWith('/api/account/passport/'));
+  const previewCalls = (fn: ReturnType<typeof stubRoutes>) => fn.mock.calls.filter(([url]) => url === '/api/checkout/preview');
+
+  it('asks for what the cart’s vendors want and the passport lacks: the COI everywhere, a card authorization where the house holds one', async () => {
+    stubRoutes();
+    await renderCart();
+    const group = (await screen.findByText('Documents')).closest('fieldset')!;
+    const rows = within(group).getAllByRole('listitem');
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringContaining('Certificate of insurance'),
+      expect.stringContaining('Credit card authorization'),
+    ]);
+    // Both Omega and Hand Prop Room hold a card for a first rental.
+    for (const row of rows) {
+      expect(row).toHaveTextContent('Every vendor in your cart asks for this.');
+      expect(row).toHaveTextContent('Not on file. Noted as to follow.');
+    }
+    expect(within(group).getByLabelText('Upload Certificate of insurance')).toBeInTheDocument();
+    expect(within(group).getByLabelText('Upload Credit card authorization')).toBeInTheDocument();
+    expect(within(group).getAllByRole('button', { name: 'Upload' })).toHaveLength(2);
+  });
+
+  it('does not ask for a card authorization when no vendor in the cart holds one', async () => {
+    useCart.setState({ lines: [line(makePropItem({ source: 'universal', sourceId: '9', name: 'Studio desk' }))] });
+    stubRoutes();
+    await renderCart();
+    const group = (await screen.findByText('Documents')).closest('fieldset')!;
+    expect(within(group).getAllByRole('listitem')).toHaveLength(1);
+    expect(group).toHaveTextContent('Certificate of insurance');
+    expect(group).not.toHaveTextContent('Credit card authorization');
+  });
+
+  it('shows a document already on the passport as attached, with a Replace action, and never blocks the click on one that is missing', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(undefined, () => readyResponse(READY_DEFAULTS, { documents: { coi: COI_DOC } }));
+    await renderCart();
+    const group = (await screen.findByText('Documents')).closest('fieldset')!;
+    const [coi, card] = within(group).getAllByRole('listitem');
+    expect(coi).toHaveTextContent('Nocturne-COI.pdf · On file, attached');
+    expect(within(coi).getByRole('button', { name: 'Replace' })).toBeInTheDocument();
+    expect(card).toHaveTextContent('Not on file. Noted as to follow.');
+
+    await user.click(await placeOrder());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout')).toHaveLength(1);
+  });
+
+  it('flags an expired document and offers to replace it', async () => {
+    stubRoutes(undefined, () => readyResponse(READY_DEFAULTS, { documents: { coi: { ...COI_DOC, expiresAt: '2026-01-01' } } }));
+    await renderCart();
+    const group = (await screen.findByText('Documents')).closest('fieldset')!;
+    const [coi] = within(group).getAllByRole('listitem');
+    expect(coi).toHaveTextContent('Nocturne-COI.pdf · Expired');
+    expect(within(coi).getByRole('button', { name: 'Replace' })).toBeInTheDocument();
+  });
+
+  it('uploads straight to the passport slot, marks the row on file, and redrafts the open emails with the attachment', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(undefined, undefined, undefined, () => json({ ok: true, document: CARD_DOC }));
+    await renderCart();
+    await user.click(await screen.findByRole('button', { name: 'Review the emails' }));
+    await waitFor(() => expect(previewCalls(fetchMock)).toHaveLength(1));
+
+    const file = new File(['%PDF-1.4'], 'card-auth.pdf', { type: 'application/pdf' });
+    await user.upload(screen.getByLabelText('Upload Credit card authorization'), file);
+
+    await waitFor(() => expect(passportCalls(fetchMock)).toHaveLength(1));
+    const [url, init] = passportCalls(fetchMock)[0];
+    expect(url).toBe('/api/account/passport/credit_card_authorization');
+    expect(init?.method).toBe('POST');
+    expect((init?.body as FormData).get('file')).toBeInstanceOf(File);
+    expect(((init?.body as FormData).get('file') as File).name).toBe('card-auth.pdf');
+
+    const group = (await screen.findByText('Documents')).closest('fieldset')!;
+    const [, card] = within(group).getAllByRole('listitem');
+    await waitFor(() => expect(card).toHaveTextContent('card-auth.pdf · On file, attached'));
+    expect(within(card).getByRole('button', { name: 'Replace' })).toBeInTheDocument();
+    // The drafts are rewritten so the preview shows the new attachment.
+    await waitFor(() => expect(previewCalls(fetchMock)).toHaveLength(2));
+  });
+
+  it('shows the server’s reason inline when an upload is refused, and keeps the slot empty', async () => {
+    const user = userEvent.setup();
+    stubRoutes(undefined, undefined, undefined, () => json({ error: 'Upload this document as a PDF or an image.' }, 400));
+    await renderCart();
+    await screen.findByText('Documents');
+    // A PDF by name that the server still refuses (the picker already filters by type; this is the server's answer).
+    await user.upload(screen.getByLabelText('Upload Certificate of insurance'), new File(['x'], 'scan.pdf', { type: 'application/pdf' }));
+    const group = screen.getByText('Documents').closest('fieldset')!;
+    const [coi] = within(group).getAllByRole('listitem');
+    await waitFor(() => expect(coi).toHaveTextContent('Upload this document as a PDF or an image.'));
+    expect(coi).toHaveTextContent('Not on file. Noted as to follow.');
+    expect(within(coi).getByRole('button', { name: 'Upload' })).toBeInTheDocument();
   });
 });

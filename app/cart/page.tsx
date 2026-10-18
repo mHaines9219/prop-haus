@@ -1,27 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { useCart, type CartLine } from '@/lib/cart-store';
 import { SOURCE_META, type Source } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
 import { OutreachDrawer } from '@/components/ap/outreach-drawer';
-import { ApiError, getJson, postJson } from '@/lib/api';
+import { Tooltip } from '@/components/ap/tooltip';
+import { ApiError, getJson, postForm, postJson } from '@/lib/api';
 import {
   AUTHORIZATION_SENTENCE,
   EMPTY_ORDER_PROFILE,
   orderReadiness,
   orderRequestReadiness,
-  type Address,
   type OrderDefaults,
   type ProductionSummary,
 } from '@/lib/order-profile';
 import type { Draft } from '@/lib/outreach/compose';
 import type { ProjectSummary } from '@/lib/projects';
+import { EMPTY_PASSPORT, type Passport, type PassportDocument } from '@/lib/passport';
+import { askedByLine, cartDocuments, type CartDocument } from '@/lib/checkout-documents';
 
 type CheckoutState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
@@ -39,13 +41,15 @@ type Readiness =
       defaults: OrderDefaults & { rentalWindowDays?: number };
       production: ProductionSummary;
       projects: ProjectSummary[];
+      /** What is on file, so the Documents group can ask for what the cart's vendors want and do not have. */
+      passport: Passport;
     };
 
 /**
  * The one form. What every rental house needs before it can answer: who is
- * asking (only until the profile has it), the dates, where the pieces are
- * going, and what the shoot is. Prefilled from the profile; sent to every
- * vendor with the click.
+ * asking (only until the profile has it), the dates, and what the shoot is.
+ * Prefilled from the profile; sent to every vendor with the click. There is
+ * no location: pickup at the vendor's dock is assumed (see PICKUP_NOTE).
  */
 type RequestForm = {
   legalName: string;
@@ -55,10 +59,12 @@ type RequestForm = {
   formsOnBehalf: boolean;
   rentalStart: string;
   rentalEnd: string;
-  location: Required<Address>;
-  deliveryNotes: string;
   shootDetails: string;
 };
+
+/** Why the form has no delivery option. Most LA houses are will-call only (docs/vendor-requirements-scan.md §4). */
+const PICKUP_NOTE =
+  'Some prop houses deliver, but most do not, so there is no delivery option here. Plan a truck for pickup and return, and ask a vendor directly if you need delivery.';
 
 const EMPTY_FORM: RequestForm = {
   legalName: '',
@@ -68,8 +74,6 @@ const EMPTY_FORM: RequestForm = {
   formsOnBehalf: false,
   rentalStart: '',
   rentalEnd: '',
-  location: { line1: '', line2: '', city: '', state: '', zip: '' },
-  deliveryNotes: '',
   shootDetails: '',
 };
 
@@ -93,6 +97,9 @@ export default function CartPage() {
   const [showGaps, setShowGaps] = useState(false);
   const [state, setState] = useState<CheckoutState>({ kind: 'idle' });
   const [readiness, setReadiness] = useState<Readiness>({ kind: 'loading' });
+  // The passport as the cart last saw it. An upload from the Documents group
+  // lands here as soon as the server has it, so the row and the drafts follow.
+  const [passport, setPassport] = useState<Passport>(EMPTY_PASSPORT);
   // The project the order lands on (its Jobs section lists it). Starts on the
   // most recently touched project; '' places the order on none.
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -114,6 +121,7 @@ export default function CartPage() {
       if (r.kind === 'loaded') {
         setProjectId((current) => current ?? r.projects[0]?.id ?? '');
         setForm(prefill(r.defaults, r.production));
+        setPassport(r.passport);
       }
     });
     return () => {
@@ -123,6 +131,11 @@ export default function CartPage() {
 
   const vendors = Array.from(new Set(lines.map((l) => l.item.source)));
   const linesKey = lines.map((l) => l.item.id).join('|');
+
+  // What the cart's vendors ask a new customer for, against the passport.
+  // Computed, never configured: the vendors in the cart decide the rows.
+  const documents = cartDocuments(vendors, passport);
+  const documentsKey = documents.map((d) => `${d.kind}:${d.status}`).join('|');
 
   // The profile was short when the cart loaded, so the form asks for the
   // production too and the click saves it. Stays true until the next load.
@@ -148,10 +161,11 @@ export default function CartPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-    // linesKey and requestKey stand in for `lines` and `request` so a re-render
-    // with the same cart and form does not refetch.
+    // linesKey, requestKey and documentsKey stand in for `lines`, `request`
+    // and the passport so a re-render with the same cart, form and documents
+    // does not refetch; a fresh upload does, so the draft shows the attachment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emailsOpen, readiness.kind, linesKey, requestKey]);
+  }, [emailsOpen, readiness.kind, linesKey, requestKey, documentsKey]);
 
   const openDraft = drafts.list?.find((d) => d.vendorId === openVendor) ?? null;
   const openEdit = openDraft ? edits[openDraft.vendorId] : undefined;
@@ -176,11 +190,6 @@ export default function CartPage() {
 
   function setField<K extends keyof RequestForm>(key: K, value: RequestForm[K]) {
     setForm((f) => ({ ...f, [key]: value }));
-    if (state.kind === 'error') setState({ kind: 'idle' });
-  }
-
-  function setLocation(key: keyof Address, value: string) {
-    setForm((f) => ({ ...f, location: { ...f.location, [key]: value } }));
     if (state.kind === 'error') setState({ kind: 'idle' });
   }
 
@@ -453,77 +462,12 @@ export default function CartPage() {
                             />
                           </div>
                         </div>
-                      </fieldset>
-
-                      <fieldset>
-                        <legend className={EYEBROW}>
-                          Location
-                        </legend>
-                        <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
-                          Where the pieces are going.
+                        <p className="mt-2 flex items-center gap-1.5 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                          <span>Pickup and return at each vendor&apos;s dock.</span>
+                          <Tooltip label="Why there is no delivery option" content={PICKUP_NOTE}>
+                            <Info size={12} strokeWidth={1.5} aria-hidden />
+                          </Tooltip>
                         </p>
-                        <div className="mt-2 space-y-2">
-                          <input
-                            aria-label="Street"
-                            value={form.location.line1}
-                            onChange={(e) => setLocation('line1', e.target.value)}
-                            placeholder="Street"
-                            autoComplete="address-line1"
-                            aria-invalid={invalid('Location')}
-                            className={INPUT}
-                          />
-                          <input
-                            aria-label="Suite, stage, building"
-                            value={form.location.line2}
-                            onChange={(e) => setLocation('line2', e.target.value)}
-                            placeholder="Suite, stage, building"
-                            autoComplete="address-line2"
-                            className={INPUT}
-                          />
-                          <div className="grid grid-cols-[1fr_56px_84px] gap-2">
-                            <input
-                              aria-label="City"
-                              value={form.location.city}
-                              onChange={(e) => setLocation('city', e.target.value)}
-                              placeholder="City"
-                              autoComplete="address-level2"
-                              aria-invalid={invalid('Location')}
-                              className={INPUT}
-                            />
-                            <input
-                              aria-label="State"
-                              value={form.location.state}
-                              onChange={(e) => setLocation('state', e.target.value)}
-                              placeholder="ST"
-                              maxLength={2}
-                              autoComplete="address-level1"
-                              aria-invalid={invalid('Location')}
-                              className={INPUT}
-                            />
-                            <input
-                              aria-label="ZIP"
-                              value={form.location.zip}
-                              onChange={(e) => setLocation('zip', e.target.value)}
-                              placeholder="ZIP"
-                              autoComplete="postal-code"
-                              aria-invalid={invalid('Location')}
-                              className={INPUT}
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="req-notes" className={LABEL}>
-                              Access notes
-                            </label>
-                            <textarea
-                              id="req-notes"
-                              value={form.deliveryNotes}
-                              onChange={(e) => setField('deliveryNotes', e.target.value)}
-                              rows={2}
-                              placeholder="Dock, hours, who to ask for…"
-                              className={cn(INPUT, 'resize-none')}
-                            />
-                          </div>
-                        </div>
                       </fieldset>
 
                       <fieldset>
@@ -543,6 +487,30 @@ export default function CartPage() {
                           className={cn(INPUT, 'mt-2 resize-none')}
                         />
                       </fieldset>
+
+                      {documents.length > 0 && (
+                        <fieldset>
+                          <legend className={EYEBROW}>Documents</legend>
+                          <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                            What these vendors ask a new customer for. Kept on your{' '}
+                            <Link href="/account/passport" className="text-accent-text underline underline-offset-2">
+                              passport
+                            </Link>{' '}
+                            and attached to each request. Anything missing is noted as to follow.
+                          </p>
+                          <ul className="mt-2 divide-y divide-border border-y border-border">
+                            {documents.map((d) => (
+                              <DocumentRow
+                                key={d.kind}
+                                doc={d}
+                                onUploaded={(document) =>
+                                  setPassport((p) => ({ documents: { ...p.documents, [d.kind]: document } }))
+                                }
+                              />
+                            ))}
+                          </ul>
+                        </fieldset>
+                      )}
                     </div>
                   )}
 
@@ -696,6 +664,77 @@ export default function CartPage() {
   );
 }
 
+/**
+ * One document a vendor in the cart asks for. Uploading stores it on the
+ * passport right away (the same slot /account/passport uses), so the next
+ * cart does not ask again and this one attaches it.
+ */
+function DocumentRow({ doc, onUploaded }: { doc: CartDocument; onUploaded: (d: PassportDocument) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { document } = await postForm<{ document: PassportDocument }>(`/api/account/passport/${doc.kind}`, fd);
+      onUploaded(document);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The upload did not go through.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="py-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[13px] text-foreground">{doc.label}</span>
+        <span className="shrink-0">
+          <input
+            ref={input}
+            type="file"
+            accept="application/pdf,image/*"
+            className="hidden"
+            aria-label={`Upload ${doc.label}`}
+            onChange={handleFile}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => input.current?.click()}
+            className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4 disabled:opacity-50"
+          >
+            {busy ? 'Uploading…' : doc.status === 'missing' ? 'Upload' : 'Replace'}
+          </button>
+        </span>
+      </div>
+      <p className="mt-0.5 font-mono text-[11px] leading-[14px] text-text-tertiary">{askedByLine(doc)}</p>
+      <p className="mt-0.5 min-w-0 break-all font-mono text-[11px] leading-[14px]">
+        {doc.status === 'missing' ? (
+          <span className="text-text-tertiary">Not on file. Noted as to follow.</span>
+        ) : (
+          <>
+            <span className="text-text-secondary">{doc.document!.name}</span>
+            {doc.status === 'expired' ? (
+              <span className="text-accent-text"> · Expired</span>
+            ) : (
+              <span className="text-text-tertiary"> · On file, attached</span>
+            )}
+          </>
+        )}
+        {error && <span className="text-accent-text"> · {error}</span>}
+      </p>
+    </li>
+  );
+}
+
 /** The cart, in the shape both /api/checkout and /api/checkout/preview take. */
 function toLineInputs(lines: CartLine[]) {
   return lines.map((l) => ({
@@ -709,9 +748,8 @@ function toLineInputs(lines: CartLine[]) {
   }));
 }
 
-/** The form prefilled from the profile: its production fields and delivery defaults. */
+/** The form prefilled from the profile: its production fields and the default rental window. */
 function prefill(d: OrderDefaults, p: ProductionSummary): RequestForm {
-  const a = d.deliveryAddress ?? {};
   return {
     legalName: p.legalName ?? '',
     contactName: p.contactName ?? '',
@@ -720,19 +758,12 @@ function prefill(d: OrderDefaults, p: ProductionSummary): RequestForm {
     formsOnBehalf: p.formsOnBehalf,
     rentalStart: d.rentalStart ?? '',
     rentalEnd: d.rentalEnd ?? '',
-    location: { line1: a.line1 ?? '', line2: a.line2 ?? '', city: a.city ?? '', state: a.state ?? '', zip: a.zip ?? '' },
-    deliveryNotes: d.deliveryNotes ?? '',
     shootDetails: '',
   };
 }
 
 /** The form as the API takes it: blanks dropped, text trimmed, undefined for nothing. */
 function toRequest(f: RequestForm, withProduction: boolean) {
-  const location = Object.fromEntries(
-    Object.entries(f.location)
-      .map(([k, v]) => [k, v.trim()])
-      .filter(([, v]) => v),
-  ) as Address;
   const production = withProduction
     ? {
         legalName: f.legalName.trim() || undefined,
@@ -746,8 +777,6 @@ function toRequest(f: RequestForm, withProduction: boolean) {
     production,
     rentalStart: f.rentalStart || undefined,
     rentalEnd: f.rentalEnd || undefined,
-    deliveryAddress: Object.keys(location).length ? location : undefined,
-    deliveryNotes: f.deliveryNotes.trim() || undefined,
     shootDetails: f.shootDetails.trim() || undefined,
   };
 }
@@ -778,6 +807,7 @@ async function loadReadiness(): Promise<Readiness> {
       defaults: OrderDefaults & { rentalWindowDays?: number };
       production?: ProductionSummary;
       projects?: ProjectSummary[];
+      passport?: Passport;
     }>('/api/checkout/readiness');
     return {
       kind: 'loaded',
@@ -785,6 +815,7 @@ async function loadReadiness(): Promise<Readiness> {
       defaults: r.defaults,
       production: r.production ?? { formsOnBehalf: false },
       projects: r.projects ?? [],
+      passport: r.passport ?? EMPTY_PASSPORT,
     };
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return { kind: 'anon' };

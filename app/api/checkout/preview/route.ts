@@ -8,6 +8,8 @@ import {
   orderReadiness,
 } from '@/lib/order-profile';
 import { getOrderProfile } from '@/lib/order-profile-store';
+import { getPassport } from '@/lib/passport-store';
+import { EMPTY_PASSPORT } from '@/lib/passport';
 import { getVendorMinimums } from '@/lib/insurance/minimums';
 import { composeOutreach } from '@/lib/outreach/compose';
 import { VENDORS } from '@/lib/vendors';
@@ -43,18 +45,23 @@ export async function POST(req: Request) {
   const readiness = orderReadiness(profile);
   const defaults = orderDefaults(profile);
   const vendorIds = [...new Set(body.lines.map((l) => l.source))];
-  const minimums = await getVendorMinimums(vendorIds).catch(() => ({}));
+  const [minimums, passport] = await Promise.all([
+    getVendorMinimums(vendorIds).catch(() => ({})),
+    getPassport(session.orgId).catch(() => EMPTY_PASSPORT),
+  ]);
 
   const drafts = composeOutreach({
     lines: body.lines,
     rentalStart: body.rentalStart || defaults.rentalStart,
     rentalEnd: body.rentalEnd || defaults.rentalEnd,
-    deliveryAddress: normalizeAddress(body.deliveryAddress) ?? defaults.deliveryAddress,
-    deliveryNotes: body.deliveryNotes?.trim() || defaults.deliveryNotes,
+    // Pickup is assumed; an address prints only when the caller sent one.
+    deliveryAddress: normalizeAddress(body.deliveryAddress),
+    deliveryNotes: body.deliveryNotes?.trim() || undefined,
     shootDetails: typeof body.shootDetails === 'string' ? body.shootDetails.trim() || undefined : undefined,
     profile,
     vendors: VENDORS,
     minimums,
+    passport,
     fallbackTo: process.env.OUTREACH_FALLBACK_TO,
   });
 

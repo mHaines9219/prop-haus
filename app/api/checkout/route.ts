@@ -85,15 +85,16 @@ export async function POST(req: Request) {
   }
 
   // The request itself: what the cart form asked for, with the profile's
-  // delivery defaults filling anything the body left out. Every vendor needs
-  // the dates and a location, so a request without them is refused the same
-  // way an incomplete profile is — the cart checks this first, this is the
-  // backstop.
+  // rental window filling in dates the body left out. Every vendor needs the
+  // dates, so a request without them is refused the same way an incomplete
+  // profile is — the cart checks this first, this is the backstop. Pickup is
+  // assumed: the profile's delivery defaults are never applied here, and an
+  // address is stored only when the caller sent one.
   const request = {
     rentalStart: str(body.rentalStart) || defaults.rentalStart,
     rentalEnd: str(body.rentalEnd) || defaults.rentalEnd,
-    deliveryAddress: normalizeAddress(body.deliveryAddress) ?? defaults.deliveryAddress,
-    deliveryNotes: str(body.deliveryNotes) || defaults.deliveryNotes,
+    deliveryAddress: normalizeAddress(body.deliveryAddress),
+    deliveryNotes: str(body.deliveryNotes),
     shootDetails: str(body.shootDetails, SHOOT_DETAILS_MAX),
   };
   const requestReadiness = orderRequestReadiness(request);

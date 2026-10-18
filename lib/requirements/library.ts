@@ -220,9 +220,9 @@ export const REQUIREMENTS: readonly DocumentRequirement[] = [
     category: 'vendor',
     stage: 'pre_production',
     triggers: [],
-    fulfillment: 'external',
-    providedBy: 'vendor',
-    note: 'The vendor sends their own form. Never enter card details into Prop Haus.',
+    fulfillment: 'upload',
+    providedBy: 'production',
+    note: 'Some houses hold a card on file before a first rental. Upload your signed authorization form to your passport once; Prop Haus never asks for card numbers.',
   },
 
   // ---- crew ----

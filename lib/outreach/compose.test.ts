@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeOutreach, formatRentalWindow, textToHtml } from './compose';
+import { PICKUP_LINE, composeOutreach, formatRentalWindow, textToHtml } from './compose';
 import type { Vendor } from '../vendors';
 import type { OrderProfile } from '../order-profile';
 import { makeCartLine, READY_PROFILE } from '@/test/fixtures/orders';
@@ -164,6 +164,38 @@ describe('composeOutreach', () => {
     expect(drafts.find((d) => d.vendorId === 'hpr')!.attachments.map((a) => a.name)).toEqual(['Nocturne-COI.pdf']);
   });
 
+  it('attaches the passport documents a house asks for, and promises the ones it asks for but lacks', () => {
+    const card = { storagePath: 'org/passport/card.pdf', name: 'Nocturne-card-auth.pdf', mime: 'application/pdf', uploadedAt: '2026-09-01T00:00:00Z' };
+    // Omega holds a card for a first rental; HPR does not.
+    const holdsCard = { ...vendors, omega: { ...vendors.omega, asksFor: ['credit_card_authorization' as const] } };
+
+    // Nothing on the passport: Omega is told it follows; HPR is not.
+    const without = composeOutreach({ ...base, vendors: holdsCard, profile: withCoi, passport: { documents: {} } });
+    expect(without.find((d) => d.vendorId === 'omega')!.bodyText).toContain(
+      'Paperwork\nCOI on file attached.\nCredit card authorization to follow.',
+    );
+    expect(without.find((d) => d.vendorId === 'hpr')!.bodyText).not.toContain('Credit card authorization');
+
+    // On the passport: attached to Omega only, named in the paperwork line, before any filled forms.
+    const drafts = composeOutreach({
+      ...base,
+      vendors: holdsCard,
+      profile: withCoi,
+      passport: { documents: { credit_card_authorization: card } },
+      documents: [{ vendorId: 'omega', name: 'Omega rental agreement.pdf', storagePath: 'o/1.pdf', contentType: 'application/pdf' }],
+    });
+    const omega = drafts.find((d) => d.vendorId === 'omega')!;
+    expect(omega.bodyText).toContain(
+      'COI on file attached.\nCredit card authorization attached.\nCompleted Omega rental agreement.pdf attached.',
+    );
+    expect(omega.attachments).toEqual([
+      { name: 'Nocturne-COI.pdf', storagePath: 'org/coi/abc.pdf', contentType: 'application/pdf' },
+      { name: 'Nocturne-card-auth.pdf', storagePath: 'org/passport/card.pdf', contentType: 'application/pdf' },
+      { name: 'Omega rental agreement.pdf', storagePath: 'o/1.pdf', contentType: 'application/pdf' },
+    ]);
+    expect(drafts.find((d) => d.vendorId === 'hpr')!.attachments.map((a) => a.name)).toEqual(['Nocturne-COI.pdf']);
+  });
+
   it('puts the shoot details between where and paperwork, in both versions, only when given', () => {
     const without = composeOutreach({ ...base, profile: withCoi }).find((d) => d.vendorId === 'omega')!;
     expect(without.bodyText).not.toContain('Shoot details');
@@ -186,7 +218,11 @@ describe('composeOutreach', () => {
   it('tolerates a profile with only the required fields and no dates', () => {
     const omega = composeOutreach({ lines, profile: READY_PROFILE, vendors }).find((d) => d.vendorId === 'omega')!;
     expect(omega.subject).toBe('Hold request · Nocturne Pictures LLC · Dates to be confirmed');
-    expect(omega.bodyText).toContain('Deliver to\nTo be confirmed');
+    // Pickup is assumed when no address was given: the email says will call, in both versions.
+    expect(omega.bodyText).toContain(`Pickup\n${PICKUP_LINE}`);
+    expect(omega.bodyText).not.toContain('Deliver to');
+    expect(omega.bodyHtml).toContain('Pickup');
+    expect(omega.bodyHtml).toContain(`<p>${PICKUP_LINE}</p>`);
     expect(omega.cc).toEqual([]);
   });
 });

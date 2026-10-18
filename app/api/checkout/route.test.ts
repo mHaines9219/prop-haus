@@ -133,7 +133,8 @@ describe('the click', () => {
       org_id: ORG_ID,
       status: 'placed',
       idempotency_key: 'click-1',
-      delivery_address: READY_PROFILE.defaults.deliveryAddress,
+      // Pickup is assumed: the profile's default delivery address is never applied to an order.
+      delivery_address: null,
       delivery_notes: null,
     });
     // Profile window: next business day + 7 days.
@@ -181,11 +182,11 @@ describe('the click', () => {
     expect(db.rows('orders')[0]).toMatchObject({ shoot_details: null });
   });
 
-  it('422 with the request gaps when neither the form nor the profile gives dates and a location', async () => {
+  it('422 with the request gaps when neither the form nor the profile gives dates', async () => {
     seedOrg({ ...READY_PROFILE, defaults: {} });
     const res = await POST(jsonRequest('/api/checkout', body));
     expect(res.status).toBe(422);
-    expect(await readJson(res)).toEqual({ error: 'request is incomplete', missing: ['Rental dates', 'Location'] });
+    expect(await readJson(res)).toEqual({ error: 'request is incomplete', missing: ['Rental dates'] });
     expect(db.rows('orders')).toHaveLength(0);
   });
 
@@ -196,13 +197,10 @@ describe('the click', () => {
     expect(await readJson(res)).toEqual({ error: 'request is incomplete', missing: ['Rental dates'] });
   });
 
-  it('falls back to the profile address when the body address is unusable', async () => {
+  it('stores no address when the body address is unusable, never the profile default', async () => {
     seedOrg();
     await POST(jsonRequest('/api/checkout', { ...body, deliveryAddress: 'not an address', deliveryNotes: '   ' }));
-    expect(db.rows('orders')[0]).toMatchObject({
-      delivery_address: READY_PROFILE.defaults.deliveryAddress,
-      delivery_notes: null,
-    });
+    expect(db.rows('orders')[0]).toMatchObject({ delivery_address: null, delivery_notes: null });
   });
 
   it('records order_placed with item and vendor counts', async () => {

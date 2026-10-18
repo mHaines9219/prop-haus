@@ -8,6 +8,8 @@
 import { createAdminClient } from '../supabase/admin';
 import { addDocument, allItems, getProject, paperworkFolder, type Project } from '../projects';
 import { getOrderProfile } from '../order-profile-store';
+import { getPassport } from '../passport-store';
+import { EMPTY_PASSPORT } from '../passport';
 import { checkCompatibility } from '../insurance/minimums';
 import { formFiller } from '../forms/filler';
 import { recordEvents } from '../analytics';
@@ -16,7 +18,7 @@ import { CLIP_SOURCE } from '../types';
 import { getTemplate, prefillTemplate, templateAccess } from '../templates/catalog';
 import { getRequirement } from './library';
 import { evaluate, type Advisory, type Checklist, type RequirementState } from './evaluate';
-import { loadVendorPaperwork } from './vendor';
+import { accountDocumentsFrom, loadVendorPaperwork } from './vendor';
 
 export const COI_REQUIREMENT_ID = 'certificate_of_insurance';
 
@@ -97,10 +99,11 @@ export async function buildChecklist(orgId: string, projectId: string, plan: Pla
   const project = await getProject(orgId, projectId);
   if (!project) return null;
 
-  const [vendors, states, orderProfile] = await Promise.all([
+  const [vendors, states, orderProfile, passport] = await Promise.all([
     loadVendorPaperwork(projectVendorIds(project)),
     listRequirementStates(projectId),
     getOrderProfile(orgId),
+    getPassport(orgId).catch(() => EMPTY_PASSPORT),
   ]);
 
   const coi = orderProfile.insurance.coiDocument;
@@ -108,7 +111,7 @@ export async function buildChecklist(orgId: string, projectId: string, plan: Pla
     profile: project.profile,
     vendorRequirements: vendors.requirements,
     states,
-    accountDocuments: coi ? [{ requirementId: COI_REQUIREMENT_ID, name: coi.name }] : [],
+    accountDocuments: accountDocumentsFrom(passport),
     plan,
   });
 
@@ -152,13 +155,12 @@ export function paperworkStanding(checklist: Checklist): PaperworkStanding {
  */
 export async function paperworkStandings(orgId: string, projects: Project[]): Promise<Map<string, PaperworkStanding>> {
   if (projects.length === 0) return new Map();
-  const [states, orderProfile, vendors] = await Promise.all([
+  const [states, passport, vendors] = await Promise.all([
     listRequirementStatesFor(projects.map((p) => p.id)),
-    getOrderProfile(orgId),
+    getPassport(orgId).catch(() => EMPTY_PASSPORT),
     Promise.all(projects.map((p) => loadVendorPaperwork(projectVendorIds(p)))),
   ]);
-  const coi = orderProfile.insurance.coiDocument;
-  const accountDocuments = coi ? [{ requirementId: COI_REQUIREMENT_ID, name: coi.name }] : [];
+  const accountDocuments = accountDocumentsFrom(passport);
 
   return new Map(
     projects.map((p, i) => {

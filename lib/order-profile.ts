@@ -173,14 +173,16 @@ export type OrderRequest = {
 
 /**
  * What the request itself still needs before it can go to vendors: both
- * rental dates and a location. The cart checks this before the click and
- * checkout checks it again on the resolved order. Shoot details are optional.
+ * rental dates. The cart checks this before the click and checkout checks it
+ * again on the resolved order. Shoot details are optional. There is no
+ * location: pickup at the vendor's dock is assumed (Oct 18 2026). Most LA
+ * houses are will-call only, so the cart offers no delivery option; a
+ * delivery address is still accepted from an API caller and kept if given.
  */
 export function orderRequestReadiness(request: OrderRequest): OrderReadiness {
   const missing: string[] = [];
   if (!request.rentalStart || !request.rentalEnd) missing.push('Rental dates');
   else if (request.rentalEnd < request.rentalStart) missing.push('Rental dates');
-  if (!isCompleteAddress(request.deliveryAddress)) missing.push('Location');
   return { ready: missing.length === 0, missing };
 }
 

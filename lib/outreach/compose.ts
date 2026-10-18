@@ -9,7 +9,8 @@
 import type { CartLineInput } from '../orders';
 import { formatAddress, type Address, type OrderProfile } from '../order-profile';
 import { checkCompatibility, type VendorInsuranceMinimum } from '../insurance/minimums';
-import type { Vendor } from '../vendors';
+import { PASSPORT_KIND_SPECS, type Passport, type PassportKind } from '../passport';
+import { vendorAsksFor, type Vendor } from '../vendors';
 
 export type DraftAttachment = { name: string; storagePath: string; contentType: string };
 
@@ -48,8 +49,21 @@ export type ComposeInput = {
   vendors: Record<string, Vendor>;
   minimums?: Record<string, VendorInsuranceMinimum>;
   documents?: VendorDocument[];
+  /**
+   * The passport as resolved by getPassport (the COI read through). Each
+   * vendor's email attaches the passport documents that vendor asks for and
+   * promises the ones not on file. The COI itself still reads from the profile.
+   */
+  passport?: Passport;
   fallbackTo?: string;
 };
+
+/**
+ * Pickup is assumed (Oct 18 2026): most LA houses are will-call only, so the
+ * cart offers no delivery option. A delivery address still prints when an
+ * order carries one.
+ */
+export const PICKUP_LINE = 'Will call. We send our own truck for pickup and return.';
 
 export function composeOutreach(input: ComposeInput): Draft[] {
   const byVendor = new Map<string, CartLineInput[]>();
@@ -106,6 +120,15 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
   const coi = profile.insurance.coiDocument;
   const attachments: DraftAttachment[] = [];
   if (coi) attachments.push({ name: coi.name, storagePath: coi.storagePath, contentType: contentTypeFor(coi.name) });
+  // What this house asks a new customer for, beyond the COI: attach what the
+  // passport has, name what it does not. Only the vendors that ask get it.
+  const asked = vendorAsksFor(vendor ?? {}).filter((k) => k !== 'coi');
+  const onFile = asked.filter((k) => input.passport?.documents[k]);
+  const toFollow = asked.filter((k) => !input.passport?.documents[k]);
+  for (const kind of onFile) {
+    const doc = input.passport!.documents[kind]!;
+    attachments.push({ name: doc.name, storagePath: doc.storagePath, contentType: doc.mime });
+  }
   const forms = (input.documents ?? []).filter((d) => d.vendorId === vendorId);
   for (const f of forms) attachments.push({ name: f.name, storagePath: f.storagePath, contentType: f.contentType });
 
@@ -115,6 +138,8 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
     const broker = profile.insurance.broker;
     paperwork.push(`COI to follow from our broker, ${broker.name}${broker.email ? ` (${broker.email})` : ''}.`);
   } else paperwork.push('COI to follow.');
+  if (onFile.length) paperwork.push(`${joinNames(onFile.map(kindLabel))} attached.`);
+  if (toFollow.length) paperwork.push(`${joinNames(toFollow.map(kindLabel))} to follow.`);
   if (forms.length) paperwork.push(`Completed ${joinNames(forms.map((f) => f.name))} attached.`);
 
   const address = formatAddress(input.deliveryAddress);
@@ -136,7 +161,7 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
     intro,
     ['Items', ...items.map((it, i) => `${i + 1}. ${it.name}\n   ${it.sourceUrl}`)].join('\n'),
     `Rental window\n${window}`,
-    where.length ? `Deliver to\n${where.join('\n')}` : 'Deliver to\nTo be confirmed',
+    where.length ? `Deliver to\n${where.join('\n')}` : `Pickup\n${PICKUP_LINE}`,
     ...(shoot ? [`Shoot details\n${shoot}`] : []),
     `Paperwork\n${paperwork.join('\n')}`,
     ask,
@@ -149,7 +174,9 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
       `<p>${escapeHtml(intro)}</p>`,
       section('Items', items.map(itemHtml).join('\n')),
       section('Rental window', `<p>${escapeHtml(window)}</p>`),
-      section('Deliver to', `<p>${where.length ? where.map(escapeHtml).join('<br>') : 'To be confirmed'}</p>`),
+      where.length
+        ? section('Deliver to', `<p>${where.map(escapeHtml).join('<br>')}</p>`)
+        : section('Pickup', `<p>${escapeHtml(PICKUP_LINE)}</p>`),
       ...(shoot ? [section('Shoot details', `<p>${escapeHtml(shoot).replace(/\n/g, '<br>')}</p>`)] : []),
       section('Paperwork', `<p>${paperwork.map(escapeHtml).join('<br>')}</p>`),
       `<p>${escapeHtml(ask)}</p>`,
@@ -196,6 +223,13 @@ function section(label: string, body: string): string {
 
 function wrapHtml(inner: string): string {
   return `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#111">\n${inner}\n</div>`;
+}
+
+/** "Credit card authorization" opening a sentence, "credit card authorization" inside one; "W-9" stays as is. */
+function kindLabel(kind: PassportKind, index: number): string {
+  const label = PASSPORT_KIND_SPECS[kind].label;
+  if (index === 0 || !/^[A-Z][a-z]/.test(label)) return label;
+  return label[0].toLowerCase() + label.slice(1);
 }
 
 function joinNames(names: string[]): string {
