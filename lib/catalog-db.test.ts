@@ -351,6 +351,146 @@ describe('relatedCards and categoryCards', () => {
   });
 });
 
+describe('filterCategoryCards', () => {
+  beforeEach(() => {
+    db.seed('prop_items', [
+      row('1', { category: 'lighting', name: 'Brass table lamp', subcategory: 'lamps', description: undefined, tags: [], era: '1920s', colors: ['brass'], style: ['art-deco'] }),
+      row('2', { category: 'lighting', name: 'Iron sconce', subcategory: 'sconces', description: 'Brass finish', tags: [], era: '1950s', colors: ['black', 'gray'], style: ['industrial'] }),
+      row('3', { category: 'lighting', name: 'Crystal chandelier', subcategory: 'chandeliers', description: 'Twelve arms', tags: [], era: '1920s', colors: ['clear'], style: ['glam'] }),
+      row('4', { category: 'lighting', name: 'Brass floor lamp', images: [] }),
+      row('5', { category: 'seating', name: 'Brass bar stool' }),
+    ]);
+  });
+
+  it('runs a websearch full-text query over search_tsv, inside the category, with images only', async () => {
+    const { filterCategoryCards } = await load();
+    const { items, capped } = await filterCategoryCards('lighting', { query: 'Brass' });
+    expect(items.map((i) => i.id)).toEqual(['omega-1', 'omega-2']);
+    expect(capped).toBe(false);
+  });
+
+  it('requires every word', async () => {
+    const { filterCategoryCards } = await load();
+    expect((await filterCategoryCards('lighting', { query: 'brass lamp' })).items.map((i) => i.id)).toEqual(['omega-1']);
+    expect((await filterCategoryCards('lighting', { query: 'brass sconce' })).items.map((i) => i.id)).toEqual(['omega-2']);
+  });
+
+  it('ORs values within a group and ANDs groups; era is a scalar IN', async () => {
+    const { filterCategoryCards } = await load();
+    const ids = async (filters: Parameters<typeof filterCategoryCards>[1]['filters']) =>
+      (await filterCategoryCards('lighting', { filters })).items.map((i) => i.id);
+    expect(await ids({ colors: ['black', 'brass'] })).toEqual(['omega-1', 'omega-2']);
+    expect(await ids({ era: ['1920s'] })).toEqual(['omega-1', 'omega-3']);
+    expect(await ids({ era: ['1920s'], colors: ['black', 'brass'] })).toEqual(['omega-1']);
+    expect(await ids({ style: ['industrial'], era: ['1920s'] })).toEqual([]);
+  });
+
+  it('combines the query with the filters', async () => {
+    const { filterCategoryCards } = await load();
+    const { items } = await filterCategoryCards('lighting', { query: 'brass', filters: { era: ['1950s'] } });
+    expect(items.map((i) => i.id)).toEqual(['omega-2']);
+  });
+
+  it('with nothing to narrow by it is the category itself', async () => {
+    const { filterCategoryCards } = await load();
+    const { items } = await filterCategoryCards('lighting', { query: '   ', filters: {} });
+    expect(items.map((i) => i.id)).toEqual(['omega-1', 'omega-2', 'omega-3']);
+  });
+
+  it('reports capped when the page is full', async () => {
+    const { filterCategoryCards } = await load();
+    const res = await filterCategoryCards('lighting', { query: 'brass' }, 1);
+    expect(res.items).toHaveLength(1);
+    expect(res.capped).toBe(true);
+  });
+
+  it('never looks at the facets', async () => {
+    const { filterCategoryCards } = await load();
+    await filterCategoryCards('lighting', { query: 'lamp' });
+    expect(db.log.some((l) => l.table === 'rpc:catalog_facets')).toBe(false);
+  });
+
+  it('surfaces a failure', async () => {
+    db.failNext('prop_items', 'select', 'boom');
+    const { filterCategoryCards } = await load();
+    await expect(filterCategoryCards('lighting', { query: 'lamp' })).rejects.toThrow('[catalog-db] category filter failed: boom');
+  });
+});
+
+describe('categoryAttributeFacets', () => {
+  const RPC_ROW = {
+    era: [{ value: '1920s', n: '831' }, { value: '1950s', n: 728 }],
+    style: [{ value: 'industrial', n: 3 }, { value: '', n: 9 }, { value: 'ghost', n: 0 }],
+    setting_type: [{ value: 'street', n: 2 }],
+    genre_fit: [{ value: 'film-noir', n: 1 }],
+  };
+
+  it('reads the RPC for the category, keyed by rail group, numbers coerced, blanks and zeros dropped', async () => {
+    let args: Record<string, unknown> | null = null;
+    db.rpc('category_attribute_facets', (a) => {
+      args = a;
+      return RPC_ROW;
+    });
+    const { categoryAttributeFacets } = await load();
+    const facets = await categoryAttributeFacets('lighting');
+    expect(args).toEqual({ p_category: 'lighting', p_limit: 40 });
+    expect(facets.era).toEqual([{ value: '1920s', n: 831 }, { value: '1950s', n: 728 }]);
+    expect(facets.style).toEqual([{ value: 'industrial', n: 3 }]);
+    expect(facets.setting).toEqual([{ value: 'street', n: 2 }]);
+    expect(facets.genre).toEqual([{ value: 'film-noir', n: 1 }]);
+    expect(facets.colors).toEqual([]);
+    expect(facets.tags).toEqual([]);
+    expect(db.log.filter((l) => l.table === 'prop_items')).toHaveLength(0);
+  });
+
+  it('surfaces an RPC failure', async () => {
+    db.rpc('category_attribute_facets', () => RPC_ROW);
+    db.failNext('rpc:category_attribute_facets', undefined, 'boom');
+    const { categoryAttributeFacets } = await load();
+    await expect(categoryAttributeFacets('lighting')).rejects.toThrow('[catalog-db] attribute facets failed: boom');
+  });
+
+  describe('bridge, while the RPC is not on the database', () => {
+    beforeEach(() => {
+      db.rpc('category_attribute_facets', () => RPC_ROW);
+      db.failNext('rpc:category_attribute_facets', undefined, { code: 'PGRST202', message: 'Could not find the function' });
+      db.seed('prop_items', [
+        row('1', { category: 'lighting', era: '1920s', style: ['industrial', 'nautical'], colors: ['black'], tags: ['arch-lamp'] }),
+        row('2', { category: 'lighting', era: '1920s', style: ['industrial'], colors: ['gray'], tags: [] }),
+        row('3', { category: 'lighting', era: undefined, style: [], colors: ['black'], tags: ['arch-lamp'] }),
+        row('4', { category: 'lighting', era: '1800s', style: ['industrial'], images: [] }),
+        row('5', { category: 'seating', era: '1920s', style: ['industrial'] }),
+      ]);
+    });
+
+    it('counts every attribute value over the category with images, ordered by count then value', async () => {
+      const { categoryAttributeFacets } = await load();
+      const facets = await categoryAttributeFacets('lighting');
+      expect(facets.era).toEqual([{ value: '1920s', n: 2 }]);
+      expect(facets.style).toEqual([{ value: 'industrial', n: 2 }, { value: 'nautical', n: 1 }]);
+      expect(facets.colors).toEqual([{ value: 'black', n: 2 }, { value: 'gray', n: 1 }]);
+      expect(facets.tags).toEqual([{ value: 'arch-lamp', n: 2 }]);
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('20261017200000'));
+    });
+
+    it('pages by keyset and caches the answer per instance', async () => {
+      const { categoryAttributeFacets } = await load();
+      await categoryAttributeFacets('lighting');
+      const reads = db.log.filter((l) => l.table === 'prop_items').length;
+      expect(reads).toBeGreaterThanOrEqual(1);
+      db.failNext('rpc:category_attribute_facets', undefined, { code: 'PGRST202', message: 'Could not find the function' });
+      await categoryAttributeFacets('lighting');
+      expect(db.log.filter((l) => l.table === 'prop_items')).toHaveLength(reads);
+    });
+
+    it('surfaces a page failure', async () => {
+      db.failNext('prop_items', 'select', 'boom');
+      const { categoryAttributeFacets } = await load();
+      await expect(categoryAttributeFacets('lighting')).rejects.toThrow('[catalog-db] attribute facets failed: boom');
+    });
+  });
+});
+
 describe('catalogFacets', () => {
   it('reads the precomputed view', async () => {
     const { catalogFacets } = await load();

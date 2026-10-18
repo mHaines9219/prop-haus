@@ -4,6 +4,7 @@
  * It mirrors PostgREST semantics closely enough that lib/ and route handlers
  * run unchanged: chainable filters, `.single()` / `.maybeSingle()` cardinality
  * errors, `insert().select()`, upsert on a conflict target, exact counts,
+ * a word-prefix approximation of `textSearch`,
  * unique-violation code 23505, embedded relations in `select('*, order_items(*)')`
  * and `!inner` joins with dotted filters (`.eq('orders.org_id', id)`), RPCs,
  * and a storage API with buckets.
@@ -200,6 +201,20 @@ class Query<T = unknown> implements PromiseLike<QueryResult<T>> {
   ilike(col: string, pattern: string) {
     const re = likeToRegex(pattern, 'i');
     return this.where(col, (v) => typeof v === 'string' && re.test(v));
+  }
+  /**
+   * Full-text search, approximated: the column holds plain text (seed it with
+   * the words the real tsvector would carry) and every whitespace-separated
+   * query word must appear as a word prefix, case-insensitively. Quoted
+   * phrases, minus and OR are not modelled.
+   */
+  textSearch(col: string, query: string, _opts: { type?: string; config?: string } = {}) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return this.where(col, (v) => {
+      if (typeof v !== 'string') return false;
+      const hay = v.toLowerCase().split(/\W+/).filter(Boolean);
+      return words.every((w) => hay.some((h) => h.startsWith(w)));
+    });
   }
   match(query: Row) {
     for (const [k, v] of Object.entries(query)) this.eq(k, v);
