@@ -1,28 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu, ShoppingCart, X } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { createClient } from '@/lib/supabase/client';
 import { ThemeToggle } from './theme-toggle';
 
-const NAV = [
-  { label: 'How it works', href: '/#how' },
-  { label: 'Crew', href: '/crew' },
-  { label: 'Dashboard', href: '/projects' },
-];
-
 /**
  * Party Line nav (DESIGN.md §9.1): the binder's top edge. Always green vinyl,
  * whatever the theme (near-black by lamplight). The wordmark is a paper
  * index tab, the city a coral one, like the "Fire 273-3110" tabs along the
- * top of the reference page. Links are cream condensed gothic, flush right:
- * `binder-foreground`, the one lettering color that never flips with the theme.
+ * top of the reference page. Flush right are the icons only: theme, cart,
+ * account. There are no section links in the MVP: Crew is parked, and the
+ * Dashboard is reached from the account page. Icon lettering is
+ * `binder-foreground`, the one color that never flips with the theme.
  */
 export function SiteNav() {
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header className="sticky top-0 z-40 bg-binder text-binder-foreground">
       <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center px-3 sm:px-5">
@@ -42,52 +37,15 @@ export function SiteNav() {
           </span>
         </div>
 
-        {/* Nav links + icons — flush right */}
+        {/* Icons — flush right */}
         <div className="flex items-center gap-5">
-          <nav className="hidden items-center gap-5 md:flex">
-            {NAV.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className="font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-binder-foreground/85 ink-underline hover:text-binder-foreground"
-              >
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-
           <ThemeToggle />
           <CartLink />
           <AuthControl />
-          <button
-            type="button"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((o) => !o)}
-            className="text-binder-foreground/85 transition-[color,transform] duration-200 ease-attend hover:text-binder-foreground motion-safe:hover:scale-110 md:hidden"
-          >
-            {menuOpen ? <X size={19} strokeWidth={1.75} aria-hidden /> : <Menu size={19} strokeWidth={1.75} aria-hidden />}
-          </button>
         </div>
       </div>
       {/* Bottom rule of the binder edge */}
       <div aria-hidden className="h-px w-full bg-ink/60" />
-      {menuOpen && (
-        <nav className="border-b border-ink/60 bg-binder md:hidden">
-          <div className="mx-auto flex w-full max-w-[1400px] flex-col px-3 py-2 sm:px-5">
-            {NAV.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                onClick={() => setMenuOpen(false)}
-                className="py-2.5 font-heading text-[13px] font-bold uppercase tracking-[0.05em] text-binder-foreground/85 ink-underline hover:text-binder-foreground"
-              >
-                {n.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      )}
     </header>
   );
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { currentOrgId } from '@/lib/session';
@@ -7,7 +8,7 @@ import { PageShell } from '@/components/ap/page-shell';
 import { CrewDirectory } from '@/components/crew/crew-directory';
 import type { Contractor } from '@/components/crew/contractor-card';
 import { JoinRoster } from '@/components/crew/join-roster';
-import { CREW_CATEGORY, CREW_COPY, isCrewRoleSlug } from '@/lib/crew';
+import { CREW_CATEGORY, CREW_COPY, CREW_ENABLED, isCrewRoleSlug } from '@/lib/crew';
 
 export const metadata = {
   title: 'Crew — Prop Haus',
@@ -38,6 +39,9 @@ async function getProjects(): Promise<ProjectSummary[]> {
 }
 
 /**
+ * Not shipping in the MVP: the whole route is parked behind CREW_ENABLED
+ * (lib/crew.ts) and answers 404 until it flips. Everything below is intact.
+ *
  * /crew?project=<id> — arrived from a project's "Need a crew?" button: the
  * request form starts on that project and a strip up top says so. An id that
  * is not one of the org's own projects is ignored.
@@ -47,6 +51,7 @@ export default async function CrewPage({
 }: {
   searchParams: Promise<{ role?: string | string[]; project?: string | string[] }>;
 }) {
+  if (!CREW_ENABLED) notFound();
   const { role, project } = await searchParams;
   const initialRole = isCrewRoleSlug(role) ? role : null;
   const [contractors, projects] = await Promise.all([getContractors(), getProjects()]);

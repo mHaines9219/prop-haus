@@ -117,7 +117,7 @@ export function CrewDirectory({
                Keyed on the role so a filter change re-runs the grid-arrive stagger. */
             <div
               key={role ?? 'all'}
-              className="grid items-start gap-2 p-4 sm:grid-cols-2 sm:gap-3 sm:p-6 lg:grid-cols-3 xl:grid-cols-4"
+              className="grid gap-2 p-4 sm:grid-cols-2 sm:gap-3 sm:p-6 lg:grid-cols-3 xl:grid-cols-4"
             >
               {visible.map((c, i) => (
                 <motion.div
@@ -130,7 +130,7 @@ export function CrewDirectory({
                     damping: 34,
                     delay: Math.min(i, 12) * 0.04,
                   }}
-                  className="border-[1.5px] border-ink"
+                  className="flex border-[1.5px] border-ink"
                 >
                   <ContractorCard contractor={c} projects={projects} initialProjectId={initialProjectId} />
                 </motion.div>

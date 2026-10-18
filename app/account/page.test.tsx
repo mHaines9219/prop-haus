@@ -105,7 +105,7 @@ describe('AccountPage', () => {
     expect(screen.getByText('Nocturne Pictures')).toBeInTheDocument();
     expect(screen.getByText('Pro')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Order profile →' })).toHaveAttribute('href', '/account/profile');
-    expect(screen.getByRole('link', { name: 'View your projects →' })).toHaveAttribute('href', '/projects');
+    expect(screen.getByRole('link', { name: 'Open Dashboard' })).toHaveAttribute('href', '/projects');
   });
 
   it('shows the ready token when the order profile is complete', async () => {

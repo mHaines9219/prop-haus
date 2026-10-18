@@ -191,13 +191,21 @@ export default async function AccountPage() {
           </div>
         </section>
 
-        {/* Shortcut to the dashboard: jobs live under each project */}
-        <div className="mt-10">
+        {/* The Dashboard lives here, not in the nav: one project per production, jobs under each */}
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t-2 border-ink pt-6">
+          <div>
+            <p className="font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-tertiary">
+              Dashboard
+            </p>
+            <p className="mt-1 text-[14px] leading-[21px] text-text-secondary">
+              Your projects, with the orders and paperwork under each.
+            </p>
+          </div>
           <Link
             href="/projects"
-            className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary underline underline-offset-4 hover:text-foreground"
+            className="inline-flex h-9 items-center rounded-[2px] bg-primary px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover"
           >
-            View your projects →
+            Open Dashboard
           </Link>
         </div>
       </div>

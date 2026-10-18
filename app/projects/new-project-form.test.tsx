@@ -69,7 +69,7 @@ describe('NewProjectForm', () => {
     expect(screen.getByRole('button', { name: 'Create project' })).toBeDisabled();
   });
 
-  it('posts the trimmed name and lands on the project', async () => {
+  it('posts the trimmed name and lands on the paperwork page even with no description', async () => {
     const user = userEvent.setup();
     const fetchMock = stubFetch(() => json({ id: 'p1' }, 201));
     render(<NewProjectForm />);
@@ -77,7 +77,7 @@ describe('NewProjectForm', () => {
     await user.type(screen.getByPlaceholderText(PLACEHOLDER), '  Nocturne S2  ');
     await user.click(screen.getByRole('button', { name: 'Create project' }));
 
-    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/projects/p1'));
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/projects/p1/paperwork'));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/projects');

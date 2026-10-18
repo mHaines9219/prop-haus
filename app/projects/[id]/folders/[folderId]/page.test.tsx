@@ -69,6 +69,7 @@ function project(over: Partial<Project> = {}): Project {
     orgId: ORG_ID,
     status: 'active',
     profile: {},
+    summary: '',
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-02T12:00:00.000Z',

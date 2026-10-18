@@ -50,17 +50,16 @@ describe('SiteNav', () => {
     auth.unsubscribe.mockReset();
   });
 
-  it('renders the wordmark and section links', () => {
+  it('renders the wordmark and the icons, with no section links', () => {
     render(<SiteNav />);
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Prop Haus' })).toHaveAttribute('href', '/');
-    const nav = screen.getByRole('navigation');
-    expect(nav).toHaveTextContent('How it works');
-    expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/#how');
-    expect(screen.getByRole('link', { name: 'Crew' })).toHaveAttribute('href', '/crew');
-    // Jobs is not a top-level link — it lives under the Dashboard (DashboardTabs).
+    // No section links in the MVP: Crew is parked and the Dashboard is reached from /account.
+    expect(screen.queryByRole('link', { name: 'How it works' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Crew' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Jobs' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/projects');
+    expect(screen.queryByRole('navigation')).toBeNull();
     expect(screen.getByRole('button', { name: /Switch to/ })).toBeInTheDocument();
   });
 

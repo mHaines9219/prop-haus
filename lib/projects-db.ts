@@ -62,6 +62,8 @@ type ProjectRow = {
   /** Absent on rows written before 20261005120000_project_status.sql; read as the default. */
   status?: string | null;
   profile?: unknown;
+  /** Absent on rows written before 20261017120000_project_summary.sql; read as empty. */
+  summary?: string | null;
   project_folders: ProjectFolderRow[] | null;
 };
 
@@ -127,6 +129,7 @@ export function toProject(r: ProjectRow): Project {
     ...(r.archived_at ? { archivedAt: r.archived_at } : {}),
     status: isProjectStatus(r.status) ? r.status : DEFAULT_PROJECT_STATUS,
     profile: normalizeProjectProfile(r.profile),
+    summary: typeof r.summary === 'string' ? r.summary : '',
     // Scene folders in their display order, paperwork last.
     folders: (r.project_folders ?? []).map(toProjectFolder).sort(compareFolders),
   };
