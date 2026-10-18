@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart, type CartLine } from '@/lib/cart-store';
 import { SOURCE_META, type Source } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -147,6 +147,13 @@ export default function CartPage() {
 
           {/* Page header */}
           <div className="mb-10">
+            <Link
+              href="/"
+              className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-text-secondary ink-underline hover:text-foreground"
+            >
+              <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
+              Back to home
+            </Link>
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
               {lines.length} item{lines.length !== 1 ? 's' : ''}{vendors.length > 0 ? ` · ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}` : ''}
             </p>

@@ -78,5 +78,10 @@ export function catalogRow(over: Partial<PropItem> = {}): Record<string, unknown
     price_currency: it.price?.currency ?? null,
     price_unit: it.price?.unit ?? null,
     plate_mode: it.plateMode ?? null,
+    // What catalog.prop_items_tsv() folds into the tsvector, as plain text for
+    // FakeSupabase's textSearch approximation.
+    search_tsv: [it.name, it.description, ...(it.tags ?? []), ...(it.style ?? []), it.category, it.subcategory]
+      .filter(Boolean)
+      .join(' '),
   };
 }

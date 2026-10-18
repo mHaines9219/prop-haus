@@ -17,6 +17,14 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseCatalogItems, describeRejections } from "./catalog-parse";
+import {
+  ATTRIBUTE_GROUPS,
+  EMPTY_FACETS,
+  type AttributeColumn,
+  type AttributeFacets,
+  type AttributeFilters,
+  type AttributeKey,
+} from "./category-filters";
 import type { CardItem, PropItem, PriceUnit } from "./types";
 
 /** Columns a full PropItem needs. Excludes embedding and search_tsv by omission. */
@@ -283,6 +291,166 @@ export async function categoryCards(
   limit = 120,
 ): Promise<BrowsePage> {
   return browseCards({ category: slug, limit, offset: 0 });
+}
+
+export type CategoryPage = { items: CardItem[]; capped: boolean };
+
+export type CategoryNarrowing = {
+  /** Free text, run as a websearch full-text query. */
+  query?: string;
+  /** Attribute selections from the filter rail. */
+  filters?: AttributeFilters;
+};
+
+/**
+ * One category, narrowed by the search bar and/or the filter rail.
+ *
+ * Text runs as Postgres full-text search over `search_tsv` (name, description,
+ * tags, style, category, subcategory; trigger-maintained, GIN-indexed) in
+ * websearch syntax, so plain words AND together, "quoted phrases" and -minus
+ * work, and "lamps" finds "lamp". LIKE scans over the same rows were measured
+ * against the anon role's 3s statement timeout and lost (name alone, ordered,
+ * 2.5s in lighting; any LIKE in `other` timed out); the tsvector query answers
+ * in tens of milliseconds in both.
+ *
+ * Attribute filters OR within a group (`colors && '{black,gray}'`) and AND
+ * across groups; era is a scalar column so it uses IN. Measured at ~90–300ms
+ * per category over the (category, id) partial index. No total: an exact
+ * count re-runs the scan (2.5s measured), and the page only needs to know
+ * whether it is full, which `capped` reports.
+ */
+export async function filterCategoryCards(
+  slug: string,
+  narrowing: CategoryNarrowing,
+  limit = 120,
+): Promise<CategoryPage> {
+  const q = (narrowing.query ?? "").replace(/\s+/g, " ").trim();
+  const filters = narrowing.filters ?? {};
+  const max = Math.min(200, Math.max(1, limit));
+
+  let query = db()
+    .from("prop_items")
+    .select(CARD_COLUMNS)
+    .eq("has_images", true)
+    .eq("category", slug);
+  if (q) query = query.textSearch("search_tsv", q, { type: "websearch", config: "english" });
+  for (const g of ATTRIBUTE_GROUPS) {
+    const values = filters[g.key];
+    if (!values?.length) continue;
+    query = g.scalar ? query.in(g.column, values) : query.overlaps(g.column, values);
+  }
+
+  const { data, error } = await query.order("id").limit(max);
+  if (error) throw new Error(`[catalog-db] category filter failed: ${error.message}`);
+  const items = (data ?? []).map((r) => rowToCard(r as unknown as CardRow));
+  return { items, capped: items.length >= max };
+}
+
+/** Rows the facet RPC returns: one list per attribute COLUMN, ordered by count. */
+type FacetRpcRow = Partial<Record<AttributeColumn, Array<{ value: string; n: number | string }>>>;
+
+/** Most values the rail receives per attribute. Tags are a long tail; this is its head. */
+const FACET_VALUES_PER_GROUP = 40;
+
+/**
+ * Every attribute value in one category and how many items carry it, for the
+ * filter rail. Reads the precomputed catalog.attribute_counts through the
+ * category_attribute_facets RPC (migration 20261017200000).
+ *
+ * Until that migration is on the database the RPC does not exist (PostgREST
+ * answers PGRST202), and the same numbers are aggregated here from the rows
+ * instead. That bridge is correct but slow on a large category (eleven
+ * keyset pages of a thousand rows for artwork-wall) and so is cached in
+ * memory per instance; the RPC path makes it a single ~70ms call.
+ */
+export async function categoryAttributeFacets(slug: string): Promise<AttributeFacets> {
+  const { data, error } = await db()
+    .rpc("category_attribute_facets", { p_category: slug, p_limit: FACET_VALUES_PER_GROUP })
+    .single();
+  if (error?.code === "PGRST202") {
+    warnFacetBridgeOnce();
+    return aggregateAttributeFacets(slug);
+  }
+  if (error) throw new Error(`[catalog-db] attribute facets failed: ${error.message}`);
+  return fromRpcRow((data ?? {}) as FacetRpcRow);
+}
+
+function fromRpcRow(row: FacetRpcRow): AttributeFacets {
+  const out: AttributeFacets = { ...EMPTY_FACETS };
+  for (const g of ATTRIBUTE_GROUPS) {
+    out[g.key] = (row[g.column] ?? [])
+      .map((v) => ({ value: String(v.value), n: Number(v.n) }))
+      .filter((v) => v.value && v.n > 0);
+  }
+  return out;
+}
+
+let facetBridgeWarned = false;
+function warnFacetBridgeOnce() {
+  if (facetBridgeWarned) return;
+  facetBridgeWarned = true;
+  console.warn(
+    "[catalog-db] category_attribute_facets RPC is not on this database; aggregating attribute facets " +
+      "per request instead. Apply migration 20261017200000 (pnpm db:push) for the precomputed path.",
+  );
+}
+
+// A literal, not a join over ATTRIBUTE_GROUPS: supabase-js parses the select
+// list at the type level and a computed string makes every row a ParserError.
+const BRIDGE_COLUMNS = "id,era,style,vibes,materials,colors,setting_type,genre_fit,tags";
+const BRIDGE_PAGE = 1000;
+const BRIDGE_TTL_MS = 60 * 60 * 1000;
+const bridgeCache = new Map<string, { at: number; facets: AttributeFacets }>();
+
+/**
+ * The bridge: walk the category's attribute columns in keyset pages (`id >
+ * last`, which the (category, id) partial index serves without the deep
+ * OFFSET scans that timed out when measured) and count in process.
+ */
+async function aggregateAttributeFacets(slug: string): Promise<AttributeFacets> {
+  const hit = bridgeCache.get(slug);
+  if (hit && Date.now() - hit.at < BRIDGE_TTL_MS) return hit.facets;
+
+  const counts = new Map<AttributeKey, Map<string, number>>(
+    ATTRIBUTE_GROUPS.map((g) => [g.key, new Map<string, number>()]),
+  );
+  let after: string | null = null;
+  for (;;) {
+    let q = db()
+      .from("prop_items")
+      .select(BRIDGE_COLUMNS)
+      .eq("has_images", true)
+      .eq("category", slug)
+      .order("id")
+      .limit(BRIDGE_PAGE);
+    if (after !== null) q = q.gt("id", after);
+    const { data, error } = await q;
+    if (error) throw new Error(`[catalog-db] attribute facets failed: ${error.message}`);
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    for (const row of rows) {
+      for (const g of ATTRIBUTE_GROUPS) {
+        const raw = row[g.column];
+        const values = Array.isArray(raw) ? raw : typeof raw === "string" ? [raw] : [];
+        const bucket = counts.get(g.key)!;
+        for (const v of values) {
+          if (typeof v !== "string" || !v) continue;
+          bucket.set(v, (bucket.get(v) ?? 0) + 1);
+        }
+      }
+    }
+    if (rows.length < BRIDGE_PAGE) break;
+    after = String(rows[rows.length - 1].id);
+  }
+
+  const facets: AttributeFacets = { ...EMPTY_FACETS };
+  for (const g of ATTRIBUTE_GROUPS) {
+    facets[g.key] = [...counts.get(g.key)!.entries()]
+      .map(([value, n]) => ({ value, n }))
+      .sort((a, b) => b.n - a.n || a.value.localeCompare(b.value))
+      .slice(0, FACET_VALUES_PER_GROUP);
+  }
+  bridgeCache.set(slug, { at: Date.now(), facets });
+  return facets;
 }
 
 /**

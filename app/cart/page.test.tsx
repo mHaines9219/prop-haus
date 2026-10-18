@@ -140,6 +140,7 @@ describe('empty cart', () => {
     expect(screen.getByText('0 items')).toBeInTheDocument();
     expect(screen.getByText('Your cart is empty')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Browse catalog' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/');
     expect(screen.queryByRole('button', { name: /^Place order and send/ })).not.toBeInTheDocument();
   });
 });
@@ -148,6 +149,7 @@ describe('lines', () => {
   it('renders every line with its vendor and counts the vendors', async () => {
     stubRoutes();
     await renderCart();
+    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/');
     expect(screen.getByText('2 items · 2 vendors')).toBeInTheDocument();
     expect(nameLink('Mid-century walnut credenza')).toHaveAttribute('href', '/item/omega/12345');
     expect(nameLink('Brass floor lamp')).toHaveAttribute('href', '/item/hpr/777');
