@@ -457,39 +457,56 @@
    */
   /*
    * AI MODE: the one thing in the book that is not printed in ink or coral.
-   * A rainbow radial gradient, the same in both themes (it is light enough
-   * that jet lettering reads on it by day and by lamplight). Idle it sits a
-   * touch desaturated; armed (aria-pressed) it goes full and takes a 2px ink
-   * inset so the pressed state does not rely on color alone.
+   * A rainbow, the same in both themes (light enough that jet lettering
+   * reads on it by day and by lamplight): a conic sweep of hues under a soft
+   * radial highlight. On hover the sweep's start angle animates, so the
+   * colors swirl around the button's center. Idle it sits a touch
+   * desaturated; armed (aria-pressed) it goes full and takes a 2px ink inset
+   * so the pressed state does not rely on color alone.
    */
+  @property --ai-swirl {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
   .ai-mode {
+    --ai-swirl: 0deg;
     color: var(--jet);
-    background-image: radial-gradient(
-      circle at 28% 32%,
-      #ff6b7a 0%,
-      #ffb35c 20%,
-      #fff06a 38%,
-      #5fe3a1 56%,
-      #5db8ff 74%,
-      #c58cff 92%,
-      #ff6b7a 100%
-    );
-    background-size: 160% 160%;
-    background-position: 50% 50%;
+    background-image:
+      radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 62%),
+      conic-gradient(
+        from var(--ai-swirl) at 50% 50%,
+        #ff6b7a 0deg,
+        #ffb35c 60deg,
+        #fff06a 120deg,
+        #5fe3a1 180deg,
+        #5db8ff 240deg,
+        #c58cff 300deg,
+        #ff6b7a 360deg
+      );
     filter: saturate(0.82);
     transition:
       filter 200ms var(--ease-attend),
-      background-position 400ms var(--ease-attend),
       box-shadow 150ms var(--ease-attend);
   }
   .ai-mode:hover,
   .ai-mode:focus-visible {
     filter: saturate(1.05);
-    background-position: 40% 40%;
   }
   .ai-mode[aria-pressed='true'] {
     filter: saturate(1.15);
     box-shadow: inset 0 0 0 2px var(--ink);
+  }
+  @keyframes ai-swirl {
+    to {
+      --ai-swirl: 360deg;
+    }
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .ai-mode:hover,
+    .ai-mode:focus-visible {
+      animation: ai-swirl 2.4s linear infinite;
+    }
   }
 
   .lift,

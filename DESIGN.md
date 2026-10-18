@@ -161,7 +161,7 @@ Straight on the vinyl, three sections of ad boxes:
 Section eyebrows on vinyl: 11px condensed cream caps with a short coral bar.
 
 ### 9.3 The search bar (`HeroSearch`)
-A ruled listing box, not a pill: 2px ink rule (coral on focus), cream field, magnifier, then three actions separated by ink rules: attach, AI MODE (the rainbow tab: `.ai-mode`, a radial rainbow gradient that is the same in both themes with jet lettering, desaturated at rest, full plus a 2px ink inset when armed), and SEARCH, the coral block that caps the bar. A listing-line hint below. The rainbow is the one surface in the book that is neither ink, paper, nor the accent; it marks the AI the way a foil sticker marks a phonebook cover. Do not reuse it elsewhere.
+A ruled listing box, not a pill: 2px ink rule (coral on focus), cream field, magnifier, then three actions separated by ink rules: attach, AI MODE (the rainbow tab: `.ai-mode`, a conic rainbow under a radial highlight, the same in both themes with jet lettering, desaturated at rest, full plus a 2px ink inset when armed; on hover the conic start angle animates so the hues swirl, off under reduced motion), and SEARCH, the coral block that caps the bar. A listing-line hint below. The rainbow is the one surface in the book that is neither ink, paper, nor the accent; it marks the AI the way a foil sticker marks a phonebook cover. Do not reuse it elsewhere.
 
 ### 9.4 The ad box (`ItemCard`)
 Its own `.sheet`. 1.5px ink rule, 12px padding. Picture (LightWell) with a hover-revealed coral quick-add square. Then fixed-height slots so rows align: red condensed name (2 lines), listing subcategory, vendor in small condensed caps bottom-left, price in a coral tag bottom-right. `marquee` spans 2×2 and steps the headline to 18px.
