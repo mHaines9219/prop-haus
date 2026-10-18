@@ -68,6 +68,7 @@ and update the task's Status line.
 | D7 | MVP-13 | The real template catalog: which templates Prop Haus sells, descriptions, and prices. | `lib/templates/catalog.ts` (`PLACEHOLDER` at lines 63 and 75) | Checklist offers placeholder templates with invented prices. |
 | D8 | FUT-1 | Real vendor data per category (catering, HMU, styling, equipment, locations). | New seed migration when FUT-1 is picked up | Category rows were seeded then retired; `/crew` is the only directory. |
 | D9 | FUT-2 | A dimensions pass on the per-category placeholder table from someone who knows what a prop-house sofa measures. | `lib/spacelab/asset.ts` (`PLACEHOLDER` at line 58) | Items with no scraped dimensions get a category guess. |
+| D10 | MVP-10/11 | Confirm what each house asks a first-time customer for. `asksFor` in `lib/vendors.ts` was set Oct 18 2026 from public policy pages (docs/vendor-requirements-scan.md): a COI everywhere, a credit card authorization at 14 houses. Heritage, Prop Services West and OBJECTS publish nothing; Universal and ISS take the card through a portal. Each house's own CC-auth PDF is still needed before a vendor-specific form can be filled through Anvil. | `lib/vendors.ts` (`asksFor`), later `vendor_forms` rows | The cart asks for a generic uploaded card authorization and attaches it; the vendor's own form is not filled. |
 
 ### API keys and env vars
 

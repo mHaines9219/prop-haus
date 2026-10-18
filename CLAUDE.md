@@ -174,8 +174,9 @@ Checkout is a single action. Everything about the PRODUCTION lives on the
 org's ORDER PROFILE ahead of time (see TASKS.md · MVP-10):
 - production/company details (legal name, DBA, entity, addresses)
 - contact info (ordering contact, accounts payable)
-- delivery defaults (rental window length, default delivery address and
-  notes) that only PREFILL the cart's request form
+- a default rental window length that only PREFILLS the cart's request form
+  (the profile still holds a default delivery address and notes from before
+  Oct 18 2026; the cart no longer reads them)
 - insurance on file: the production's OWN COI (uploaded PDF), carrier,
   policy limits, expiry, and broker contact
 - a recorded authorization for Prop Haus to complete vendor forms with this
@@ -185,11 +186,14 @@ org's ORDER PROFILE ahead of time (see TASKS.md · MVP-10):
 Everything about THIS REQUEST is one short form on the cart (Oct 17 2026),
 the bare minimum every rental house needs before it can answer:
 - dates requested (start, end)
-- location (address, access notes)
 - shoot details (what is being shot, how the pieces are used; optional)
 - the project the order belongs to
-It is prefilled from the profile's delivery defaults, and the same form
-feeds every vendor's email. Vendor-specific requirements never go here;
+There is NO location or delivery option (Oct 18 2026): pickup at the
+vendor's dock is assumed, with a tooltip saying why. Most LA houses are
+will-call only (docs/vendor-requirements-scan.md §4), so a delivery address
+on a first inquiry reads as inexperience. The email says "Pickup: will
+call." The form is prefilled from the profile's default rental window, and
+the same form feeds every vendor's email. Vendor-specific requirements never go here;
 they are the vendor's forms (section 5).
 
 If the profile lacks the four things an order needs (legal name, ordering
@@ -233,9 +237,9 @@ self-signup yet. This is the seed of booking ALL vendor categories later
 The email a coordinator would write after placing an order is written by the
 platform instead (TASKS.md · MVP-11):
 - one message per vendor in the cart: the items (with links and photos),
-  rental window, production name, contact, delivery address, the
-  production's COI attached when it is on file, and any forms filled for
-  that vendor
+  rental window, production name, contact, pickup (will call), the
+  production's COI and the passport documents that vendor asks for when
+  they are on file, and any forms filled for that vendor
 - the drafts exist BEFORE the click: the cart has a quiet "Review the
   emails" disclosure that shows each one
 - the user CAN review: open a draft, read it, edit the subject or body

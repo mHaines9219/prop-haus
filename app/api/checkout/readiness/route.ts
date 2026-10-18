@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { orderDefaults, orderReadiness, productionSummary } from '@/lib/order-profile';
 import { getOrderProfile } from '@/lib/order-profile-store';
+import { getPassport } from '@/lib/passport-store';
+import { EMPTY_PASSPORT } from '@/lib/passport';
 import { listProjectSummaries } from '@/lib/projects';
 
 /**
@@ -14,15 +16,18 @@ export async function GET() {
   const session = await currentSession();
   if (!session) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
 
-  const [profile, projects] = await Promise.all([
+  const [profile, projects, passport] = await Promise.all([
     getOrderProfile(session.orgId),
-    // The picker is a convenience; a failed read leaves it empty rather than blocking the click.
+    // The picker and the passport are conveniences; a failed read leaves them
+    // empty rather than blocking the click.
     listProjectSummaries(session.orgId).catch(() => []),
+    getPassport(session.orgId).catch(() => EMPTY_PASSPORT),
   ]);
   return NextResponse.json({
     ...orderReadiness(profile),
     defaults: { ...orderDefaults(profile), rentalWindowDays: profile.defaults.rentalWindowDays },
     production: productionSummary(profile),
     projects,
+    passport,
   });
 }

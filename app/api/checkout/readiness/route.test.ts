@@ -55,6 +55,7 @@ it('lists every gap and no defaults for an org without a profile', async () => {
     defaults: {},
     production: { formsOnBehalf: false },
     projects: [],
+    passport: { documents: {} },
   });
 });
 
@@ -72,6 +73,7 @@ it('is ready with the window, address and notes the order will get', async () =>
     },
     production: { legalName: 'Nocturne Pictures LLC', contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
     projects: [],
+    passport: { documents: {} },
   });
 });
 
@@ -114,6 +116,7 @@ it('omits an incomplete address from defaults; the cart form asks for the locati
     defaults: {},
     production: { legalName: 'Nocturne Pictures LLC', contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
     projects: [],
+    passport: { documents: {} },
   });
 });
 
@@ -125,6 +128,7 @@ it('passes a rental window plus notes through as defaults', async () => {
     defaults: { rentalStart: '2026-09-03', rentalEnd: '2026-09-06', deliveryNotes: 'Will call', rentalWindowDays: 3 },
     production: { legalName: 'Nocturne Pictures LLC', contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
     projects: [],
+    passport: { documents: {} },
   });
 });
 
@@ -144,6 +148,25 @@ it('reads only the session org, and hands back the production fields it has so t
     ready: false,
     missing: ['Company legal name'],
     production: { contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
+  });
+});
+
+it('hands back the passport with the COI read through from the profile, so the cart can ask only for what is missing', async () => {
+  const w9 = { storagePath: `${ORG_ID}/passport/w9.pdf`, name: 'w9.pdf', mime: 'application/pdf', uploadedAt: '2026-08-01T00:00:00Z' };
+  db.seed('organizations', [
+    {
+      id: ORG_ID,
+      order_profile: {
+        ...READY_PROFILE,
+        insurance: { policyNumber: 'GL-1', expiresAt: '2027-01-01', coiDocument: { storagePath: `${ORG_ID}/coi/c.pdf`, name: 'coi.pdf', uploadedAt: '2026-08-02T00:00:00Z' } },
+      },
+      passport: { documents: { w9 } },
+    },
+  ]);
+  const body = await readJson<{ passport: { documents: Record<string, unknown> } }>(await GET());
+  expect(body.passport.documents).toEqual({
+    w9,
+    coi: { storagePath: `${ORG_ID}/coi/c.pdf`, name: 'coi.pdf', uploadedAt: '2026-08-02T00:00:00Z', mime: 'application/pdf', expiresAt: '2027-01-01', reference: 'GL-1' },
   });
 });
 

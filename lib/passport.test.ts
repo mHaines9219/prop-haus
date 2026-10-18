@@ -86,6 +86,7 @@ describe('passportSummary', () => {
     expect(out.expired).toEqual(["Driver's license"]);
     expect(out.missing).toEqual([
       'Certificate of insurance',
+      'Credit card authorization',
       'Business license',
       'Resale / tax-exempt certificate',
       'Voided check or bank letter',

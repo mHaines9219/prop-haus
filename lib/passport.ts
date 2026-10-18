@@ -12,6 +12,7 @@ export const PASSPORT_KINDS = [
   'drivers_license',
   'w9',
   'coi',
+  'credit_card_authorization',
   'business_license',
   'resale_certificate',
   'voided_check',
@@ -53,6 +54,14 @@ export const PASSPORT_KIND_SPECS: Record<PassportKind, PassportKindSpec> = {
     usedFor: 'Attached to every vendor request. Issued by your broker; details live on the order profile.',
     expires: true,
     referenceLabel: 'Policy number',
+    pdfOrImageOnly: true,
+  },
+  credit_card_authorization: {
+    label: 'Credit card authorization',
+    usedFor:
+      'Some houses hold a card on file before a first rental. Upload your signed authorization form; Prop Haus never asks for card numbers.',
+    expires: true,
+    referenceLabel: null,
     pdfOrImageOnly: true,
   },
   business_license: {

@@ -2,14 +2,17 @@
  * Sending the drafts after the click, and reading them back. Server only.
  *
  * Recomposes from the ORDER snapshot (never the live cart), applies the user's
- * edits by vendor, attaches the COI on file and whatever forms MVP-12 stored in
- * order_documents, records a row per vendor, and calls the mailer. Nothing here
+ * edits by vendor, attaches the COI on file, the passport documents each vendor
+ * asks for, and whatever forms MVP-12 stored in order_documents, records a row
+ * per vendor, and calls the mailer. Nothing here
  * throws to the caller: checkout's after() hook must never fail an order.
  */
 
 import { createAdminClient } from '../supabase/admin';
 import { paperworkBucket } from '../paperwork';
 import { getOrderProfile } from '../order-profile-store';
+import { getPassport } from '../passport-store';
+import { EMPTY_PASSPORT } from '../passport';
 import { recordEvents } from '../analytics';
 import { mailer, type MailAttachment } from '../mail/provider';
 import { VENDORS } from '../vendors';
@@ -66,7 +69,11 @@ export async function sendOrderOutreach(
 ): Promise<void> {
   if (process.env.OUTREACH === 'off') return;
   try {
-    const profile = await getOrderProfile(order.orgId);
+    const [profile, passport] = await Promise.all([
+      getOrderProfile(order.orgId),
+      // A passport read that fails costs attachments, not the send.
+      getPassport(order.orgId).catch(() => EMPTY_PASSPORT),
+    ]);
     const drafts = composeOutreach({
       lines: order.items.map((i) => ({
         itemId: i.itemId,
@@ -86,6 +93,7 @@ export async function sendOrderOutreach(
       profile,
       vendors: VENDORS,
       documents: await vendorDocuments(order.id),
+      passport,
       fallbackTo: process.env.OUTREACH_FALLBACK_TO,
     });
 

@@ -93,30 +93,26 @@ describe('the production half of the cart form', () => {
 });
 
 describe('orderRequestReadiness', () => {
-  const address = { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' };
-
-  it('is ready with both dates and a full address; shoot details are optional', () => {
-    expect(orderRequestReadiness({ rentalStart: '2026-09-07', rentalEnd: '2026-09-14', deliveryAddress: address })).toEqual({
+  it('is ready with both dates; shoot details are optional and pickup is assumed, so no location is needed', () => {
+    expect(orderRequestReadiness({ rentalStart: '2026-09-07', rentalEnd: '2026-09-14' })).toEqual({
       ready: true,
       missing: [],
     });
   });
 
-  it('lists the dates and the location when both are missing', () => {
-    expect(orderRequestReadiness({}).missing).toEqual(['Rental dates', 'Location']);
+  it('lists the dates when they are missing, and nothing else', () => {
+    expect(orderRequestReadiness({}).missing).toEqual(['Rental dates']);
+    expect(orderRequestReadiness({ deliveryNotes: 'Stage 4 dock' }).missing).toEqual(['Rental dates']);
   });
 
   it('needs both dates, in order', () => {
-    expect(orderRequestReadiness({ rentalStart: '2026-09-07', deliveryAddress: address }).missing).toEqual(['Rental dates']);
-    expect(
-      orderRequestReadiness({ rentalStart: '2026-09-14', rentalEnd: '2026-09-07', deliveryAddress: address }).missing,
-    ).toEqual(['Rental dates']);
+    expect(orderRequestReadiness({ rentalStart: '2026-09-07' }).missing).toEqual(['Rental dates']);
+    expect(orderRequestReadiness({ rentalStart: '2026-09-14', rentalEnd: '2026-09-07' }).missing).toEqual(['Rental dates']);
   });
 
-  it('treats a partial address as no location, and notes alone do not stand in for it', () => {
+  it('does not care whether an address a caller sent is complete', () => {
     const dates = { rentalStart: '2026-09-07', rentalEnd: '2026-09-14' };
-    expect(orderRequestReadiness({ ...dates, deliveryAddress: { line1: '4100 W Alameda Ave' } }).missing).toEqual(['Location']);
-    expect(orderRequestReadiness({ ...dates, deliveryNotes: 'Stage 4 dock' }).missing).toEqual(['Location']);
+    expect(orderRequestReadiness({ ...dates, deliveryAddress: { line1: '4100 W Alameda Ave' } }).ready).toBe(true);
   });
 });
 
