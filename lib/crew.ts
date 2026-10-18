@@ -38,6 +38,14 @@ export const CREW_SKILL_LABELS: Record<string, string> = {
 };
 
 /** contractors.category value for the crew directory. */
+/**
+ * Crew hiring is OUT of the MVP (Oct 2026). The directory, the request flow
+ * and the project page's Crew section stay in the tree behind this flag so
+ * they can come back with one change; while it is false, /crew answers 404
+ * and nothing links to it.
+ */
+export const CREW_ENABLED = false;
+
 export const CREW_CATEGORY = 'crew';
 
 /** PLACEHOLDER inbox for roster applications — swap for the real crew address. */

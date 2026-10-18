@@ -20,10 +20,8 @@ test.describe('home', () => {
     await expect(chip).toHaveAttribute('href', '/search?q=70s%20apartment');
   });
 
-  test('nav links reach crew and the cart', async ({ page }) => {
+  test('the nav cart icon reaches the cart', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Crew' }).click();
-    await expect(page).toHaveURL(/\/crew$/);
     await page.getByRole('link', { name: 'Cart' }).click();
     await expect(page).toHaveURL(/\/cart$/);
     await expect(page.getByText('Your cart is empty')).toBeVisible();

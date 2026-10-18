@@ -114,6 +114,16 @@ describe('HeroSearch', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
+  it('wears the rainbow tab class in both engines; the armed state is aria-pressed', async () => {
+    render(<HeroSearch />);
+    const ai = screen.getByRole('button', { name: 'AI Mode' });
+    expect(ai).toHaveClass('ai-mode');
+    expect(ai).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(ai);
+    expect(ai).toHaveClass('ai-mode');
+    expect(ai).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('toggles back to keyword mode on a second AI Mode click', async () => {
     render(<HeroSearch />);
     const ai = screen.getByRole('button', { name: 'AI Mode' });

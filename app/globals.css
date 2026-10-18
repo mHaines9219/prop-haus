@@ -16,14 +16,19 @@
  *   LIGHT (default)        the book by day: green vinyl, cream pages, black ink.
  *   DARK  (data-theme=dark) the book by lamplight: the vinyl goes near-black
  *                          with a trace of green, the page stock goes to warm
- *                          charcoal card,
- *                          and the ink prints cream. Coral stays coral, and a
- *                          photo still prints on a cream plate.
+ *                          charcoal card, and the ink prints cream. The accent
+ *                          switches from coral to NEON GREEN (Oct 17 2026, a
+ *                          user call: the one place Nocturne's green lives
+ *                          on), and a photo still prints on a cream plate.
  * The theme only redefines the MATERIALS (--binder*, --paper*, --ink) plus a
  * handful of literal tints; both scopes are written in terms of the materials,
- * so they follow. Two constants never move: --binder-foreground (the cream
- * lettering on the vinyl chrome) and --jet (the near-black lettering on a
- * coral tag or a photo plate).
+ * so they follow. By lamplight the --coral* materials themselves are redefined
+ * to neon greens, so every tag, primary block, ring and headline tint follows
+ * without a second token set; the reds that MEAN something (destructive,
+ * unavailable) are pinned to red there so they do not turn green with it.
+ * Two constants never move: --binder-foreground (the cream lettering on the
+ * vinyl chrome) and --jet (the near-black lettering on an accent tag or a
+ * photo plate).
  */
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
@@ -170,6 +175,7 @@
  * literal tints that were tuned for cream paper. Nothing here is pure black
  * or pure white: the vinyl goes near-black with a trace of its green, the
  * card keeps its warmth, the ink is the cream of the day page a shade dimmer.
+ * The accent material goes neon green: the phone-number tag lit up at night.
  */
 :root[data-theme='dark'] {
   --binder: #0e1512;
@@ -181,16 +187,25 @@
   --ink: #ebe3cf;
   --binder-foreground: #e6ddc8;
 
+  /* the accent by lamplight: neon green in the coral slots, jet still reads on it */
+  --coral: #3df25a;
+  --coral-deep: #1fbf3f;
+  --coral-lit: #93ff8e;
+
   /* binder-scope literals */
+  --primary-hover: #66ff78;
   --popover: #182320;
   --destructive-wash: #2f201c;
+  /* unavailable keeps meaning red; it must not follow the accent to green */
+  --status-unavailable: #ff7a66;
   --shadow-overlay: 0 0 0 1px var(--ink), 6px 6px 0 rgba(0, 0, 0, 0.5);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 :root[data-theme='dark'] .sheet {
-  /* the headline red reads as lit coral on dark card, as it does on vinyl */
-  --accent-text: #f29a84;
+  /* the headline reads as lit neon green on dark card, as it does on vinyl */
+  --accent-text: #8cff8a;
+  --primary-hover: #66ff78;
   --ring: var(--coral);
 
   --destructive: #ff7a66;
@@ -206,7 +221,8 @@
 
   --status-quoted: #e9b44c;
   --status-confirmed: #8fd3a8;
-  --status-unavailable: var(--coral);
+  /* unavailable keeps meaning red; it must not follow the accent to green */
+  --status-unavailable: #ff7a66;
 
   --scrim: #0b0a08;
   --shadow-overlay: 0 0 0 1px var(--ink), 6px 6px 0 rgba(0, 0, 0, 0.5);
@@ -439,6 +455,60 @@
    * ads) use .lift; buttons and index tabs use the smaller .lift-sm. With
    * reduced motion the shadow still appears, the box just does not move.
    */
+  /*
+   * AI MODE: the one thing in the book that is not printed in ink or coral.
+   * A rainbow, the same in both themes (light enough that jet lettering
+   * reads on it by day and by lamplight): a conic sweep of hues under a soft
+   * radial highlight. On hover the sweep's start angle animates, so the
+   * colors swirl around the button's center. Idle it sits a touch
+   * desaturated; armed (aria-pressed) it goes full and takes a 2px ink inset
+   * so the pressed state does not rely on color alone.
+   */
+  @property --ai-swirl {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
+  .ai-mode {
+    --ai-swirl: 0deg;
+    color: var(--jet);
+    background-image:
+      radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 62%),
+      conic-gradient(
+        from var(--ai-swirl) at 50% 50%,
+        #ff6b7a 0deg,
+        #ffb35c 60deg,
+        #fff06a 120deg,
+        #5fe3a1 180deg,
+        #5db8ff 240deg,
+        #c58cff 300deg,
+        #ff6b7a 360deg
+      );
+    filter: saturate(0.82);
+    transition:
+      filter 200ms var(--ease-attend),
+      box-shadow 150ms var(--ease-attend);
+  }
+  .ai-mode:hover,
+  .ai-mode:focus-visible {
+    filter: saturate(1.05);
+  }
+  .ai-mode[aria-pressed='true'] {
+    filter: saturate(1.15);
+    box-shadow: inset 0 0 0 2px var(--ink);
+  }
+  @keyframes ai-swirl {
+    to {
+      --ai-swirl: 360deg;
+    }
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .ai-mode:hover,
+    .ai-mode:focus-visible {
+      animation: ai-swirl 2.4s linear infinite;
+    }
+  }
+
   .lift,
   .lift-sm {
     transition-property: transform, box-shadow, background-color, color, border-color, opacity;

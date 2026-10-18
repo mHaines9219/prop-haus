@@ -10,6 +10,7 @@ import {
 } from './paperwork';
 import type { ProjectProfile } from './project-profile';
 import type { ProjectStatus } from './project-status';
+import { PROJECT_SUMMARY_MAX } from './project-summary';
 
 /**
  * A project is a production. It owns folders:
@@ -39,6 +40,8 @@ export type Project = {
   status: ProjectStatus;
   /** What intake has learned about the production (lib/project-profile.ts). Empty until described. */
   profile: ProjectProfile;
+  /** The user's own free-text job summary from the project page. Empty until written. */
+  summary: string;
   /** Scene folders in display order, then the paperwork folder. */
   folders: ProjectFolder[];
 };
@@ -330,6 +333,32 @@ export async function setProjectStatus(
     await db()
       .from('projects')
       .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .select('id'),
+  );
+  if (updated.length === 0) return null;
+  return (await getProject(orgId, id)) ?? null;
+}
+
+/**
+ * Set the user's free-text job summary on a project. Scoped by org so one org
+ * cannot write another's. Returns null when the project does not exist OR is
+ * not theirs.
+ */
+export async function setProjectSummary(
+  orgId: string,
+  id: string,
+  summary: string,
+): Promise<Project | null> {
+  if (summary.length > PROJECT_SUMMARY_MAX) {
+    throw new Error(`setProjectSummary: summary exceeds ${PROJECT_SUMMARY_MAX} characters`);
+  }
+  const updated = orThrow<{ id: string }[]>(
+    'setProjectSummary',
+    await db()
+      .from('projects')
+      .update({ summary, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('org_id', orgId)
       .select('id'),

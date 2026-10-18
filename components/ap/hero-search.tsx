@@ -13,8 +13,9 @@ const ENGINE_STORAGE_KEY = 'prophaus.searchEngine';
  * Party Line search bar (DESIGN.md §9.2): a ruled listing box, not a pill.
  * - Ink rule around a cream field; the rule turns coral on focus
  * - Left: magnifier + text input
- * - Right, separated by ink rules: attach | AI MODE (a tab that fills coral
- *   when armed) | SEARCH, the coral phone-number block that caps the bar
+ * - Right, separated by ink rules: attach | AI MODE (the rainbow tab, `.ai-mode`
+ *   in globals.css, same in both themes; an ink inset when armed) | SEARCH,
+ *   the accent phone-number block that caps the bar
  * - Below: a listing-line hint
  */
 export function HeroSearch() {
@@ -104,7 +105,7 @@ export function HeroSearch() {
               </svg>
             </button>
 
-            {/* AI MODE: a tab, coral-filled when armed */}
+            {/* AI MODE: the rainbow tab; .ai-mode reads aria-pressed for the armed state */}
             <button
               type="button"
               aria-pressed={engine === 'ai'}
@@ -116,12 +117,7 @@ export function HeroSearch() {
                   setModalOpen(true);
                 }
               }}
-              className={cn(
-                'flex items-center border-l-[1.5px] border-ink/40 px-2.5 font-heading text-[12px] font-extrabold uppercase tracking-[0.06em] transition-colors duration-150 sm:px-3.5',
-                engine === 'ai'
-                  ? 'bg-coral-lit text-jet'
-                  : 'text-foreground/70 hover:bg-paper-deep hover:text-foreground',
-              )}
+              className="ai-mode flex items-center border-l-[1.5px] border-ink/40 px-2.5 font-heading text-[12px] font-extrabold uppercase tracking-[0.06em] sm:px-3.5"
             >
               AI Mode
             </button>

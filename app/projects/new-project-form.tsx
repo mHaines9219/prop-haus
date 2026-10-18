@@ -10,8 +10,9 @@ import { ApiError, postJson } from '@/lib/api';
  * "Start a new project" — a row, not a floating button (DESIGN.md §9.7). Opens
  * inline into a name field and an optional description. The server seeds the
  * project with its "Scene 1" and "Paperwork" folders; a description also runs
- * the first intake turn, and we land on the paperwork checklist instead of the
- * project page so the questions and the list are the first thing seen.
+ * the first intake turn. Either way we land on the paperwork page, not the
+ * project page, so the production form and the checklist are the first thing
+ * seen; its "Skip for now" button leads on to the project.
  */
 export const DESCRIPTION_PLACEHOLDER =
   'Describe the production (optional). Try: a 10-day indie film in Brooklyn, 15 crew, renting props from three vendors, one child actor, a stunt scene.';
@@ -39,7 +40,7 @@ export function NewProjectForm() {
         name: trimmed,
         ...(about ? { description: about } : {}),
       });
-      router.push(about ? `/projects/${id}/paperwork` : `/projects/${id}`);
+      router.push(`/projects/${id}/paperwork`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;

@@ -15,6 +15,13 @@ vi.mock('@/lib/projects', async () => ({
   listProjectSummaries: vi.fn(),
 }));
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
+// The route is parked for the MVP (CREW_ENABLED false). These tests run it as
+// if enabled so the directory stays covered; the last test checks the gate.
+const flags = vi.hoisted(() => ({ crew: true }));
+vi.mock('@/lib/crew', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/crew')>('@/lib/crew');
+  return { ...actual, get CREW_ENABLED() { return flags.crew; } };
+});
 
 const projects = vi.mocked(await import('@/lib/projects'));
 
@@ -128,6 +135,15 @@ describe('CrewPage', () => {
     render(await CrewPage(props(undefined, 'p-1')));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(CREW_COPY.headline);
     expect(screen.queryByText(/Hiring for/)).toBeNull();
+  });
+
+  it('answers 404 while crew is parked (CREW_ENABLED false)', async () => {
+    flags.crew = false;
+    try {
+      await expect(CrewPage(props())).rejects.toThrow(/NEXT_NOT_FOUND|404/);
+    } finally {
+      flags.crew = true;
+    }
   });
 
   it('renders with an empty roster', async () => {

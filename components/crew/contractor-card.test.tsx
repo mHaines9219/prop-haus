@@ -143,6 +143,31 @@ describe('ContractorCard', () => {
     expect(screen.getByRole('button', { name: 'Request crew' })).toBeInTheDocument();
   });
 
+  it('opens the form as a modal over a blurred scrim and closes on Escape or the scrim', async () => {
+    render(<ContractorCard contractor={contractor()} />);
+    await openForm();
+    const dialog = screen.getByRole('dialog', { name: 'Request Dana Reyes' });
+    expect(dialog).toHaveAttribute('aria-modal');
+    expect(document.querySelector('[data-slot="backdrop"]')).toHaveClass('backdrop-blur-sm');
+    expect(document.body.style.overflow).toBe('hidden');
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+
+    await openForm();
+    await userEvent.click(document.querySelector('[data-slot="backdrop"]')!);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('closes the modal once the request is sent', async () => {
+    render(<ContractorCard contractor={contractor()} />);
+    const f = await openForm();
+    await userEvent.click(f.send);
+    expect(await screen.findByText(/Request sent/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('posts the request and settles into the sent state', async () => {
     let resolve!: (r: Response) => void;
     fetchMock.mockReturnValueOnce(new Promise<Response>((r) => (resolve = r)));

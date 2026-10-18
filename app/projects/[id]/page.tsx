@@ -10,6 +10,7 @@ import {
   type ProjectFolder,
 } from '@/lib/projects';
 import { getProjectJobs, type JobsStats } from '@/lib/jobs';
+import { CREW_ENABLED } from '@/lib/crew';
 import { evaluate } from '@/lib/requirements/evaluate';
 import { requireOrgId } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -18,16 +19,19 @@ import { LightWell } from '@/components/ap/light-well';
 import { CrewList } from './crew-list';
 import { FolderActions } from './folder-actions';
 import { toJobRow } from './job-rows';
+import { JobSummary } from './job-summary';
 import { JobsTable } from './jobs-table';
 import { NewFolderForm } from './new-folder-form';
 
 /**
- * /projects/[id] — one production, in four sections:
+ * /projects/[id] — one production, in five sections:
  *
+ *   SUMMARY    the user's own free-text job summary (projects.summary)
  *   SCENES     the scene folders (any number, user-named) of pulled items
  *   JOBS       the orders placed for this project, moving through vendor
  *              confirmation (the former /jobs board, per project)
- *   CREW       the crew requested for this project; empty, a "Need a crew?"
+ *   CREW       (parked: CREW_ENABLED in lib/crew.ts is false for the MVP)
+ *              the crew requested for this project; empty, a "Need a crew?"
  *              button to /crew; populated, one-line rows that expand into
  *              the contractor's full profile
  *   PAPERWORK  the checklist and the single paperwork folder
@@ -73,6 +77,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             {plural(docCount, 'document')}
           </p>
         </div>
+
+        {/* Job summary — free text, the user's own words */}
+        <JobSummary projectId={project.id} summary={project.summary} />
 
         {/* Scenes */}
         <section className="mt-10">
@@ -128,7 +135,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           )}
         </section>
 
-        {/* Crew — the contractors requested for this project */}
+        {/* Crew — the contractors requested for this project. Out of the MVP:
+            hidden while CREW_ENABLED is false so nothing links into a 404. */}
+        {CREW_ENABLED && (
         <section className="mt-10" aria-labelledby="project-crew">
           <h2
             id="project-crew"
@@ -163,6 +172,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             </>
           )}
         </section>
+        )}
 
         {/* Paperwork */}
         {paperwork && (

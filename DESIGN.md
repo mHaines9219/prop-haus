@@ -28,9 +28,9 @@ The same four materials by lamplight (the `dark` theme):
 | **Binder** | `#1f4b3b` | `#0e1512` near-black with a trace of green |
 | **Paper** | `#f3eddc` / `#faf6ea` | `#221f1a` / `#2a2620` warm charcoal card |
 | **Ink** | `#17140f` | `#ebe3cf` cream, a shade under the day page |
-| **Coral** | `#e8735a` / `#c9432b` | unchanged; the headline red lifts to `#f29a84` on dark card |
+| **Coral** | `#e8735a` / `#c9432b` | **neon green** `#3df25a` / `#1fbf3f` (Oct 17 2026): the tag lit up at night. The headline tint lifts to `#8cff8a` on dark card. Destructive and unavailable stay red. |
 
-Nothing in the dark theme is pure black or pure white. Two fixed colors sit outside the materials: **binder-foreground** (`#f3eddc` day, `#e6ddc8` night), the cream lettering on the vinyl chrome, and **jet** (`#17140f`, both themes), the lettering on a coral tag and on a photo plate. A photo always prints on a cream plate, in either theme: by lamplight it reads like a print in a black-paged album.
+Nothing in the dark theme is pure black or pure white. Two fixed colors sit outside the materials: **binder-foreground** (`#f3eddc` day, `#e6ddc8` night), the cream lettering on the vinyl chrome, and **jet** (`#17140f`, both themes), the lettering on an accent tag (coral by day, neon green by night) and on a photo plate. A photo always prints on a cream plate, in either theme: by lamplight it reads like a print in a black-paged album.
 
 ---
 
@@ -118,15 +118,15 @@ Binder scope → sheet scope, by day; the lamplight column shows what moves unde
 | `input` | `#173a2e` | `#faf6ea` | `#1a1713` (set in, not lifted) |
 | `border` | binder-foreground 24% | ink 26% | cream 26% |
 | `border-strong` | binder-foreground 60% | ink | cream |
-| `accent` (block) | coral | coral | coral |
-| `accent-text` | `#f4a28f` | `#c9432b` | `#f29a84` |
+| `accent` (block) | coral | coral | neon green `#3df25a` |
+| `accent-text` | `#f4a28f` | `#c9432b` | `#8cff8a` |
 | `accent-foreground` | jet | jet | jet |
 | `plate` / `plate-lit` | `#faf6ea` / `#fff` | `#faf6ea` / `#fff` | `#ede5d1` / `#f7f2e6` |
 | `destructive` | `#ff6a55` | `#b3261e` | `#ff7a66` on jet |
 | `status-pending` | binder-foreground 55% | ink 45% | cream 45% |
 | `status-quoted` | `#e9b44c` | `#c98a1e` | `#e9b44c` |
 | `status-confirmed` | `#8fd3a8` | `#2f7d4f` | `#8fd3a8` |
-| `status-unavailable` | coral | `#c9432b` | coral |
+| `status-unavailable` | coral | `#c9432b` | `#ff7a66` (pinned red; does not follow the accent) |
 | `text-secondary` / `tertiary` | binder-foreground 80% / 64% | ink 78% / 62% | cream 78% / 62% |
 
 Any new color token needs a value in **both** scope blocks. Write it in terms of the materials where you can; if it is a literal tint tuned for cream paper (a status green, a destructive red), give it a lamplight value in the `:root[data-theme='dark'] .sheet` block too.
@@ -161,7 +161,7 @@ Straight on the vinyl, three sections of ad boxes:
 Section eyebrows on vinyl: 11px condensed cream caps with a short coral bar.
 
 ### 9.3 The search bar (`HeroSearch`)
-A ruled listing box, not a pill: 2px ink rule (coral on focus), cream field, magnifier, then three actions separated by ink rules: attach, AI MODE (a tab that fills light coral when armed), and SEARCH, the coral block that caps the bar. A listing-line hint below.
+A ruled listing box, not a pill: 2px ink rule (coral on focus), cream field, magnifier, then three actions separated by ink rules: attach, AI MODE (the rainbow tab: `.ai-mode`, a conic rainbow under a radial highlight, the same in both themes with jet lettering, desaturated at rest, full plus a 2px ink inset when armed; on hover the conic start angle animates so the hues swirl, off under reduced motion), and SEARCH, the coral block that caps the bar. A listing-line hint below. The rainbow is the one surface in the book that is neither ink, paper, nor the accent; it marks the AI the way a foil sticker marks a phonebook cover. Do not reuse it elsewhere.
 
 ### 9.4 The ad box (`ItemCard`)
 Its own `.sheet`. 1.5px ink rule, 12px padding. Picture (LightWell) with a hover-revealed coral quick-add square. Then fixed-height slots so rows align: red condensed name (2 lines), listing subcategory, vendor in small condensed caps bottom-left, price in a coral tag bottom-right. `marquee` spans 2×2 and steps the headline to 18px.
@@ -199,4 +199,4 @@ Directory voice: short, declarative, a little folksy on the home page ("Working 
 - Do give a box one coral tag. Don't stack two.
 - Do use `.sheet` when something must read as paper on the vinyl. Don't invert colors by hand inside a component.
 - Do keep radius 0. Don't add `rounded-md` to anything; the token is 0 anyway, but don't rely on it being ignored.
-- Don't reintroduce Nocturne's acid green, Answer Print's tally red, or any blurred glow.
+- Don't reintroduce Nocturne's acid green by day, Answer Print's tally red, or any blurred glow. The one exception is the dark theme's neon-green accent (Oct 17 2026), which lives only in the `--coral*` overrides of the `dark` block; never hard-code it in a component.

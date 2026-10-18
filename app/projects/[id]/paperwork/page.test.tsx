@@ -21,6 +21,7 @@ function project(profile: Project['profile'] = {}): Project {
     updatedAt: '2026-09-01T00:00:00.000Z',
     status: 'active',
     profile,
+    summary: '',
     folders: [],
   };
 }
@@ -58,6 +59,8 @@ describe('PaperworkPage', () => {
     expect(screen.getByRole('radio', { name: 'Film' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByLabelText('Crew count')).toHaveValue(12);
     expect(screen.getByText(/still open$/)).toBeInTheDocument();
+    // Nothing on the form is required: a skip link at the top leaves for the project page.
+    expect(screen.getByRole('link', { name: 'Skip for now' })).toHaveAttribute('href', '/projects/p-1');
     expect(store.buildChecklist).toHaveBeenCalledWith(expect.any(String), 'p-1', 'free');
   });
 

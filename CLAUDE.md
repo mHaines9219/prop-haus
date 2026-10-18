@@ -506,14 +506,19 @@ scopes, typography, rules, motion, and per-surface component specs.
   "light" (default) is the book by day: green vinyl, cream pages, black ink.
   "dark" is the same book by lamplight: the MATERIALS move (near-black vinyl
   with a trace of green, warm charcoal card stock, cream ink) and both scopes follow, because
-  they are written in terms of the materials. Never pure black or white. Two
+  they are written in terms of the materials. Never pure black or white. In
+  dark mode the accent is NEON GREEN, not coral (Oct 17 2026): the `--coral*`
+  materials are redefined in the dark block, so tags, primary blocks and
+  headline tints follow; destructive and unavailable stay red. Two
   constants never flip: `binder-foreground` (cream lettering on the vinyl
-  chrome: nav, footer, section eyebrows) and `jet` (near-black lettering on a
-  coral tag or a photo plate). Use them instead of `text-paper` / `text-ink`
+  chrome: nav, footer, section eyebrows) and `jet` (near-black lettering on
+  an accent tag or a photo plate). Use them instead of `text-paper` / `text-ink`
   wherever the color must NOT invert at night. Photo plates stay cream in
   both themes.
 - Never use Tailwind's palette classes (emerald-500, zinc-800) or hard-coded
   hex in components; use the tokens.
 - Nocturne (Aug 30 2026) and Answer Print (Aug 2026) and Astryx (before that)
-  were all REMOVED. Never reintroduce acid green, tally red, blurred glows, or
-  rounded cards; ignore stale references in old docs, comments, or git history.
+  were all REMOVED. Never reintroduce acid green BY DAY (the dark theme's
+  neon-green accent is the one deliberate exception), tally red, blurred
+  glows, or rounded cards; ignore stale references in old docs, comments, or
+  git history.

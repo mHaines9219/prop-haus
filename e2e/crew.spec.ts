@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('crew', () => {
+// Parked with the feature: CREW_ENABLED (lib/crew.ts) is false for the MVP, so
+// /crew answers 404 and the project page has no Crew section. Unskip when it flips.
+test.describe.skip('crew', () => {
   test('the directory filters by role and a request reaches the project’s Crew section', async ({ page, request }) => {
     // "Need a crew?" on a project sends the user here with the project preselected.
     const projectName = `E2E Crew ${Date.now()}`;

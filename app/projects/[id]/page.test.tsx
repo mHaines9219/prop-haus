@@ -20,6 +20,13 @@ vi.mock('@/lib/projects', async () => ({
   ...(await vi.importActual<typeof import('@/lib/projects')>('@/lib/projects')),
   getProject: vi.fn(),
 }));
+// Crew is parked for the MVP (CREW_ENABLED false); most tests run with it on so
+// the section stays covered, and one checks that it is hidden by default.
+const flags = vi.hoisted(() => ({ crew: true }));
+vi.mock('@/lib/crew', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/crew')>('@/lib/crew');
+  return { ...actual, get CREW_ENABLED() { return flags.crew; } };
+});
 vi.mock('@/lib/jobs', async () => ({
   ...(await vi.importActual<typeof import('@/lib/jobs')>('@/lib/jobs')),
   getProjectJobs: vi.fn(),
@@ -124,6 +131,7 @@ function project(over: Partial<Project> = {}): Project {
     orgId: ORG_ID,
     status: 'active',
     profile: {},
+    summary: '',
     name: 'Nocturne',
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-02T12:00:00.000Z',
@@ -175,8 +183,9 @@ describe('ProjectPage', () => {
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/projects');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Nocturne');
     expect(screen.getByText('2 scenes · 2 items · 0 documents')).toBeInTheDocument();
-    // The four sections, in order.
+    // The five sections, in order.
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      'Job Summary',
       'Scenes',
       'Jobs',
       'Crew',
@@ -200,6 +209,14 @@ describe('ProjectPage', () => {
     const checklist = screen.getByRole('link', { name: /Paperwork checklist/ });
     expect(checklist).toHaveAttribute('href', '/projects/p-1/paperwork');
     expect(checklist).toHaveTextContent('Describe the production to build it');
+  });
+
+  it('renders the Job Summary box seeded with the saved summary', async () => {
+    projects.getProject.mockResolvedValue(project({ summary: 'Two-day loft shoot, 70s apartment look.' }));
+    jobs.getProjectJobs.mockResolvedValue(overview());
+    render(await ProjectPage(props()));
+    expect(screen.getByRole('heading', { name: 'Job Summary' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Job summary' })).toHaveValue('Two-day loft shoot, 70s apartment look.');
   });
 
   it('shows the document count once paperwork has been uploaded', async () => {
@@ -395,6 +412,23 @@ describe('ProjectPage', () => {
     beforeEach(() => {
       signIn();
       projects.getProject.mockResolvedValue(project());
+    });
+
+    it('is left out entirely while crew is parked (CREW_ENABLED false)', async () => {
+      flags.crew = false;
+      try {
+        render(await ProjectPage(props()));
+        expect(screen.queryByRole('region', { name: 'Crew' })).toBeNull();
+        expect(screen.queryByRole('link', { name: 'Need a crew?' })).toBeNull();
+        expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+          'Job Summary',
+          'Scenes',
+          'Jobs',
+          'Paperwork',
+        ]);
+      } finally {
+        flags.crew = true;
+      }
     });
 
     it('offers "Need a crew?" into /crew for this project when no crew has been requested', async () => {
