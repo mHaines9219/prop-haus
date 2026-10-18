@@ -799,12 +799,14 @@ simplification that follows from it.
    Anvil rather than persisting it here. Leave a comment saying so.
 2. `lib/order-profile.ts`: `getOrderProfile(orgId)`, `updateOrderProfile`,
    and `orderReadiness(profile) → { ready: boolean; missing: string[] }`
-   listing human labels ("Ordering contact email", "Delivery address",
-   "Authorization to complete forms"). Readiness for the CLICK requires:
-   company legal name, ordering contact name + email, delivery address (or a
-   default rental window + delivery notes as a fallback), and
-   `authorization.formsOnBehalf`. Insurance is NOT required to order — its
-   absence becomes a note in the outreach email ("COI to follow").
+   listing human labels ("Ordering contact email", "Authorization to
+   complete forms"). Readiness for the CLICK requires: company legal name,
+   ordering contact name + email, and `authorization.formsOnBehalf`.
+   (Oct 17 2026: dates and location moved OFF the profile and onto the
+   cart's request form — `orderRequestReadiness` in lib/order-profile.ts;
+   the profile's delivery defaults only prefill that form.) Insurance is
+   NOT required to order — its absence becomes a note in the outreach email
+   ("COI to follow").
 3. COI upload: `POST /api/account/insurance/coi` (multipart, one PDF/image,
    `checkPaperworkFile`), stored at `orgs/<orgId>/coi/<uuid>.<ext>` in the
    paperwork bucket; `GET` mints a 60s signed URL like the project document

@@ -11,7 +11,15 @@ import { PageShell } from '@/components/ap/page-shell';
 import { LightWell } from '@/components/ap/light-well';
 import { OutreachDrawer } from '@/components/ap/outreach-drawer';
 import { ApiError, getJson, postJson } from '@/lib/api';
-import { formatAddress, type OrderDefaults } from '@/lib/order-profile';
+import {
+  AUTHORIZATION_SENTENCE,
+  EMPTY_ORDER_PROFILE,
+  orderReadiness,
+  orderRequestReadiness,
+  type Address,
+  type OrderDefaults,
+  type ProductionSummary,
+} from '@/lib/order-profile';
 import type { Draft } from '@/lib/outreach/compose';
 import type { ProjectSummary } from '@/lib/projects';
 
@@ -23,8 +31,56 @@ type Edit = { subject: string; bodyText: string };
 type Readiness =
   | { kind: 'loading' }
   | { kind: 'anon' }
-  | { kind: 'ready'; defaults: OrderDefaults & { rentalWindowDays?: number }; projects: ProjectSummary[] }
-  | { kind: 'incomplete'; missing: string[] };
+  | { kind: 'unreadable' }
+  | {
+      kind: 'loaded';
+      /** What the profile still lacks. Non-empty means the form asks for the production too. */
+      missing: string[];
+      defaults: OrderDefaults & { rentalWindowDays?: number };
+      production: ProductionSummary;
+      projects: ProjectSummary[];
+    };
+
+/**
+ * The one form. What every rental house needs before it can answer: who is
+ * asking (only until the profile has it), the dates, where the pieces are
+ * going, and what the shoot is. Prefilled from the profile; sent to every
+ * vendor with the click.
+ */
+type RequestForm = {
+  legalName: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  formsOnBehalf: boolean;
+  rentalStart: string;
+  rentalEnd: string;
+  location: Required<Address>;
+  deliveryNotes: string;
+  shootDetails: string;
+};
+
+const EMPTY_FORM: RequestForm = {
+  legalName: '',
+  contactName: '',
+  contactEmail: '',
+  contactPhone: '',
+  formsOnBehalf: false,
+  rentalStart: '',
+  rentalEnd: '',
+  location: { line1: '', line2: '', city: '', state: '', zip: '' },
+  deliveryNotes: '',
+  shootDetails: '',
+};
+
+const EYEBROW = 'font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary';
+const LABEL = 'block font-mono text-[12px] text-text-secondary mb-1.5';
+
+const INPUT =
+  'w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground aria-[invalid=true]:border-destructive';
+
+/** How long the preview waits after a keystroke before redrafting the emails. */
+const PREVIEW_DEBOUNCE_MS = 300;
 
 export default function CartPage() {
   const router = useRouter();
@@ -32,10 +88,9 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const [rentalStart, setRentalStart] = useState('');
-  const [rentalEnd, setRentalEnd] = useState('');
-  const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [override, setOverride] = useState(false);
+  const [form, setForm] = useState<RequestForm>(EMPTY_FORM);
+  // Set on a click that found gaps; from then on the form marks what is missing as the user types.
+  const [showGaps, setShowGaps] = useState(false);
   const [state, setState] = useState<CheckoutState>({ kind: 'idle' });
   const [readiness, setReadiness] = useState<Readiness>({ kind: 'loading' });
   // The project the order lands on (its Jobs section lists it). Starts on the
@@ -56,7 +111,10 @@ export default function CartPage() {
     loadReadiness().then((r) => {
       if (cancelled) return;
       setReadiness(r);
-      if (r.kind === 'ready') setProjectId((current) => current ?? r.projects[0]?.id ?? '');
+      if (r.kind === 'loaded') {
+        setProjectId((current) => current ?? r.projects[0]?.id ?? '');
+        setForm(prefill(r.defaults, r.production));
+      }
     });
     return () => {
       cancelled = true;
@@ -66,28 +124,34 @@ export default function CartPage() {
   const vendors = Array.from(new Set(lines.map((l) => l.item.source)));
   const linesKey = lines.map((l) => l.item.id).join('|');
 
+  // The profile was short when the cart loaded, so the form asks for the
+  // production too and the click saves it. Stays true until the next load.
+  const needsProduction = readiness.kind === 'loaded' && readiness.missing.length > 0;
+  const request = toRequest(form, needsProduction);
+  const gaps = [...(needsProduction ? productionGaps(form) : []), ...orderRequestReadiness(request).missing];
+  const requestKey = JSON.stringify(request);
+
   useEffect(() => {
-    if (!emailsOpen || readiness.kind !== 'ready' || lines.length === 0) return;
+    if (!emailsOpen || readiness.kind !== 'loaded' || lines.length === 0) return;
     let cancelled = false;
     setDrafts((d) => ({ ...d, loading: true, error: false }));
-    postJson<{ drafts: Draft[] }>('/api/checkout/preview', {
-      lines: toLineInputs(lines),
-      rentalStart: rentalStart || undefined,
-      rentalEnd: rentalEnd || undefined,
-      deliveryNotes: deliveryNotes.trim() || undefined,
-    })
-      .then((r) => {
-        if (!cancelled) setDrafts({ loading: false, list: r.drafts });
-      })
-      .catch(() => {
-        if (!cancelled) setDrafts({ loading: false, list: null, error: true });
-      });
+    const timer = setTimeout(() => {
+      postJson<{ drafts: Draft[] }>('/api/checkout/preview', { lines: toLineInputs(lines), ...request })
+        .then((r) => {
+          if (!cancelled) setDrafts({ loading: false, list: r.drafts });
+        })
+        .catch(() => {
+          if (!cancelled) setDrafts({ loading: false, list: null, error: true });
+        });
+    }, PREVIEW_DEBOUNCE_MS);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-    // linesKey stands in for `lines` so a re-render with the same cart does not refetch.
+    // linesKey and requestKey stand in for `lines` and `request` so a re-render
+    // with the same cart and form does not refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emailsOpen, readiness.kind, linesKey, rentalStart, rentalEnd, deliveryNotes]);
+  }, [emailsOpen, readiness.kind, linesKey, requestKey]);
 
   const openDraft = drafts.list?.find((d) => d.vendorId === openVendor) ?? null;
   const openEdit = openDraft ? edits[openDraft.vendorId] : undefined;
@@ -110,16 +174,29 @@ export default function CartPage() {
     });
   }
 
+  function setField<K extends keyof RequestForm>(key: K, value: RequestForm[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+    if (state.kind === 'error') setState({ kind: 'idle' });
+  }
+
+  function setLocation(key: keyof Address, value: string) {
+    setForm((f) => ({ ...f, location: { ...f.location, [key]: value } }));
+    if (state.kind === 'error') setState({ kind: 'idle' });
+  }
+
   async function handlePlaceOrder() {
     if (state.kind === 'submitting') return;
+    if (gaps.length > 0) {
+      setShowGaps(true);
+      setState({ kind: 'error', message: gapsMessage(gaps, form) });
+      return;
+    }
     setState({ kind: 'submitting' });
 
     try {
       const { id } = await postJson<{ id: string }>('/api/checkout', {
         lines: toLineInputs(lines),
-        rentalStart: rentalStart || undefined,
-        rentalEnd: rentalEnd || undefined,
-        deliveryNotes: deliveryNotes.trim() || undefined,
+        ...request,
         messages: Object.entries(edits).map(([vendorId, e]) => ({ vendorId, ...e })),
         projectId: projectId || undefined,
         idempotencyKey,
@@ -128,17 +205,24 @@ export default function CartPage() {
       clear();
       router.push(`/orders/${id}`);
     } catch (err) {
-      const message =
-        err instanceof ApiError && err.status === 422
-          ? 'Your order profile is missing something.'
+      const requestIncomplete = err instanceof ApiError && err.status === 422 && err.message === 'request is incomplete';
+      const profileIncomplete = err instanceof ApiError && err.status === 422 && !requestIncomplete;
+      const message = requestIncomplete
+        ? gapsMessage(gaps, form)
+        : profileIncomplete
+          ? 'Your order profile is missing something. Fill it in below.'
           : 'Something went wrong — please try again.';
+      if (requestIncomplete) setShowGaps(true);
       setState({ kind: 'error', message });
-      if (err instanceof ApiError && err.status === 422) setReadiness(await loadReadiness());
+      // A fresh read opens the production fields with what the server still wants; the form keeps what was typed.
+      if (profileIncomplete) setReadiness(await loadReadiness());
     }
   }
 
   // Avoid hydration mismatch — cart is persisted client-side.
   if (!mounted) return null;
+
+  const invalid = (gap: string) => showGaps && gaps.includes(gap);
 
   return (
     <>
@@ -217,23 +301,102 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Checkout panel */}
+              {/* Request panel: the one form every vendor's email is written from */}
               <div className="space-y-5 lg:sticky lg:top-[72px] lg:max-h-[calc(100dvh-88px)] lg:overflow-y-auto">
                 <div className="rounded-md border border-border bg-surface-raised p-5">
                   <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-                    Order details
+                    Your request
+                  </p>
+                  <p className="mt-1 text-[13px] leading-[20px] text-text-secondary">
+                    What every vendor needs to answer. One form; the click sends it to each of them.
                   </p>
 
-                  {readiness.kind === 'ready' && readiness.projects.length > 0 && (
-                    <div className="mt-4">
-                      <label htmlFor="cart-project" className="block font-mono text-[13px] text-text-tertiary">
+                  {needsProduction && readiness.kind === 'loaded' && (
+                    <fieldset className="mt-5">
+                      <legend className={EYEBROW}>Your production</legend>
+                      <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                        Asked once. Saved to your order profile with the click.
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <label htmlFor="req-legal-name" className={LABEL}>
+                            Company legal name
+                          </label>
+                          <input
+                            id="req-legal-name"
+                            value={form.legalName}
+                            onChange={(e) => setField('legalName', e.target.value)}
+                            autoComplete="organization"
+                            aria-invalid={invalid('Company legal name')}
+                            className={INPUT}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="req-contact-name" className={LABEL}>
+                            Ordering contact
+                          </label>
+                          <input
+                            id="req-contact-name"
+                            value={form.contactName}
+                            onChange={(e) => setField('contactName', e.target.value)}
+                            placeholder="Name"
+                            autoComplete="name"
+                            aria-invalid={invalid('Ordering contact name')}
+                            className={INPUT}
+                          />
+                        </div>
+                        <div className="grid grid-cols-[1fr_120px] gap-2">
+                          <input
+                            aria-label="Contact email"
+                            type="email"
+                            value={form.contactEmail}
+                            onChange={(e) => setField('contactEmail', e.target.value)}
+                            placeholder="Email"
+                            autoComplete="email"
+                            aria-invalid={invalid('Ordering contact email')}
+                            className={INPUT}
+                          />
+                          <input
+                            aria-label="Contact phone"
+                            type="tel"
+                            value={form.contactPhone}
+                            onChange={(e) => setField('contactPhone', e.target.value)}
+                            placeholder="Phone"
+                            autoComplete="tel"
+                            className={INPUT}
+                          />
+                        </div>
+                        <label className="flex cursor-pointer items-start gap-3 pt-1">
+                          <input
+                            type="checkbox"
+                            checked={form.formsOnBehalf}
+                            onChange={(e) => setField('formsOnBehalf', e.target.checked)}
+                            aria-invalid={invalid('Authorization to complete forms')}
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-accent"
+                          />
+                          <span className="text-[13px] leading-[20px] text-foreground">{AUTHORIZATION_SENTENCE}</span>
+                        </label>
+                        <p className="font-mono text-[11px] leading-[14px] text-text-tertiary">
+                          Insurance on file and billing details live on your{' '}
+                          <Link href="/account/profile" className="text-accent-text underline underline-offset-2">
+                            order profile
+                          </Link>
+                          .
+                        </p>
+                      </div>
+                    </fieldset>
+                  )}
+
+                  {readiness.kind === 'loaded' && readiness.projects.length > 0 && (
+                    <div className="mt-5">
+                      <label htmlFor="cart-project" className={LABEL}>
                         Project
                       </label>
                       <select
                         id="cart-project"
                         value={projectId ?? ''}
                         onChange={(e) => setProjectId(e.target.value)}
-                        className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                        className="h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                       >
                         {readiness.projects.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -248,51 +411,142 @@ export default function CartPage() {
                     </div>
                   )}
 
-                  {readiness.kind === 'ready' && (
-                    <dl className="mt-4 space-y-3 font-mono text-[13px]">
-                      <div>
-                        <dt className="text-text-tertiary">Rental window</dt>
-                        <dd className="mt-0.5 text-foreground">
-                          {rentalStart || rentalEnd
-                            ? formatWindow(rentalStart, rentalEnd)
-                            : readiness.defaults.rentalStart && readiness.defaults.rentalEnd
-                              ? `${formatWindow(readiness.defaults.rentalStart, readiness.defaults.rentalEnd)} · ${readiness.defaults.rentalWindowDays} days from the next business day`
-                              : 'No default window — set one for this order'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-text-tertiary">Deliver to</dt>
-                        <dd className="mt-0.5 text-foreground">
-                          {readiness.defaults.deliveryAddress
-                            ? formatAddress(readiness.defaults.deliveryAddress)
-                            : readiness.defaults.deliveryNotes ?? '—'}
-                        </dd>
-                        {readiness.defaults.deliveryAddress && readiness.defaults.deliveryNotes && !deliveryNotes && (
-                          <dd className="mt-0.5 text-text-secondary">{readiness.defaults.deliveryNotes}</dd>
-                        )}
-                        {deliveryNotes && <dd className="mt-0.5 text-text-secondary">{deliveryNotes}</dd>}
-                      </div>
-                    </dl>
+                  {readiness.kind === 'loaded' && (
+                    <div className="mt-5 space-y-5">
+                      <fieldset>
+                        <legend className={EYEBROW}>
+                          Dates requested
+                        </legend>
+                        <div className="mt-2 grid grid-cols-2 gap-3">
+                          <div>
+                            <label htmlFor="req-start" className={LABEL}>
+                              Start
+                            </label>
+                            <input
+                              id="req-start"
+                              type="date"
+                              value={form.rentalStart}
+                              onChange={(e) => setField('rentalStart', e.target.value)}
+                              aria-invalid={invalid('Rental dates')}
+                              className={INPUT}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="req-end" className={LABEL}>
+                              End
+                            </label>
+                            <input
+                              id="req-end"
+                              type="date"
+                              min={form.rentalStart || undefined}
+                              value={form.rentalEnd}
+                              onChange={(e) => setField('rentalEnd', e.target.value)}
+                              aria-invalid={invalid('Rental dates')}
+                              className={INPUT}
+                            />
+                          </div>
+                        </div>
+                      </fieldset>
+
+                      <fieldset>
+                        <legend className={EYEBROW}>
+                          Location
+                        </legend>
+                        <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                          Where the pieces are going.
+                        </p>
+                        <div className="mt-2 space-y-2">
+                          <input
+                            aria-label="Street"
+                            value={form.location.line1}
+                            onChange={(e) => setLocation('line1', e.target.value)}
+                            placeholder="Street"
+                            autoComplete="address-line1"
+                            aria-invalid={invalid('Location')}
+                            className={INPUT}
+                          />
+                          <input
+                            aria-label="Suite, stage, building"
+                            value={form.location.line2}
+                            onChange={(e) => setLocation('line2', e.target.value)}
+                            placeholder="Suite, stage, building"
+                            autoComplete="address-line2"
+                            className={INPUT}
+                          />
+                          <div className="grid grid-cols-[1fr_56px_84px] gap-2">
+                            <input
+                              aria-label="City"
+                              value={form.location.city}
+                              onChange={(e) => setLocation('city', e.target.value)}
+                              placeholder="City"
+                              autoComplete="address-level2"
+                              aria-invalid={invalid('Location')}
+                              className={INPUT}
+                            />
+                            <input
+                              aria-label="State"
+                              value={form.location.state}
+                              onChange={(e) => setLocation('state', e.target.value)}
+                              placeholder="ST"
+                              maxLength={2}
+                              autoComplete="address-level1"
+                              aria-invalid={invalid('Location')}
+                              className={INPUT}
+                            />
+                            <input
+                              aria-label="ZIP"
+                              value={form.location.zip}
+                              onChange={(e) => setLocation('zip', e.target.value)}
+                              placeholder="ZIP"
+                              autoComplete="postal-code"
+                              aria-invalid={invalid('Location')}
+                              className={INPUT}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="req-notes" className={LABEL}>
+                              Access notes
+                            </label>
+                            <textarea
+                              id="req-notes"
+                              value={form.deliveryNotes}
+                              onChange={(e) => setField('deliveryNotes', e.target.value)}
+                              rows={2}
+                              placeholder="Dock, hours, who to ask for…"
+                              className={cn(INPUT, 'resize-none')}
+                            />
+                          </div>
+                        </div>
+                      </fieldset>
+
+                      <fieldset>
+                        <legend className={EYEBROW}>
+                          Shoot details
+                        </legend>
+                        <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
+                          What you&apos;re shooting and how the pieces are used. Optional.
+                        </p>
+                        <textarea
+                          id="req-shoot"
+                          aria-label="Shoot details"
+                          value={form.shootDetails}
+                          onChange={(e) => setField('shootDetails', e.target.value)}
+                          rows={3}
+                          placeholder="Two-day commercial, living room set, pieces on camera…"
+                          className={cn(INPUT, 'mt-2 resize-none')}
+                        />
+                      </fieldset>
+                    </div>
                   )}
 
-                  {readiness.kind === 'incomplete' && (
-                    <div className="mt-4">
-                      <p className="font-mono text-[13px] text-foreground">
-                        {readiness.missing.length} thing{readiness.missing.length !== 1 ? 's' : ''} missing before
-                        one-click
-                      </p>
-                      <ul className="mt-2 space-y-1 font-mono text-[12px] text-text-secondary">
-                        {readiness.missing.map((m) => (
-                          <li key={m}>· {m}</li>
-                        ))}
-                      </ul>
-                      <Link
-                        href="/account/profile"
-                        className="mt-4 inline-block font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text underline underline-offset-4"
-                      >
-                        Complete your order profile →
+                  {readiness.kind === 'unreadable' && (
+                    <p className="mt-4 font-mono text-[13px] text-text-secondary">
+                      Your order profile could not be read. Reload to try again, or{' '}
+                      <Link href="/account/profile" className="text-accent-text underline underline-offset-4">
+                        open your profile
                       </Link>
-                    </div>
+                      .
+                    </p>
                   )}
 
                   {readiness.kind === 'anon' && (
@@ -307,61 +561,9 @@ export default function CartPage() {
                   {readiness.kind === 'loading' && (
                     <p className="mt-4 font-mono text-[13px] text-text-tertiary">Reading your profile…</p>
                   )}
-
-                  {readiness.kind === 'ready' && (
-                    <div className="mt-4 border-t border-border pt-4">
-                      <button
-                        type="button"
-                        onClick={() => setOverride((o) => !o)}
-                        className="font-mono text-[12px] text-text-tertiary underline-offset-2 hover:text-foreground hover:underline"
-                      >
-                        {override ? 'Use my defaults' : 'Change for this order'}
-                      </button>
-                      {override && (
-                        <div className="mt-4 space-y-4">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
-                                Start
-                              </label>
-                              <input
-                                type="date"
-                                value={rentalStart}
-                                onChange={(e) => setRentalStart(e.target.value)}
-                                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                              />
-                            </div>
-                            <div>
-                              <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
-                                End
-                              </label>
-                              <input
-                                type="date"
-                                value={rentalEnd}
-                                onChange={(e) => setRentalEnd(e.target.value)}
-                                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block font-mono text-[12px] text-text-secondary mb-1.5">
-                              Delivery notes
-                            </label>
-                            <textarea
-                              value={deliveryNotes}
-                              onChange={(e) => setDeliveryNotes(e.target.value)}
-                              rows={2}
-                              placeholder="Access instructions, who to ask for…"
-                              className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
-                {readiness.kind === 'ready' && (
+                {readiness.kind === 'loaded' && (
                   <div className="border-b border-border">
                     <button
                       type="button"
@@ -432,10 +634,10 @@ export default function CartPage() {
                 </div>
 
                 {state.kind === 'error' && (
-                  <p className="font-mono text-[12px] text-accent-text">{state.message}</p>
+                  <p role="alert" className="font-mono text-[12px] text-accent-text">{state.message}</p>
                 )}
 
-                {readiness.kind === 'ready' && (
+                {readiness.kind === 'loaded' && (
                   <button
                     onClick={handlePlaceOrder}
                     disabled={state.kind === 'submitting'}
@@ -500,31 +702,85 @@ function toLineInputs(lines: CartLine[]) {
   }));
 }
 
+/** The form prefilled from the profile: its production fields and delivery defaults. */
+function prefill(d: OrderDefaults, p: ProductionSummary): RequestForm {
+  const a = d.deliveryAddress ?? {};
+  return {
+    legalName: p.legalName ?? '',
+    contactName: p.contactName ?? '',
+    contactEmail: p.contactEmail ?? '',
+    contactPhone: p.contactPhone ?? '',
+    formsOnBehalf: p.formsOnBehalf,
+    rentalStart: d.rentalStart ?? '',
+    rentalEnd: d.rentalEnd ?? '',
+    location: { line1: a.line1 ?? '', line2: a.line2 ?? '', city: a.city ?? '', state: a.state ?? '', zip: a.zip ?? '' },
+    deliveryNotes: d.deliveryNotes ?? '',
+    shootDetails: '',
+  };
+}
+
+/** The form as the API takes it: blanks dropped, text trimmed, undefined for nothing. */
+function toRequest(f: RequestForm, withProduction: boolean) {
+  const location = Object.fromEntries(
+    Object.entries(f.location)
+      .map(([k, v]) => [k, v.trim()])
+      .filter(([, v]) => v),
+  ) as Address;
+  const production = withProduction
+    ? {
+        legalName: f.legalName.trim() || undefined,
+        contactName: f.contactName.trim() || undefined,
+        contactEmail: f.contactEmail.trim() || undefined,
+        contactPhone: f.contactPhone.trim() || undefined,
+        formsOnBehalf: f.formsOnBehalf || undefined,
+      }
+    : undefined;
+  return {
+    production,
+    rentalStart: f.rentalStart || undefined,
+    rentalEnd: f.rentalEnd || undefined,
+    deliveryAddress: Object.keys(location).length ? location : undefined,
+    deliveryNotes: f.deliveryNotes.trim() || undefined,
+    shootDetails: f.shootDetails.trim() || undefined,
+  };
+}
+
+/** The production fields the profile wants, judged by the same rule the server uses. */
+function productionGaps(f: RequestForm): string[] {
+  return orderReadiness({
+    ...EMPTY_ORDER_PROFILE,
+    company: { legalName: f.legalName.trim() || undefined },
+    contacts: { ordering: { name: f.contactName.trim() || undefined, email: f.contactEmail.trim() || undefined } },
+    authorization: { formsOnBehalf: f.formsOnBehalf },
+  }).missing;
+}
+
+/** One sentence naming what the click still needs. */
+function gapsMessage(gaps: string[], form: RequestForm): string {
+  if (gaps.includes('Rental dates') && form.rentalStart && form.rentalEnd) {
+    return 'The rental end date is before the start.';
+  }
+  return `Still needed: ${gaps.join(', ')}.`;
+}
+
 async function loadReadiness(): Promise<Readiness> {
   try {
     const r = await getJson<{
       ready: boolean;
       missing: string[];
       defaults: OrderDefaults & { rentalWindowDays?: number };
+      production?: ProductionSummary;
       projects?: ProjectSummary[];
     }>('/api/checkout/readiness');
-    return r.ready
-      ? { kind: 'ready', defaults: r.defaults, projects: r.projects ?? [] }
-      : { kind: 'incomplete', missing: r.missing };
+    return {
+      kind: 'loaded',
+      missing: r.missing,
+      defaults: r.defaults,
+      production: r.production ?? { formsOnBehalf: false },
+      projects: r.projects ?? [],
+    };
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return { kind: 'anon' };
-    return { kind: 'incomplete', missing: ['Order profile could not be read'] };
+    return { kind: 'unreadable' };
   }
-}
-
-/** "Sep 3 – Sep 10, 2026" from two ISO dates; tolerates one side missing. */
-function formatWindow(start: string, end: string): string {
-  const fmt = (iso: string, year: boolean) =>
-    new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      ...(year ? { year: 'numeric' } : {}),
-    });
-  if (start && end) return `${fmt(start, false)} – ${fmt(end, true)}`;
-  return start ? `From ${fmt(start, true)}` : `Until ${fmt(end, true)}`;
 }

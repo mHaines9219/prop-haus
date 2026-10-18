@@ -19,7 +19,7 @@ import { GET, PATCH } from './route';
 
 const NOW = '2026-09-02T15:00:00.000Z';
 const COI_DOC = { storagePath: `${ORG_ID}/coi/x.pdf`, name: 'x.pdf', uploadedAt: '2026-09-01T00:00:00Z' };
-const ALL_MISSING = ['Company legal name', 'Ordering contact name', 'Ordering contact email', 'Delivery address', 'Authorization to complete forms'];
+const ALL_MISSING = ['Company legal name', 'Ordering contact name', 'Ordering contact email', 'Authorization to complete forms'];
 
 function seedOrg(id = ORG_ID, profile: unknown = READY_PROFILE) {
   return db.seed('organizations', [{ id, order_profile: profile, updated_at: '2026-01-01T00:00:00.000Z' }])[0];

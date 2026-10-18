@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCart, type CartLine } from '@/lib/cart-store';
@@ -9,8 +9,10 @@ import { nav, resetNavigation } from '@/test/mocks/next-navigation';
 import CartPage from './page';
 
 // The cart is the one-click surface: it reads readiness from the profile,
-// never grows a form of its own, drafts the vendor emails before the click,
-// and the click sends exactly one request carrying any edits.
+// asks for what every vendor needs (dates, location, shoot details, and the
+// production itself when the profile lacks it) in a single form prefilled
+// from the profile, drafts the vendor emails before the click, and the click
+// sends exactly one request carrying the form and any edits.
 
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
 vi.mock('@/components/ap/site-footer', () => ({ SiteFooter: () => null }));
@@ -58,8 +60,17 @@ const READY_DEFAULTS: OrderDefaults & { rentalWindowDays?: number } = {
   deliveryNotes: 'Dock B, ask for Sam',
 };
 
-const readyResponse = (defaults = READY_DEFAULTS) => json({ ready: true, missing: [], defaults });
-const incompleteResponse = (missing: string[]) => json({ ready: false, missing, defaults: {} });
+const READY_PRODUCTION = {
+  legalName: 'Nocturne Pictures LLC',
+  contactName: 'Sam Reyes',
+  contactEmail: 'sam@nocturne.example',
+  formsOnBehalf: true,
+};
+const readyResponse = (defaults = READY_DEFAULTS) =>
+  json({ ready: true, missing: [], defaults, production: READY_PRODUCTION });
+/** A profile short of the given things; `production` is what it does have. */
+const incompleteResponse = (missing: string[], production: Record<string, unknown> = { formsOnBehalf: false }) =>
+  json({ ready: false, missing, defaults: {}, production });
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
   vendorId: 'omega',
@@ -258,43 +269,57 @@ describe('readiness', () => {
     expect(screen.queryByRole('button', { name: /^Place order and send/ })).not.toBeInTheDocument();
   });
 
-  it('shows the defaults the click will use when ready', async () => {
+  it('prefills the request form from the profile defaults when ready', async () => {
     stubRoutes();
     await renderCart();
-    expect(await screen.findByText('Sep 3 – Sep 10, 2026 · 7 days from the next business day')).toBeInTheDocument();
-    expect(screen.getByText('4100 W Alameda Ave, Burbank, CA 91505')).toBeInTheDocument();
-    expect(screen.getByText('Dock B, ask for Sam')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Start')).toHaveValue('2026-09-03');
+    expect(screen.getByLabelText('End')).toHaveValue('2026-09-10');
+    expect(screen.getByLabelText('Street')).toHaveValue('4100 W Alameda Ave');
+    expect(screen.getByLabelText('Suite, stage, building')).toHaveValue('');
+    expect(screen.getByLabelText('City')).toHaveValue('Burbank');
+    expect(screen.getByLabelText('State')).toHaveValue('CA');
+    expect(screen.getByLabelText('ZIP')).toHaveValue('91505');
+    expect(screen.getByLabelText('Access notes')).toHaveValue('Dock B, ask for Sam');
+    expect(screen.getByLabelText('Shoot details')).toHaveValue('');
     expect(screen.getByRole('button', { name: /^Place order and send/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Change for this order' })).toBeInTheDocument();
   });
 
-  it('explains when the profile has no default window or address', async () => {
-    stubRoutes(undefined, () => readyResponse({}));
-    await renderCart();
-    expect(await screen.findByText('No default window — set one for this order')).toBeInTheDocument();
-    expect(screen.getByText('—', { selector: 'dd' })).toBeInTheDocument();
-  });
-
-  it('shows delivery notes in place of a missing address', async () => {
+  it('leaves the form blank when the profile has no defaults, keeping any notes', async () => {
     stubRoutes(undefined, () => readyResponse({ deliveryNotes: 'Meet at the gate' }));
     await renderCart();
-    expect(await screen.findByText('Meet at the gate')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Start')).toHaveValue('');
+    expect(screen.getByLabelText('End')).toHaveValue('');
+    expect(screen.getByLabelText('Street')).toHaveValue('');
+    expect(screen.getByLabelText('Access notes')).toHaveValue('Meet at the gate');
   });
 
-  it('lists what is missing and links to the profile', async () => {
-    stubRoutes(undefined, () => incompleteResponse(['Company legal name', 'Authorization to complete forms']));
+  it('asks for the production in the same form when the profile is short, prefilled with what it has', async () => {
+    stubRoutes(undefined, () =>
+      incompleteResponse(['Company legal name', 'Authorization to complete forms'], {
+        contactName: 'Sam Reyes',
+        contactEmail: 'sam@nocturne.example',
+        formsOnBehalf: false,
+      }),
+    );
     await renderCart();
-    expect(await screen.findByText('2 things missing before one-click')).toBeInTheDocument();
-    expect(screen.getByText('· Company legal name')).toBeInTheDocument();
-    expect(screen.getByText('· Authorization to complete forms')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Complete your order profile →' })).toHaveAttribute('href', '/account/profile');
-    expect(screen.queryByRole('button', { name: /^Place order and send/ })).not.toBeInTheDocument();
+    expect(await screen.findByText('Your production')).toBeInTheDocument();
+    expect(screen.getByLabelText('Company legal name')).toHaveValue('');
+    expect(screen.getByLabelText('Ordering contact')).toHaveValue('Sam Reyes');
+    expect(screen.getByLabelText('Contact email')).toHaveValue('sam@nocturne.example');
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(screen.getByText(/I sign anything that needs a signature/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'order profile' })).toHaveAttribute('href', '/account/profile');
+    // The rest of the form and the click are still there: one form, one process.
+    expect(screen.getByLabelText('Start')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Place order and send/ })).toBeEnabled();
   });
 
-  it('uses the singular for one missing item', async () => {
-    stubRoutes(undefined, () => incompleteResponse(['Delivery address']));
+  it('does not ask for the production when the profile already has it', async () => {
+    stubRoutes();
     await renderCart();
-    expect(await screen.findByText('1 thing missing before one-click')).toBeInTheDocument();
+    await screen.findByLabelText('Start');
+    expect(screen.queryByText('Your production')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Company legal name')).not.toBeInTheDocument();
   });
 
   it('points a signed-out visitor at login with a return path', async () => {
@@ -309,10 +334,12 @@ describe('readiness', () => {
   it.each([
     ['a 500', () => json({ error: 'boom' }, 500)],
     ['a network failure', () => Promise.reject(new TypeError('offline')) as Promise<Response>],
-  ])('treats %s as an unreadable profile', async (_label, readiness) => {
+  ])('treats %s as an unreadable profile and offers no click', async (_label, readiness) => {
     stubRoutes(undefined, readiness);
     await renderCart();
-    expect(await screen.findByText('· Order profile could not be read')).toBeInTheDocument();
+    expect(await screen.findByText(/Your order profile could not be read/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'open your profile' })).toHaveAttribute('href', '/account/profile');
+    expect(screen.queryByRole('button', { name: /^Place order and send/ })).not.toBeInTheDocument();
   });
 });
 
@@ -348,6 +375,10 @@ describe('placing the order', () => {
           vendor: 'Hand Prop Room',
         },
       ],
+      rentalStart: '2026-09-03',
+      rentalEnd: '2026-09-10',
+      deliveryAddress: { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' },
+      deliveryNotes: 'Dock B, ask for Sam',
       messages: [],
       idempotencyKey: UUID,
     });
@@ -373,22 +404,58 @@ describe('placing the order', () => {
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout')).toHaveLength(1);
   });
 
-  it('on 422 shows the missing list from a fresh readiness read and keeps the cart', async () => {
+  it('on a profile 422 rereads readiness, opens the production fields, and keeps the cart', async () => {
     const user = userEvent.setup();
     let reads = 0;
     const fetchMock = stubRoutes(
-      () => json({ error: 'profile incomplete', missing: ['Delivery address'] }, 422),
-      () => (reads++ === 0 ? readyResponse() : incompleteResponse(['Delivery address'])),
+      () => json({ error: 'order profile is incomplete', missing: ['Authorization to complete forms'] }, 422),
+      () => (reads++ === 0 ? readyResponse() : incompleteResponse(['Authorization to complete forms'])),
     );
     await renderCart();
     await user.click(await screen.findByRole('button', { name: /^Place order and send/ }));
 
-    expect(await screen.findByText('Your order profile is missing something.')).toBeInTheDocument();
-    expect(await screen.findByText('· Delivery address')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Complete your order profile →' })).toBeInTheDocument();
+    expect(await screen.findByText('Your order profile is missing something. Fill it in below.')).toBeInTheDocument();
+    expect(await screen.findByText('Your production')).toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout/readiness')).toHaveLength(2);
     expect(useCart.getState().lines).toHaveLength(2);
     expect(nav.router.push).not.toHaveBeenCalled();
+  });
+
+  it('sends the production with the click when the profile was short, and not otherwise', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(undefined, () =>
+      incompleteResponse(['Company legal name', 'Ordering contact name', 'Ordering contact email', 'Authorization to complete forms']),
+    );
+    await renderCart();
+    await screen.findByText('Your production');
+    await user.click(await placeOrder());
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Still needed: Company legal name, Ordering contact name, Ordering contact email, Authorization to complete forms, Rental dates, Location.',
+    );
+    expect(screen.getByLabelText('Company legal name')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('checkbox')).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(screen.getByLabelText('Company legal name'), 'Acme Pictures');
+    await user.type(screen.getByLabelText('Ordering contact'), 'Sam');
+    await user.type(screen.getByLabelText('Contact email'), 'sam@acme.example');
+    await user.type(screen.getByLabelText('Contact phone'), '310 555 0100');
+    await user.click(screen.getByRole('checkbox'));
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-09-05' } });
+    fireEvent.change(screen.getByLabelText('End'), { target: { value: '2026-09-12' } });
+    await user.type(screen.getByLabelText('Street'), '1 Stage Rd');
+    await user.type(screen.getByLabelText('City'), 'LA');
+    await user.type(screen.getByLabelText('State'), 'CA');
+    await user.type(screen.getByLabelText('ZIP'), '90028');
+    await user.click(await placeOrder());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
+    const body = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
+    expect(body.production).toEqual({
+      legalName: 'Acme Pictures',
+      contactName: 'Sam',
+      contactEmail: 'sam@acme.example',
+      contactPhone: '310 555 0100',
+      formsOnBehalf: true,
+    });
   });
 
   it('on 500 shows an error, keeps the cart and re-enables the button', async () => {
@@ -423,56 +490,122 @@ describe('placing the order', () => {
   });
 });
 
-describe('per-order overrides', () => {
-  // The Start / End / Delivery notes <label>s have no htmlFor and do not wrap
-  // their inputs, so the fields have no accessible name.
-  it.fails('labels the override fields', async () => {
-    const user = userEvent.setup();
+describe('the request form', () => {
+  const setDate = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  const checkoutCalls = (fn: ReturnType<typeof stubRoutes>) => fn.mock.calls.filter(([url]) => url === '/api/checkout');
+
+  it('labels every field so a vendor-facing request can be filled by keyboard', async () => {
     stubRoutes();
     await renderCart();
-    await user.click(await screen.findByRole('button', { name: 'Change for this order' }));
-    expect(screen.getByLabelText('Start')).toBeInTheDocument();
+    for (const label of ['Start', 'End', 'Street', 'Suite, stage, building', 'City', 'State', 'ZIP', 'Access notes']) {
+      expect(await screen.findByLabelText(label), label).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText('Shoot details')).toBeInTheDocument();
+    expect(screen.getByText('Dates requested')).toBeInTheDocument();
+    expect(screen.getByText('Location')).toBeInTheDocument();
   });
 
-  it('sends the override window and notes with the order and previews them', async () => {
+  it('sends what the user typed with the order, and the preview sees the same request', async () => {
     const user = userEvent.setup();
     const fetchMock = stubRoutes();
-    const { container } = await renderCart();
-    await user.click(await screen.findByRole('button', { name: 'Change for this order' }));
+    await renderCart();
+    await screen.findByLabelText('Start');
+    setDate('Start', '2026-09-05');
+    setDate('End', '2026-09-12');
+    await user.clear(screen.getByLabelText('Street'));
+    await user.type(screen.getByLabelText('Street'), '1 Stage Rd');
+    await user.type(screen.getByLabelText('Suite, stage, building'), 'Stage 4');
+    await user.clear(screen.getByLabelText('Access notes'));
+    await user.type(screen.getByLabelText('Access notes'), '  Gate 3  ');
+    await user.type(screen.getByLabelText('Shoot details'), 'Two-day commercial, living room set');
 
-    const dates = container.querySelectorAll('input[type=date]');
-    expect(dates).toHaveLength(2);
-    await user.type(dates[0], '2026-09-05');
-    await user.type(dates[1], '2026-09-12');
-    await user.type(screen.getByPlaceholderText('Access instructions, who to ask for…'), '  Gate 3  ');
-
-    expect(screen.getByText('Sep 5 – Sep 12, 2026')).toBeInTheDocument();
-    expect(screen.getByText('Gate 3', { selector: 'dd', exact: false })).toBeInTheDocument();
-    expect(screen.queryByText('Dock B, ask for Sam')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Review the emails' }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout/preview')).toHaveLength(1));
+    const preview = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout/preview')![1]?.body as string);
+    expect(preview).toMatchObject({
+      rentalStart: '2026-09-05',
+      rentalEnd: '2026-09-12',
+      deliveryAddress: { line1: '1 Stage Rd', line2: 'Stage 4', city: 'Burbank', state: 'CA', zip: '91505' },
+      deliveryNotes: 'Gate 3',
+      shootDetails: 'Two-day commercial, living room set',
+    });
 
     await user.click(screen.getByRole('button', { name: /^Place order and send/ }));
     await waitFor(() => expect(nav.router.push).toHaveBeenCalled());
-    const body = JSON.parse(fetchMock.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
-    expect(body).toMatchObject({ rentalStart: '2026-09-05', rentalEnd: '2026-09-12', deliveryNotes: 'Gate 3' });
+    const body = JSON.parse(checkoutCalls(fetchMock)[0][1]?.body as string);
+    expect(body).toMatchObject({
+      rentalStart: '2026-09-05',
+      rentalEnd: '2026-09-12',
+      deliveryAddress: { line1: '1 Stage Rd', line2: 'Stage 4', city: 'Burbank', state: 'CA', zip: '91505' },
+      deliveryNotes: 'Gate 3',
+      shootDetails: 'Two-day commercial, living room set',
+    });
   });
 
-  it('previews a one-sided window', async () => {
+  it('redrafts the emails once the user stops typing, not on every keystroke', async () => {
     const user = userEvent.setup();
-    stubRoutes();
-    const { container } = await renderCart();
-    await user.click(await screen.findByRole('button', { name: 'Change for this order' }));
-    await user.type(container.querySelectorAll('input[type=date]')[0], '2026-09-05');
-    expect(screen.getByText('From Sep 5, 2026')).toBeInTheDocument();
-  });
-
-  it('toggles back to the defaults', async () => {
-    const user = userEvent.setup();
-    stubRoutes();
+    const fetchMock = stubRoutes();
     await renderCart();
-    await user.click(await screen.findByRole('button', { name: 'Change for this order' }));
-    await user.click(screen.getByRole('button', { name: 'Use my defaults' }));
-    expect(screen.queryByPlaceholderText('Access instructions, who to ask for…')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Change for this order' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Review the emails' }));
+    await screen.findByText('Rental request — Nocturne Pictures');
+    await user.type(screen.getByLabelText('Shoot details'), 'Living room');
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout/preview')).toHaveLength(2));
+    const last = fetchMock.mock.calls.filter(([url]) => url === '/api/checkout/preview').at(-1)!;
+    expect(JSON.parse(last[1]?.body as string)).toMatchObject({ shootDetails: 'Living room' });
+  });
+
+  it('refuses the click until the dates and a location are filled, naming what is missing', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(undefined, () => readyResponse({}));
+    await renderCart();
+    await user.click(await placeOrder());
+    expect(screen.getByRole('alert')).toHaveTextContent('Still needed: Rental dates, Location.');
+    expect(screen.getByLabelText('Start')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Street')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Access notes')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(checkoutCalls(fetchMock)).toHaveLength(0);
+
+    setDate('Start', '2026-09-05');
+    setDate('End', '2026-09-12');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Start')).not.toHaveAttribute('aria-invalid', 'true');
+    await user.click(await placeOrder());
+    expect(screen.getByRole('alert')).toHaveTextContent('Still needed: Location.');
+    expect(checkoutCalls(fetchMock)).toHaveLength(0);
+
+    await user.type(screen.getByLabelText('Street'), '1 Stage Rd');
+    await user.type(screen.getByLabelText('City'), 'LA');
+    await user.type(screen.getByLabelText('State'), 'CA');
+    await user.type(screen.getByLabelText('ZIP'), '90028');
+    await user.click(await placeOrder());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
+    expect(JSON.parse(checkoutCalls(fetchMock)[0][1]?.body as string)).toMatchObject({
+      rentalStart: '2026-09-05',
+      rentalEnd: '2026-09-12',
+      deliveryAddress: { line1: '1 Stage Rd', city: 'LA', state: 'CA', zip: '90028' },
+    });
+  });
+
+  it('flags an end date before the start', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes();
+    await renderCart();
+    await screen.findByLabelText('End');
+    setDate('End', '2026-09-01');
+    await user.click(await placeOrder());
+    expect(screen.getByRole('alert')).toHaveTextContent('The rental end date is before the start.');
+    expect(checkoutCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it('on a 422 for the request shows the gaps without rereading the profile', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(() => json({ error: 'request is incomplete', missing: ['Location'] }, 422));
+    await renderCart();
+    await user.click(await placeOrder());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Still needed');
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout/readiness')).toHaveLength(1);
+    expect(screen.queryByText('Your order profile is missing something.')).not.toBeInTheDocument();
+    expect(useCart.getState().lines).toHaveLength(2);
   });
 });
 
@@ -482,10 +615,20 @@ describe('Review the emails', () => {
   const checkoutBody = (fn: ReturnType<typeof stubRoutes>) =>
     JSON.parse(fn.mock.calls.find(([url]) => url === '/api/checkout')![1]?.body as string);
 
-  it('is only offered once the profile is ready', async () => {
-    stubRoutes(undefined, () => incompleteResponse(['Delivery address']));
+  it('is offered even when the profile is short, and the drafts see the production as typed', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(undefined, () => incompleteResponse(['Company legal name']));
     await renderCart();
-    await screen.findByText('· Delivery address');
+    await user.type(await screen.findByLabelText('Company legal name'), 'Acme');
+    await user.click(screen.getByRole('button', { name: 'Review the emails' }));
+    await waitFor(() => expect(previewCalls(fetchMock)).toHaveLength(1));
+    expect(JSON.parse(previewCalls(fetchMock)[0][1]?.body as string)).toMatchObject({ production: { legalName: 'Acme' } });
+  });
+
+  it('is not offered while the profile is unreadable', async () => {
+    stubRoutes(undefined, () => json({ error: 'boom' }, 500));
+    await renderCart();
+    await screen.findByText(/could not be read/);
     expect(screen.queryByRole('button', { name: 'Review the emails' })).not.toBeInTheDocument();
   });
 
@@ -513,6 +656,10 @@ describe('Review the emails', () => {
         expect.objectContaining({ itemId: 'omega-12345', vendor: 'Omega Cinema Props' }),
         expect.objectContaining({ itemId: 'hpr-777', vendor: 'Hand Prop Room' }),
       ],
+      rentalStart: '2026-09-03',
+      rentalEnd: '2026-09-10',
+      deliveryAddress: { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' },
+      deliveryNotes: 'Dock B, ask for Sam',
     });
   });
 

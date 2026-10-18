@@ -94,11 +94,11 @@ export default async function OrderPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Rental window */}
-        {(order.rentalStart || order.rentalEnd || order.deliveryAddress) && (
+        {/* The request: what the cart form asked for, as every vendor got it */}
+        {(order.rentalStart || order.rentalEnd || order.deliveryAddress || order.shootDetails) && (
           <div className="mb-8 rounded-md border border-border bg-surface-raised p-5">
             <p className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-              Rental window
+              Request
             </p>
             <div className="flex flex-wrap gap-8 font-mono text-[13px]">
               {order.rentalStart && (
@@ -122,6 +122,12 @@ export default async function OrderPage({ params }: Props) {
             )}
             {order.deliveryNotes && (
               <p className="mt-4 font-mono text-[12px] text-text-secondary">{order.deliveryNotes}</p>
+            )}
+            {order.shootDetails && (
+              <div className="mt-4 font-mono text-[13px]">
+                <p className="text-text-tertiary">Shoot details</p>
+                <p className="mt-1 whitespace-pre-line text-[13px] text-foreground">{order.shootDetails}</p>
+              </div>
             )}
           </div>
         )}

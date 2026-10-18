@@ -8,7 +8,7 @@ vi.mock('next/server', async () => (await import('@/test/mocks/next-server')).ne
 vi.mock('@/lib/spacelab/handoff', () => ({ queueSpacelabHandoff: vi.fn(async () => undefined) }));
 vi.mock('@/lib/forms/packet', () => ({ buildOrderPaperwork: vi.fn(async () => []) }));
 
-import { ORG_ID, OTHER_ORG_ID, signIn, signOut } from '@/test/mocks/session';
+import { ORG_ID, OTHER_ORG_ID, USER_ID, signIn, signOut } from '@/test/mocks/session';
 import { db } from '@/test/mocks/supabase-admin';
 import { afterCalls, flushAfter, resetAfter } from '@/test/mocks/next-server';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
@@ -74,6 +74,40 @@ describe('refusals', () => {
     expect(db.rows('orders')).toHaveLength(0);
   });
 
+  it('saves the production fields the cart sent to the profile before judging readiness', async () => {
+    seedOrg({ ...READY_PROFILE, company: {}, contacts: {}, authorization: { formsOnBehalf: false } });
+    const res = await POST(
+      jsonRequest('/api/checkout', {
+        ...body,
+        production: { legalName: ' Acme Pictures ', contactName: 'Sam', contactEmail: 'sam@acme.example', formsOnBehalf: true },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const [org] = db.rows('organizations');
+    expect(org.order_profile).toMatchObject({
+      company: { legalName: 'Acme Pictures' },
+      contacts: { ordering: { name: 'Sam', email: 'sam@acme.example' } },
+      authorization: { formsOnBehalf: true, acceptedByUserId: USER_ID },
+    });
+    expect((org.order_profile as { authorization: { acceptedAt: string } }).authorization.acceptedAt).toMatch(/^\d{4}-/);
+    expect(db.rows('orders')).toHaveLength(1);
+  });
+
+  it('422 with what is still missing after a partial production patch, and keeps what it saved', async () => {
+    seedOrg({ ...READY_PROFILE, company: {}, authorization: { formsOnBehalf: false } });
+    const res = await POST(jsonRequest('/api/checkout', { ...body, production: { legalName: 'Acme' } }));
+    expect(res.status).toBe(422);
+    expect(await readJson(res)).toEqual({ error: 'order profile is incomplete', missing: ['Authorization to complete forms'] });
+    expect(db.rows('organizations')[0].order_profile).toMatchObject({ company: { legalName: 'Acme' } });
+    expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it('does not touch the profile when the body sends no production fields', async () => {
+    seedOrg();
+    await POST(jsonRequest('/api/checkout', { ...body, production: { formsOnBehalf: false } }));
+    expect(db.log.filter((l) => l.table === 'organizations' && l.op === 'update')).toHaveLength(0);
+  });
+
   it('422 when the org has no profile row at all', async () => {
     const res = await POST(jsonRequest('/api/checkout', body));
     expect(res.status).toBe(422);
@@ -120,7 +154,7 @@ describe('the click', () => {
     ]);
   });
 
-  it('lets the body override dates, address and notes when the UI sends them', async () => {
+  it('takes the request form: dates, location, notes and shoot details, over the profile defaults', async () => {
     seedOrg();
     await POST(
       jsonRequest('/api/checkout', {
@@ -129,6 +163,7 @@ describe('the click', () => {
         rentalEnd: '2026-10-03',
         deliveryAddress: { line1: '1 Stage Rd', city: 'LA', state: 'CA', zip: '90028', junk: 'x' },
         deliveryNotes: '  gate code 4321  ',
+        shootDetails: '  Two-day commercial, living room set  ',
       }),
     );
     expect(db.rows('orders')[0]).toMatchObject({
@@ -136,7 +171,29 @@ describe('the click', () => {
       rental_end: '2026-10-03',
       delivery_address: { line1: '1 Stage Rd', city: 'LA', state: 'CA', zip: '90028' },
       delivery_notes: 'gate code 4321',
+      shoot_details: 'Two-day commercial, living room set',
     });
+  });
+
+  it('stores no shoot details when the form sent none or something that is not text', async () => {
+    seedOrg();
+    await POST(jsonRequest('/api/checkout', { ...body, shootDetails: { nope: true } }));
+    expect(db.rows('orders')[0]).toMatchObject({ shoot_details: null });
+  });
+
+  it('422 with the request gaps when neither the form nor the profile gives dates and a location', async () => {
+    seedOrg({ ...READY_PROFILE, defaults: {} });
+    const res = await POST(jsonRequest('/api/checkout', body));
+    expect(res.status).toBe(422);
+    expect(await readJson(res)).toEqual({ error: 'request is incomplete', missing: ['Rental dates', 'Location'] });
+    expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it('422 when the form gives an end date before the start', async () => {
+    seedOrg();
+    const res = await POST(jsonRequest('/api/checkout', { ...body, rentalStart: '2026-10-03', rentalEnd: '2026-10-01' }));
+    expect(res.status).toBe(422);
+    expect(await readJson(res)).toEqual({ error: 'request is incomplete', missing: ['Rental dates'] });
   });
 
   it('falls back to the profile address when the body address is unusable', async () => {

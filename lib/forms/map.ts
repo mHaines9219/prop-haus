@@ -5,7 +5,8 @@
  * Path forms:
  *   company.legalName             an order-profile path
  *   $order.rentalStart            the order (ref, rentalStart, rentalEnd,
- *                                 deliveryAddress, deliveryNotes, itemCount, itemList)
+ *                                 deliveryAddress, deliveryNotes, shootDetails,
+ *                                 itemCount, itemList)
  *   $vendor.additionalInsuredWording  the vendor (id, name, website, and the wording)
  *   $form.label                   the form itself (kind, label)
  *   $signer.ein                   left blank; the signer completes it in Anvil.

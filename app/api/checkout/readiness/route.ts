@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { currentSession } from '@/lib/session';
-import { orderDefaults, orderReadiness } from '@/lib/order-profile';
+import { orderDefaults, orderReadiness, productionSummary } from '@/lib/order-profile';
 import { getOrderProfile } from '@/lib/order-profile-store';
 import { listProjectSummaries } from '@/lib/projects';
 
 /**
  * What the cart shows before the click: whether the profile can place an
- * order, what's missing if not, the defaults the order will get, and the
- * projects the order can be placed on (the cart's project picker).
+ * order, what's missing if not (and the production fields it has so far, so
+ * the cart can ask for the rest inline), the defaults the order will get,
+ * and the projects the order can be placed on (the cart's project picker).
  */
 export async function GET() {
   const session = await currentSession();
@@ -21,6 +22,7 @@ export async function GET() {
   return NextResponse.json({
     ...orderReadiness(profile),
     defaults: { ...orderDefaults(profile), rentalWindowDays: profile.defaults.rentalWindowDays },
+    production: productionSummary(profile),
     projects,
   });
 }

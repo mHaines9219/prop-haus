@@ -70,20 +70,117 @@ export const AUTHORIZATION_SENTENCE =
 export type OrderReadiness = { ready: boolean; missing: string[] };
 
 /**
- * What the click still needs. Insurance is deliberately absent: an order can go
- * out without a COI on file, and the outreach email says "COI to follow".
+ * What the click still needs FROM THE PROFILE. Insurance is deliberately
+ * absent: an order can go out without a COI on file, and the outreach email
+ * says "COI to follow". Dates and location are not here either: the cart's
+ * request form asks for them per order (see orderRequestReadiness); the
+ * profile's delivery defaults only prefill that form.
  */
 export function orderReadiness(profile: OrderProfile): OrderReadiness {
   const missing: string[] = [];
   if (!profile.company.legalName) missing.push('Company legal name');
   if (!profile.contacts.ordering?.name) missing.push('Ordering contact name');
   if (!profile.contacts.ordering?.email) missing.push('Ordering contact email');
-
-  const { rentalWindowDays, deliveryAddress, deliveryNotes } = profile.defaults;
-  const notesFallback = Boolean(rentalWindowDays && deliveryNotes);
-  if (!isCompleteAddress(deliveryAddress) && !notesFallback) missing.push('Delivery address');
-
   if (!profile.authorization.formsOnBehalf) missing.push('Authorization to complete forms');
+  return { ready: missing.length === 0, missing };
+}
+
+// ---- the production half of the cart form ----
+
+/**
+ * What the cart asks for when the profile cannot yet place an order: the
+ * four things orderReadiness wants, nothing else. Sent with the click and
+ * saved to the profile, so the cart only ever asks once.
+ */
+export type ProductionPatch = {
+  legalName?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  /** Only ever grants; a cart never revokes an authorization already on file. */
+  formsOnBehalf?: true;
+};
+
+/** The same four things as the profile holds them, for prefilling the cart. */
+export type ProductionSummary = {
+  legalName?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  formsOnBehalf: boolean;
+};
+
+export function productionSummary(profile: OrderProfile): ProductionSummary {
+  const c = profile.contacts.ordering ?? {};
+  return strip({
+    legalName: profile.company.legalName,
+    contactName: c.name,
+    contactEmail: c.email,
+    contactPhone: c.phone,
+    formsOnBehalf: profile.authorization.formsOnBehalf,
+  }) as ProductionSummary;
+}
+
+/** Coerce the checkout body's `production` into a patch, or undefined when it says nothing. */
+export function normalizeProductionPatch(raw: unknown): ProductionPatch | undefined {
+  const p = obj(raw);
+  const out = strip({
+    legalName: str(p.legalName),
+    contactName: str(p.contactName),
+    contactEmail: str(p.contactEmail),
+    contactPhone: str(p.contactPhone),
+    formsOnBehalf: p.formsOnBehalf === true ? (true as const) : undefined,
+  });
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
+ * The profile with the cart's production fields written over it. The
+ * authorization is stamped the first time it is given, exactly as the
+ * profile page stamps it; an existing one is kept as is.
+ */
+export function applyProductionPatch(
+  profile: OrderProfile,
+  patch: ProductionPatch,
+  by: { userId: string; now?: Date },
+): OrderProfile {
+  const ordering = strip({
+    ...profile.contacts.ordering,
+    name: patch.contactName ?? profile.contacts.ordering?.name,
+    email: patch.contactEmail ?? profile.contacts.ordering?.email,
+    phone: patch.contactPhone ?? profile.contacts.ordering?.phone,
+  });
+  const authorization =
+    patch.formsOnBehalf && !profile.authorization.formsOnBehalf
+      ? { formsOnBehalf: true, acceptedAt: (by.now ?? new Date()).toISOString(), acceptedByUserId: by.userId }
+      : profile.authorization;
+  return {
+    ...profile,
+    company: strip({ ...profile.company, legalName: patch.legalName ?? profile.company.legalName }),
+    contacts: strip({ ...profile.contacts, ordering: Object.keys(ordering).length ? ordering : undefined }),
+    authorization,
+  };
+}
+
+/** The per-order half of a request: what the cart form asks for and every vendor needs. */
+export type OrderRequest = {
+  rentalStart?: string;
+  rentalEnd?: string;
+  deliveryAddress?: Address;
+  deliveryNotes?: string;
+  shootDetails?: string;
+};
+
+/**
+ * What the request itself still needs before it can go to vendors: both
+ * rental dates and a location. The cart checks this before the click and
+ * checkout checks it again on the resolved order. Shoot details are optional.
+ */
+export function orderRequestReadiness(request: OrderRequest): OrderReadiness {
+  const missing: string[] = [];
+  if (!request.rentalStart || !request.rentalEnd) missing.push('Rental dates');
+  else if (request.rentalEnd < request.rentalStart) missing.push('Rental dates');
+  if (!isCompleteAddress(request.deliveryAddress)) missing.push('Location');
   return { ready: missing.length === 0, missing };
 }
 

@@ -50,10 +50,10 @@ it('lists every gap and no defaults for an org without a profile', async () => {
       'Company legal name',
       'Ordering contact name',
       'Ordering contact email',
-      'Delivery address',
       'Authorization to complete forms',
     ],
     defaults: {},
+    production: { formsOnBehalf: false },
     projects: [],
   });
 });
@@ -70,6 +70,7 @@ it('is ready with the window, address and notes the order will get', async () =>
       deliveryNotes: 'Stage 4',
       rentalWindowDays: 7,
     },
+    production: { legalName: 'Nocturne Pictures LLC', contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
     projects: [],
   });
 });
@@ -105,22 +106,24 @@ it('skips the weekend when picking the start date', async () => {
   expect(defaults.rentalEnd).toBe('2026-09-14');
 });
 
-it('omits an incomplete address from defaults and reports it missing', async () => {
+it('omits an incomplete address from defaults; the cart form asks for the location', async () => {
   seedOrg(ORG_ID, { ...READY_PROFILE, defaults: { deliveryAddress: { line1: '1 Stage Rd', city: 'LA' } } });
   expect(await readJson(await GET())).toEqual({
-    ready: false,
-    missing: ['Delivery address'],
+    ready: true,
+    missing: [],
     defaults: {},
+    production: { legalName: 'Nocturne Pictures LLC', contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
     projects: [],
   });
 });
 
-it('accepts a rental window plus notes in place of a full address', async () => {
+it('passes a rental window plus notes through as defaults', async () => {
   seedOrg(ORG_ID, { ...READY_PROFILE, defaults: { rentalWindowDays: 3, deliveryNotes: 'Will call' } });
   expect(await readJson(await GET())).toEqual({
     ready: true,
     missing: [],
     defaults: { rentalStart: '2026-09-03', rentalEnd: '2026-09-06', deliveryNotes: 'Will call', rentalWindowDays: 3 },
+    production: { legalName: 'Nocturne Pictures LLC', contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
     projects: [],
   });
 });
@@ -132,12 +135,16 @@ it('gives no dates when the profile has no window', async () => {
   expect(body.defaults).toEqual({ deliveryAddress: READY_PROFILE.defaults.deliveryAddress });
 });
 
-it('reads only the session org', async () => {
+it('reads only the session org, and hands back the production fields it has so the cart can ask for the rest', async () => {
   seedOrg(ORG_ID);
   seedOrg(OTHER_ORG_ID, { ...READY_PROFILE, company: {} });
   signIn({ orgId: OTHER_ORG_ID, userId: 'other-user' });
   const body = await readJson<{ ready: boolean; missing: string[] }>(await GET());
-  expect(body).toMatchObject({ ready: false, missing: ['Company legal name'] });
+  expect(body).toMatchObject({
+    ready: false,
+    missing: ['Company legal name'],
+    production: { contactName: 'Sam Reyes', contactEmail: 'sam@nocturne.example', formsOnBehalf: true },
+  });
 });
 
 it('reports not-ready rather than 500 when the profile read fails', async () => {

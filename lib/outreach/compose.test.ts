@@ -164,6 +164,25 @@ describe('composeOutreach', () => {
     expect(drafts.find((d) => d.vendorId === 'hpr')!.attachments.map((a) => a.name)).toEqual(['Nocturne-COI.pdf']);
   });
 
+  it('puts the shoot details between where and paperwork, in both versions, only when given', () => {
+    const without = composeOutreach({ ...base, profile: withCoi }).find((d) => d.vendorId === 'omega')!;
+    expect(without.bodyText).not.toContain('Shoot details');
+
+    const omega = composeOutreach({
+      ...base,
+      shootDetails: '  Two-day commercial.\nLiving room set, pieces on camera. <no CGI>  ',
+      profile: withCoi,
+    }).find((d) => d.vendorId === 'omega')!;
+    const t = omega.bodyText;
+    const where = t.indexOf('Deliver to\n');
+    const shoot = t.indexOf('Shoot details\nTwo-day commercial.\nLiving room set, pieces on camera. <no CGI>');
+    const paperwork = t.indexOf('Paperwork\n');
+    expect(shoot).toBeGreaterThan(where);
+    expect(paperwork).toBeGreaterThan(shoot);
+    expect(omega.bodyHtml).toContain('Shoot details');
+    expect(omega.bodyHtml).toContain('<p>Two-day commercial.<br>Living room set, pieces on camera. &lt;no CGI&gt;</p>');
+  });
+
   it('tolerates a profile with only the required fields and no dates', () => {
     const omega = composeOutreach({ lines, profile: READY_PROFILE, vendors }).find((d) => d.vendorId === 'omega')!;
     expect(omega.subject).toBe('Hold request · Nocturne Pictures LLC · Dates to be confirmed');

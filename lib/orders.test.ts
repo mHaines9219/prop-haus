@@ -59,7 +59,13 @@ describe('createOrder', () => {
 
   it('stores nulls for the optional fields it was not given', async () => {
     await createOrder({ orgId: ORG_ID, lines: [makeCartLine({ image: undefined, priceCents: undefined })], idempotencyKey: 'k' });
-    expect(db.rows('orders')[0]).toMatchObject({ rental_start: null, rental_end: null, delivery_address: null, delivery_notes: null });
+    expect(db.rows('orders')[0]).toMatchObject({
+      rental_start: null,
+      rental_end: null,
+      delivery_address: null,
+      delivery_notes: null,
+      shoot_details: null,
+    });
     expect(db.rows('order_items')[0]).toMatchObject({ image: null, price_cents: null });
   });
 
@@ -127,7 +133,7 @@ describe('getOrderById', () => {
 describe('row mapping', () => {
   it('drops null columns instead of carrying undefined keys', async () => {
     db.seed('orders', [
-      orderRow({ rental_start: null, rental_end: null, delivery_address: null, delivery_notes: null, total_cents: null }),
+      orderRow({ rental_start: null, rental_end: null, delivery_address: null, delivery_notes: null, shoot_details: null, total_cents: null }),
     ]);
     db.seed('order_items', [orderItemRow({ image: null, price_cents: null, status_note: null, quoted_cents: null })]);
     const order = await getOrderById('order-1', ORG_ID);

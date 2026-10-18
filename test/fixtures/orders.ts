@@ -59,6 +59,7 @@ export function orderRow(over: Record<string, unknown> = {}): Record<string, unk
     rental_end: '2026-09-14',
     delivery_address: { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' },
     delivery_notes: null,
+    shoot_details: null,
     total_cents: null,
     idempotency_key: 'idem-1',
     created_at: '2026-09-02T10:00:00.000Z',

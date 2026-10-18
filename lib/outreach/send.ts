@@ -82,6 +82,7 @@ export async function sendOrderOutreach(
       rentalEnd: order.rentalEnd,
       deliveryAddress: order.deliveryAddress,
       deliveryNotes: order.deliveryNotes,
+      shootDetails: order.shootDetails,
       profile,
       vendors: VENDORS,
       documents: await vendorDocuments(order.id),

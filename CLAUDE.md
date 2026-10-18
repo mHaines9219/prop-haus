@@ -156,19 +156,34 @@ not a multi-step ecommerce funnel, and not a mere inquiry form.
 
 ## 3. One-Click Checkout
 
-Checkout is a single action. Everything an order needs lives on the org's
-ORDER PROFILE ahead of time (see TASKS.md · MVP-10):
+Checkout is a single action. Everything about the PRODUCTION lives on the
+org's ORDER PROFILE ahead of time (see TASKS.md · MVP-10):
 - production/company details (legal name, DBA, entity, addresses)
 - contact info (ordering contact, accounts payable)
-- rental date defaults and default delivery address
+- delivery defaults (rental window length, default delivery address and
+  notes) that only PREFILL the cart's request form
 - insurance on file: the production's OWN COI (uploaded PDF), carrier,
   policy limits, expiry, and broker contact
 - a recorded authorization for Prop Haus to complete vendor forms with this
   information on the org's behalf
 - (later) payment method
 
-If the profile is incomplete, the cart says exactly what is missing and
-links to the profile. It never grows a checkout form of its own.
+Everything about THIS REQUEST is one short form on the cart (Oct 17 2026),
+the bare minimum every rental house needs before it can answer:
+- dates requested (start, end)
+- location (address, access notes)
+- shoot details (what is being shot, how the pieces are used; optional)
+- the project the order belongs to
+It is prefilled from the profile's delivery defaults, and the same form
+feeds every vendor's email. Vendor-specific requirements never go here;
+they are the vendor's forms (section 5).
+
+If the profile lacks the four things an order needs (legal name, ordering
+contact name and email, authorization), the SAME cart form asks for them in
+a "Your production" group, prefilled with whatever is on file, and the click
+saves them to the profile so it is asked once. The cart never bounces the
+user to the profile page. If anything is still missing the click says so
+inline; it never asks for anything a vendor does not need.
 
 User clicks once → an order is created with all cart items snapshotted.
 

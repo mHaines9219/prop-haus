@@ -145,7 +145,7 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
         </Row>
       </Section>
 
-      <Section label="Delivery defaults">
+      <Section label="Delivery defaults" note="Prefills the request form in your cart. Dates and location are set per order there.">
         <Row label="Rental window" hint="Starts the next business day">
           <div className="flex items-center gap-2">
             <input
