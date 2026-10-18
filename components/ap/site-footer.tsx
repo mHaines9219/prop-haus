@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 /**
  * Party Line footer (DESIGN.md §9.1): the binder's bottom edge. Green vinyl in
  * both themes, with the publisher's line the way a directory's spine reads
@@ -17,11 +19,19 @@ export function SiteFooter() {
             Los Angeles · Production Rental Directory
           </span>
         </div>
-        <p className="max-w-[64ch] text-[12px] leading-[18px] text-binder-foreground/70">
+        <div className="flex flex-col gap-3 md:items-end">
+          <Link
+            href="/pricing"
+            className="ink-underline self-start font-heading text-[11px] font-extrabold uppercase tracking-[0.12em] text-binder-foreground/80 hover:text-binder-foreground md:self-end"
+          >
+            Rates
+          </Link>
+          <p className="max-w-[64ch] text-[12px] leading-[18px] text-binder-foreground/70 md:text-right">
           Prop Haus is an MVP aggregator. All inventory shown belongs to and is owned by the listed
           source. Links lead to the original rental houses; items are surfaced here for discovery
           only.
-        </p>
+          </p>
+        </div>
       </div>
     </footer>
   );

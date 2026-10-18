@@ -20,18 +20,27 @@
  * WHAT IS COUNTED, AND WHY UP RATHER THAN DOWN
  * We store usage (a count that only rises) rather than remaining allowance (a
  * count that falls). lib/plans.ts explains the reasoning: changing
- * `aiSearchesPerDay` from 5 to 10 is a one-line edit with no backfill, because
+ * `aiSearches` from 5 to 10 is a one-line edit with no backfill, because
  * nothing on disk encodes the limit. The limit is applied at read time,
  * against whatever plans.ts says today.
  */
 import { createAdminClient } from './supabase/admin';
 import type { PlanTier } from './accounts';
-import { limitFor, remaining as remainingFor, usagePeriod, type MeteredMetric } from './plans';
+import {
+  limitFor,
+  remaining as remainingFor,
+  usagePeriod,
+  windowFor,
+  type MeteredMetric,
+  type UsageWindow,
+} from './plans';
 
 /** What a gate needs to decide, and what the UI needs to render "3 of 5 left". */
 export type Allowance = {
   metric: MeteredMetric;
   period: string;
+  /** How often the count resets on this plan; the UI labels "today" / "this week" from it. */
+  window: UsageWindow;
   /** Searches already consumed in this period. */
   used: number;
   /** The plan's ceiling, or null when unlimited. */
@@ -52,6 +61,7 @@ function toAllowance(
   return {
     metric,
     period,
+    window: windowFor(plan, metric),
     used,
     limit,
     remaining: remainingFor(plan, metric, used),
@@ -66,7 +76,7 @@ export async function getAllowance(
   metric: MeteredMetric,
   now = new Date(),
 ): Promise<Allowance> {
-  const period = usagePeriod(metric, now);
+  const period = usagePeriod(plan, metric, now);
   const { data, error } = await createAdminClient()
     .from('usage_counters')
     .select('count')
@@ -91,7 +101,7 @@ export async function recordUsage(
   metric: MeteredMetric,
   now = new Date(),
 ): Promise<Allowance> {
-  const period = usagePeriod(metric, now);
+  const period = usagePeriod(plan, metric, now);
   const { data, error } = await createAdminClient().rpc('increment_usage_counter', {
     p_org_id: orgId,
     p_period: period,
@@ -109,9 +119,9 @@ export async function usageSnapshot(
   plan: PlanTier,
   now = new Date(),
 ): Promise<Record<MeteredMetric, Allowance>> {
-  const [visionSearches, aiSearchesPerDay] = await Promise.all([
+  const [visionSearches, aiSearches] = await Promise.all([
     getAllowance(orgId, plan, 'visionSearches', now),
-    getAllowance(orgId, plan, 'aiSearchesPerDay', now),
+    getAllowance(orgId, plan, 'aiSearches', now),
   ]);
-  return { visionSearches, aiSearchesPerDay };
+  return { visionSearches, aiSearches };
 }

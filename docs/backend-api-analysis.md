@@ -23,7 +23,7 @@ Verified against code on `mHaines9219/sofia`, Aug 30 2026.
 - **Request:** JSON `{query?, mode?}` or multipart (`query`, `mode`, up to 6
   files ≤ 8MB — PNG/JPEG/WEBP/GIF/PDF). Query ≤ 400 chars. Attachments
   auto-promote mode; metric is `visionSearches` iff attachments present,
-  else `aiSearchesPerDay`.
+  else `aiSearches` (weekly on Browse and Directory, daily on Coordinator).
 - **Modes** (`lib/search-modes.ts`): `text` (embed + LLM rerank via
   OpenRouter, default `openai/gpt-4o-mini`), `haiku` / `sonnet` (moodboard
   interpretation via Claude Haiku 4.5, per-bucket rerank),
@@ -64,7 +64,7 @@ Verified against code on `mHaines9219/sofia`, Aug 30 2026.
   `POST /api/projects/[id]/archive` — session + org-scoped, service-role
   writes, RLS-locked tables, 404-on-foreign-org (no existence probing).
 - `GET /api/usage` — allowance snapshot per metric
-  (`visionSearches` lifetime, `aiSearchesPerDay` UTC-daily), plan limits in
+  (`visionSearches` lifetime, `aiSearches` per ISO week or UTC day by plan), plan limits in
   `lib/plans.ts`, atomic counter increments via RPC.
 
 ### Shared shapes

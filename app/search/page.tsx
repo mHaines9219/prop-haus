@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { ItemCard } from '@/components/ap/item-card';
@@ -9,9 +10,10 @@ import { PageShell } from '@/components/ap/page-shell';
 import { GridCell, SeamGrid } from '@/components/ap/seam-grid';
 import { ApiError, getJson, postForm, postJson } from '@/lib/api';
 import type { PlanTier } from '@/lib/accounts';
-import type { MeteredMetric } from '@/lib/plans';
+import { windowLabel, type MeteredMetric } from '@/lib/plans';
 import type { CardItem, MoodboardInterpretation, SearchResponse } from '@/lib/types';
 import type { Allowance } from '@/lib/usage';
+import { cn } from '@/lib/utils';
 import { SearchControls } from './search-controls';
 
 // Both the keyword endpoint (card-projected items) and the AI endpoint (full
@@ -110,6 +112,7 @@ function SearchInner() {
         <SearchControls
           initialQuery={urlQuery}
           initialEngine={wantsAI ? 'ai' : 'keyword'}
+          aiAllowance={usage.data?.metrics.aiSearches ?? null}
           onText={goText}
           onMultipart={(form) => {
             setMoodboardActive(true);
@@ -148,7 +151,11 @@ function SearchInner() {
         ) : showAi && ai.data ? (
           <AiResults data={ai.data} />
         ) : !showAi && keyword.data ? (
-          <KeywordResults data={keyword.data} onAskAI={() => goText(urlQuery, 'ai')} />
+          <KeywordResults
+            data={keyword.data}
+            onAskAI={() => goText(urlQuery, 'ai')}
+            aiExhausted={usage.data?.metrics.aiSearches.allowed === false}
+          />
         ) : (
           <EmptyPrompt />
         )}
@@ -157,7 +164,16 @@ function SearchInner() {
   );
 }
 
-function KeywordResults({ data, onAskAI }: { data: KeywordResponse; onAskAI: () => void }) {
+function KeywordResults({
+  data,
+  onAskAI,
+  aiExhausted = false,
+}: {
+  data: KeywordResponse;
+  onAskAI: () => void;
+  /** The AI allowance is spent: the curate button greys out rather than bouncing off a 402. */
+  aiExhausted?: boolean;
+}) {
   const { matches, total, query } = data;
   return (
     <>
@@ -169,7 +185,14 @@ function KeywordResults({ data, onAskAI }: { data: KeywordResponse; onAskAI: () 
         </p>
         <button
           onClick={onAskAI}
-          className="h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground"
+          disabled={aiExhausted}
+          title={aiExhausted ? 'No AI searches left on your plan' : undefined}
+          className={cn(
+            'h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
+            aiExhausted
+              ? 'cursor-not-allowed text-text-disabled line-through'
+              : 'text-text-secondary hover:border-border-strong hover:text-foreground',
+          )}
         >
           Ask AI to curate
         </button>
@@ -312,15 +335,24 @@ function ResultGrid({ matches }: { matches: CardMatch[] }) {
  */
 function AllowanceLine({ metrics }: { metrics: Record<MeteredMetric, Allowance> }) {
   const parts = [
-    { a: metrics.aiSearchesPerDay, noun: 'AI searches', suffix: ' today' },
-    { a: metrics.visionSearches, noun: 'image searches', suffix: '' },
+    { a: metrics.aiSearches, noun: 'AI searches' },
+    { a: metrics.visionSearches, noun: 'image searches' },
   ]
     .filter(({ a }) => a.limit !== null)
-    .map(({ a, noun, suffix }) => `${a.remaining} of ${a.limit} ${noun} left${suffix}`);
+    .map(({ a, noun }) => {
+      const when = windowLabel(a.window);
+      return `${a.remaining} of ${a.limit} ${noun} left${when ? ` ${when}` : ''}`;
+    });
 
   if (parts.length === 0) return null;
   return (
-    <p className="mt-3 font-mono text-[13px] leading-[18px] text-text-tertiary">{parts.join(' · ')}</p>
+    <p className="mt-3 font-mono text-[13px] leading-[18px] text-text-tertiary">
+      <span>{parts.join(' · ')}</span>
+      {' · '}
+      <Link href="/pricing" className="ink-underline text-accent-text">
+        See rates
+      </Link>
+    </p>
   );
 }
 

@@ -48,7 +48,7 @@ vi.mock('./supabase/admin', () => ({
 }));
 
 const PLAN = 'free' as const;
-const AI = 'aiSearchesPerDay' as const;
+const AI = 'aiSearches' as const;
 const VISION = 'visionSearches' as const;
 const ORG = 'org-a';
 
@@ -64,9 +64,11 @@ describe('getAllowance', () => {
   it('starts at zero used and reports the plan ceiling', async () => {
     const a = await U.getAllowance(ORG, PLAN, AI);
     expect(a.used).toBe(0);
-    expect(a.limit).toBe(5);
-    expect(a.remaining).toBe(5);
+    expect(a.limit).toBe(3);
+    expect(a.remaining).toBe(3);
     expect(a.allowed).toBe(true);
+    expect(a.window).toBe('week');
+    expect(a.period).toMatch(/^\d{4}-W\d{2}$/);
   });
 
   it('never consumes — checking is free', async () => {
@@ -81,13 +83,13 @@ describe('recordUsage', () => {
   it('consumes one and returns the standing after', async () => {
     expect((await U.recordUsage(ORG, PLAN, AI)).used).toBe(1);
     expect((await U.recordUsage(ORG, PLAN, AI)).used).toBe(2);
-    expect((await U.getAllowance(ORG, PLAN, AI)).remaining).toBe(3);
+    expect((await U.getAllowance(ORG, PLAN, AI)).remaining).toBe(1);
   });
 
   it('closes the gate exactly at the limit, not one past it', async () => {
-    for (let i = 0; i < 5; i++) await U.recordUsage(ORG, PLAN, AI);
+    for (let i = 0; i < 3; i++) await U.recordUsage(ORG, PLAN, AI);
     const a = await U.getAllowance(ORG, PLAN, AI);
-    expect(a.used).toBe(5);
+    expect(a.used).toBe(3);
     expect(a.remaining).toBe(0);
     expect(a.allowed).toBe(false);
   });
@@ -116,12 +118,31 @@ describe('isolation between metrics, orgs and periods', () => {
     expect((await U.getAllowance('org-c', PLAN, AI)).used).toBe(0);
   });
 
-  it('resets the daily metric across a day boundary', async () => {
+  it('resets the weekly metric on Monday, not at the day boundary', async () => {
+    // 2026-08-15 is a Saturday; Sunday is still the same ISO week, Monday is not.
+    const saturday = new Date('2026-08-15T23:00:00Z');
+    const sunday = new Date('2026-08-16T01:00:00Z');
+    const monday = new Date('2026-08-17T00:10:00Z');
+    await U.recordUsage(ORG, PLAN, AI, saturday);
+    expect((await U.getAllowance(ORG, PLAN, AI, sunday)).used).toBe(1);
+    expect((await U.getAllowance(ORG, PLAN, AI, monday)).used).toBe(0);
+  });
+
+  it('resets the daily metric across a day boundary on a daily plan', async () => {
     const day1 = new Date('2026-08-15T23:00:00Z');
     const day2 = new Date('2026-08-16T01:00:00Z');
-    await U.recordUsage(ORG, PLAN, AI, day1);
-    expect((await U.getAllowance(ORG, PLAN, AI, day1)).used).toBe(1);
-    expect((await U.getAllowance(ORG, PLAN, AI, day2)).used).toBe(0);
+    await U.recordUsage(ORG, 'pro', AI, day1);
+    expect((await U.getAllowance(ORG, 'pro', AI, day1)).used).toBe(1);
+    expect((await U.getAllowance(ORG, 'pro', AI, day2)).used).toBe(0);
+  });
+
+  it('a plan change mid-week starts from the other window’s own count', async () => {
+    // Weekly and daily keys never collide, so Directory usage does not spill into
+    // Coordinator’s daily count, nor the reverse.
+    const now = new Date('2026-08-12T12:00:00Z');
+    await U.recordUsage(ORG, 'directory', AI, now);
+    expect((await U.getAllowance(ORG, 'pro', AI, now)).used).toBe(0);
+    expect((await U.getAllowance(ORG, 'free', AI, now)).used).toBe(1); // same weekly key
   });
 
   it('does NOT reset the lifetime metric across a day boundary', async () => {
@@ -134,17 +155,18 @@ describe('isolation between metrics, orgs and periods', () => {
 });
 
 describe('paid plans', () => {
-  it('get a higher daily ceiling than free, not unlimited', async () => {
-    const a = await U.getAllowance(ORG, 'pro', AI);
-    expect(a.limit).toBe(10);
-    expect(a.remaining).toBe(10);
-    expect(a.allowed).toBe(true);
+  it('Directory gets 5 a week, Coordinator 5 a day; neither is unlimited', async () => {
+    const directory = await U.getAllowance(ORG, 'directory', AI);
+    expect(directory).toMatchObject({ limit: 5, remaining: 5, allowed: true, window: 'week' });
+    const pro = await U.getAllowance(ORG, 'pro', AI);
+    expect(pro).toMatchObject({ limit: 5, remaining: 5, allowed: true, window: 'day' });
+    expect(pro.period).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it('closes the gate at 10', async () => {
-    for (let i = 0; i < 10; i++) await U.recordUsage(ORG, 'pro', AI);
+  it('closes the gate at 5', async () => {
+    for (let i = 0; i < 5; i++) await U.recordUsage(ORG, 'pro', AI);
     const a = await U.getAllowance(ORG, 'pro', AI);
-    expect(a.used).toBe(10);
+    expect(a.used).toBe(5);
     expect(a.remaining).toBe(0);
     expect(a.allowed).toBe(false);
   });
@@ -154,7 +176,7 @@ describe('usageSnapshot', () => {
   it('reports both metrics in one read', async () => {
     await U.recordUsage(ORG, PLAN, AI);
     const snap = await U.usageSnapshot(ORG, PLAN);
-    expect(snap.aiSearchesPerDay.used).toBe(1);
+    expect(snap.aiSearches.used).toBe(1);
     expect(snap.visionSearches.used).toBe(0);
   });
 });

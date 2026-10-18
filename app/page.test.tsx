@@ -71,4 +71,12 @@ describe('HomePage', () => {
     expect(screen.getByText('How Prop Haus works')).toBeInTheDocument();
     expect(screen.getByTestId('site-nav')).toBeInTheDocument();
   });
+
+  it('closes with the rate card and a link to the full one', async () => {
+    catalog.catalogFacets.mockResolvedValue(facets({}));
+    render(await HomePage());
+    expect(screen.getByRole('region', { name: 'Rates' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Coordinator' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Full rate card' })).toHaveAttribute('href', '/pricing');
+  });
 });

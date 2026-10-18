@@ -4,6 +4,7 @@ import { HowItWorks } from '@/components/ap/how-it-works';
 import { PageTransition } from '@/components/ap/page-transition';
 import { CategoryShelf } from '@/components/ap/category-shelf';
 import { HeroSearch } from '@/components/ap/hero-search';
+import { PricingSection } from '@/components/ap/pricing-tiers';
 import { SiteFooter } from '@/components/ap/site-footer';
 import { SiteNav } from '@/components/ap/site-nav';
 
@@ -139,6 +140,7 @@ export default async function HomePage() {
 
           <HowItWorks />
           <CategoryShelf categories={categories} />
+          <PricingSection />
         </PageTransition>
       </main>
       <SiteFooter />

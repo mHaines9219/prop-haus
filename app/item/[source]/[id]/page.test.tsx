@@ -2,6 +2,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeCardItem, makePropItem } from '@/test/fixtures/catalog';
+import { withPlan } from '@/test/helpers/plan';
 import ItemPage from './page';
 
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
@@ -33,7 +34,7 @@ describe('ItemPage', () => {
 
   it('renders the name, vendor, category link, specs, price and actions', async () => {
     catalog.getItemBySourceId.mockResolvedValue(makePropItem());
-    render(await ItemPage(props()));
+    render(withPlan(await ItemPage(props()), 'directory'));
 
     expect(screen.getByRole('link', { name: 'Storage & Credenzas' })).toHaveAttribute(
       'href',
@@ -62,6 +63,18 @@ describe('ItemPage', () => {
     expect(outbound).toHaveAttribute('href', 'https://omegacinemaprops.com/item/12345');
     expect(outbound).toHaveAttribute('target', '_blank');
     expect(screen.queryByText(/More in/)).not.toBeInTheDocument();
+  });
+
+  it('withholds the house and the outbound link on the Browse tier', async () => {
+    catalog.getItemBySourceId.mockResolvedValue(makePropItem());
+    render(withPlan(await ItemPage(props()), 'free'));
+    expect(screen.getByText('Prop house withheld on the Browse plan')).toBeInTheDocument();
+    expect(screen.queryByText('Courtesy of Omega Cinema Props')).not.toBeInTheDocument();
+    expect(specValue('Vendor')).toHaveTextContent('Withheld');
+    expect(screen.queryByText('Omega Cinema Props')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /View on/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/listed on Directory/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'See rates' })).toHaveAttribute('href', '/pricing');
   });
 
   it('falls back to quote-on-request, drops empty rows and builds the similar query from the name', async () => {

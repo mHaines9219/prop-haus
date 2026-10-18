@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ExternalLink, ScanSearch } from 'lucide-react';
+import { ChevronLeft, ScanSearch } from 'lucide-react';
 import { getItemBySourceId, relatedCards } from '@/lib/catalog-db';
 import { SOURCE_META, type PriceUnit } from '@/lib/types';
 import { categoryName } from '@/lib/categories';
 import { AddToCart } from '@/components/ap/add-to-cart';
 import { ItemCard } from '@/components/ap/item-card';
 import { ItemGallery } from '@/components/ap/item-gallery';
-import { OutboundLink } from '@/components/ap/outbound-link';
+import { VendorCredit, VendorName, VendorOutbound } from '@/components/ap/vendor-credit';
 import { PageShell } from '@/components/ap/page-shell';
 import { GridCell, SeamGrid } from '@/components/ap/seam-grid';
 
@@ -105,9 +105,10 @@ export default async function ItemPage({
             <h1 className="text-[24px] font-semibold leading-[30px] tracking-[-0.01em] text-foreground">
               {item.name}
             </h1>
-            <p className="mt-2 font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-secondary">
-              Courtesy of {meta.name}
-            </p>
+            <VendorCredit
+              name={meta.name}
+              className="mt-2 min-h-[14px] font-mono text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-text-secondary"
+            />
 
             {item.subcategory && (
               <p className="mt-3 text-[13px] leading-[19px] text-text-tertiary">{item.subcategory}</p>
@@ -131,7 +132,9 @@ export default async function ItemPage({
                 </SpecRow>
               )}
               <SpecRow label="Category">{categoryName(item.category)}</SpecRow>
-              <SpecRow label="Vendor">{meta.name}</SpecRow>
+              <SpecRow label="Vendor">
+                <VendorName name={meta.name} />
+              </SpecRow>
               <SpecRow label="Rental">
                 {item.price ? (
                   <span className="font-semibold text-foreground">
@@ -177,16 +180,13 @@ export default async function ItemPage({
                 <ScanSearch size={16} strokeWidth={1.5} aria-hidden />
                 Find Similar
               </Link>
-              <OutboundLink
+              <VendorOutbound
+                name={meta.name}
                 href={item.sourceUrl}
                 itemId={item.id}
                 source={item.source}
-                surface="item_detail"
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border text-sm font-medium text-foreground transition-colors duration-150 hover:bg-foreground/7"
-              >
-                View on {meta.name}
-                <ExternalLink size={16} strokeWidth={1.5} aria-hidden />
-              </OutboundLink>
+              />
             </div>
           </div>
         </div>

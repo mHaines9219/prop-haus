@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { useState } from 'react';
+import { PlanProvider } from '@/lib/plan-view';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // One client per browser session; created lazily so it isn't shared across
@@ -22,7 +23,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem={false}>
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      <QueryClientProvider client={client}>
+        <PlanProvider>{children}</PlanProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

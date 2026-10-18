@@ -4,8 +4,8 @@ import { parseAttachments } from '@/lib/upload';
 import { runSearch } from '@/lib/search-modes';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
 import { currentSession } from '@/lib/session';
-import { getAllowance, recordUsage } from '@/lib/usage';
-import type { MeteredMetric } from '@/lib/plans';
+import { getAllowance, recordUsage, type Allowance } from '@/lib/usage';
+import { windowLabel, windowResetHint, type MeteredMetric } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,11 +13,11 @@ export const dynamic = 'force-dynamic';
 const MAX_QUERY = 400;
 
 /** Copy for a spent allowance. Named per metric because they reset differently. */
-const EXHAUSTED: Record<MeteredMetric, (limit: number) => string> = {
-  aiSearchesPerDay: (limit) =>
-    `You have used all ${limit} AI searches on your plan today. Keyword search stays available, and the count resets at midnight UTC.`,
-  visionSearches: (limit) =>
-    `You have used all ${limit} image searches included with your plan. Text-based AI search still works.`,
+const EXHAUSTED: Record<MeteredMetric, (a: Allowance & { limit: number }) => string> = {
+  aiSearches: (a) =>
+    `You have used all ${a.limit} AI searches on your plan ${windowLabel(a.window)}. Keyword search stays available, and ${windowResetHint(a.window)}.`,
+  visionSearches: (a) =>
+    `You have used all ${a.limit} image searches included with your plan. Text-based AI search still works.`,
 };
 
 function bad(error: string, status = 400) {
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   // The metric is keyed off `attachments.length`, not `mode`. A vision-capable
   // mode with no image attached is just a text search and should be charged as one.
   const metric: MeteredMetric =
-    attachments.length > 0 ? 'visionSearches' : 'aiSearchesPerDay';
+    attachments.length > 0 ? 'visionSearches' : 'aiSearches';
   // The AI search is the only metered route — browse and keyword are local
   // scoring and stay public. Metering an anonymous caller is meaningless: there
   // is nobody to charge, so an unauthenticated AI search would be unlimited and
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     // later does not help within the period, and the client renders an upgrade
     // prompt rather than a "try again" one.
     return NextResponse.json(
-      { error: EXHAUSTED[metric](allowance.limit), metric, usage: allowance },
+      { error: EXHAUSTED[metric]({ ...allowance, limit: allowance.limit }), metric, usage: allowance },
       { status: 402 },
     );
   }

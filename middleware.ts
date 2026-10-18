@@ -85,6 +85,9 @@ export const config = {
     "/api/clip",
     "/api/usage",
     "/api/search",
+    // Who am I, and the admin's view-as switch: both read the session.
+    "/api/me",
+    "/api/admin/:path*",
     // /orders and /account read the session via requireOrgId, and these API
     // routes call currentSession()/currentOrgId(). They were all missing from
     // the matcher once, so their tokens expired mid-session. (/jobs is gone:

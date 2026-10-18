@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Allowance } from '@/lib/usage';
 import { SearchControls } from './search-controls';
 
 // The results-page search bar: text goes up as (query, engine), a moodboard
@@ -319,5 +320,31 @@ describe('moodboard attachments', () => {
     await user.click(submitButton(container));
     expect(onMultipart).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('SearchControls with the AI allowance spent', () => {
+  const spent = (): Allowance => ({ metric: 'aiSearches', period: '2026-W42', window: 'week', used: 5, limit: 5, remaining: 0, allowed: false });
+
+  it('greys out Ask AI, disables it, and explains in the hint', () => {
+    render(<SearchControls initialQuery="" initialEngine="keyword" onText={vi.fn()} onMultipart={vi.fn()} aiAllowance={spent()} />);
+    const chip = screen.getByRole('button', { name: 'Ask AI' });
+    expect(chip).toBeDisabled();
+    expect(chip).toHaveAttribute('title', 'No AI searches left this week');
+    expect(screen.getByText(/AI searches used up this week/)).toHaveTextContent(/comes back Monday/);
+  });
+
+  it('submits an armed engine as a keyword search and labels the button Search', async () => {
+    const onText = vi.fn();
+    render(<SearchControls initialQuery="lamp" initialEngine="ai" onText={onText} onMultipart={vi.fn()} aiAllowance={spent()} />);
+    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
+    fireEvent.submit(screen.getByRole('searchbox', { name: 'Search props' }).closest('form')!);
+    expect(onText).toHaveBeenCalledWith('lamp', 'keyword');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('names midnight on a daily plan', () => {
+    render(<SearchControls initialQuery="" initialEngine="keyword" onText={vi.fn()} onMultipart={vi.fn()} aiAllowance={{ ...spent(), window: 'day' }} />);
+    expect(screen.getByText(/AI searches used up today/)).toHaveTextContent(/at midnight UTC/);
   });
 });

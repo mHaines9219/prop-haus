@@ -46,7 +46,11 @@ export const HEARD_ABOUT_US = [
 export type HeardAboutUs = (typeof HEARD_ABOUT_US)[number];
 
 /** Billing/gating tier. Which features each tier unlocks is defined in lib/plans.ts (code, not DB). */
-export const PLAN_TIERS = ['free', 'pro'] as const;
+// Order matters for the admin's view-as control: least to most entitled.
+// free = Browse, directory = Directory, pro = Coordinator on the rate card
+// (lib/pricing.ts). The DB check constraint lists the same three values
+// (supabase/migrations/20261018120000_plan_directory_tier.sql).
+export const PLAN_TIERS = ['free', 'directory', 'pro'] as const;
 export type PlanTier = (typeof PLAN_TIERS)[number];
 
 // --- progressive-profiling enums (optional firmographics, for segmentation/upsell) ---

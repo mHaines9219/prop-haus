@@ -1,7 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { useAiSearchStanding } from '@/lib/plan-view';
+import { windowLabel } from '@/lib/plans';
 import { cn } from '@/lib/utils';
 import { AIPromptModal } from './ai-prompt-modal';
 
@@ -17,9 +20,14 @@ const ENGINE_STORAGE_KEY = 'prophaus.searchEngine';
  *   in globals.css, same in both themes; an ink inset when armed) | SEARCH,
  *   the accent phone-number block that caps the bar
  * - Below: a listing-line hint
+ *
+ * When the org has spent its AI searches for the window (lib/plan-view.tsx),
+ * the AI MODE tab is greyed out and disabled, a saved AI engine submits as a
+ * keyword search instead, and the hint says when the count comes back.
  */
 export function HeroSearch() {
   const router = useRouter();
+  const { exhausted, allowance } = useAiSearchStanding();
   const [value, setValue] = useState('');
   const [engine, setEngine] = useState<Engine>('keyword');
   const [focused, setFocused] = useState(false);
@@ -48,12 +56,14 @@ export function HeroSearch() {
     e.preventDefault();
     const q = value.trim();
     if (!q) return;
-    if (engine === 'ai') {
+    if (engine === 'ai' && !exhausted) {
       setModalOpen(true);
       return;
     }
     router.push(`/search?q=${encodeURIComponent(q)}`);
   }
+
+  const spentWhen = allowance ? windowLabel(allowance.window) : '';
 
   function handleAISubmit({ inspiration, budget }: { inspiration: string; budget: number | null }) {
     setModalOpen(false);
@@ -108,7 +118,9 @@ export function HeroSearch() {
             {/* AI MODE: the rainbow tab; .ai-mode reads aria-pressed for the armed state */}
             <button
               type="button"
-              aria-pressed={engine === 'ai'}
+              aria-pressed={engine === 'ai' && !exhausted}
+              disabled={exhausted}
+              title={exhausted ? `No AI searches left ${spentWhen}` : undefined}
               onClick={() => {
                 if (engine === 'ai') {
                   setEngine('keyword');
@@ -134,8 +146,29 @@ export function HeroSearch() {
 
         {/* Hint */}
         <p className="listing mt-3">
-          <span>Attach a PDF or moodboard</span>
-          <span>Or describe it and let AI mode find it</span>
+          {exhausted ? (
+            <>
+              <span>
+                AI searches used up {spentWhen}
+                {allowance && (
+                  <>
+                    {' · '}
+                    {allowance.limit} per {allowance.window}
+                  </>
+                )}
+              </span>
+              <span>
+                <Link href="/pricing" className="ink-underline text-accent-text">
+                  See rates
+                </Link>
+              </span>
+            </>
+          ) : (
+            <>
+              <span>Attach a PDF or moodboard</span>
+              <span>Or describe it and let AI mode find it</span>
+            </>
+          )}
         </p>
       </form>
 

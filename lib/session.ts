@@ -1,7 +1,9 @@
 import { cache } from 'react';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from './supabase/server';
 import { PLAN_TIERS, type PlanTier } from './accounts';
+import { isAdminEmail, parseViewAs, VIEW_AS_COOKIE } from './admin';
 
 /**
  * Who is asking, and what are they entitled to.
@@ -20,7 +22,13 @@ import { PLAN_TIERS, type PlanTier } from './accounts';
 export type Session = {
   userId: string;
   orgId: string;
+  /** The tier every gate reads. For an admin viewing as another tier, that tier. */
   plan: PlanTier;
+  /** The org's real tier, untouched by masquerade. */
+  actualPlan: PlanTier;
+  email: string | null;
+  /** On the ADMIN_EMAILS allowlist (lib/admin.ts); may masquerade. */
+  isAdmin: boolean;
 };
 
 function isPlanTier(v: unknown): v is PlanTier {
@@ -68,7 +76,22 @@ export const currentSession = cache(async (): Promise<Session | null> => {
       ? ((org as { plan: PlanTier }).plan satisfies PlanTier)
       : 'free';
 
-  return { userId: user.id, orgId: data.org_id as string, plan };
+  // Masquerade: an admin viewing the site as another tier. The cookie is
+  // read only after the allowlist check, so for everyone else it is never
+  // consulted. Every gate downstream reads `plan`, so the admin sees exactly
+  // what a member of that tier sees, usage counters included.
+  const email = user.email ?? null;
+  const isAdmin = isAdminEmail(email);
+  const viewAs = isAdmin ? parseViewAs((await cookies()).get(VIEW_AS_COOKIE)?.value) : null;
+
+  return {
+    userId: user.id,
+    orgId: data.org_id as string,
+    plan: viewAs ?? plan,
+    actualPlan: plan,
+    email,
+    isAdmin,
+  };
 });
 
 /** The owning organization, or null when signed out. */

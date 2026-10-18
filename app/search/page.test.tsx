@@ -49,8 +49,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 const allowance = (over: Partial<Allowance> = {}): Allowance => ({
-  metric: 'aiSearchesPerDay',
-  period: '2026-09-02',
+  metric: 'aiSearches',
+  period: '2026-W36',
+  window: 'week',
   used: 2,
   limit: 5,
   remaining: 3,
@@ -61,8 +62,8 @@ const allowance = (over: Partial<Allowance> = {}): Allowance => ({
 const usageBody = (ai: Partial<Allowance> = {}, vision: Partial<Allowance> = {}) => ({
   plan: 'free',
   metrics: {
-    aiSearchesPerDay: allowance(ai),
-    visionSearches: allowance({ metric: 'visionSearches', period: 'lifetime', used: 0, limit: null, remaining: null, ...vision }),
+    aiSearches: allowance(ai),
+    visionSearches: allowance({ metric: 'visionSearches', period: 'lifetime', window: 'lifetime', used: 0, limit: null, remaining: null, ...vision }),
   },
 });
 
@@ -119,7 +120,7 @@ describe('without a query', () => {
     const fetchMock = stubRoutes();
     renderPage();
     expect(screen.getByText('Start a search')).toBeInTheDocument();
-    await screen.findByText('3 of 5 AI searches left today');
+    await screen.findByText('3 of 5 AI searches left this week');
     expect(calls(fetchMock, '/api/keyword')).toHaveLength(0);
     expect(calls(fetchMock, '/api/search')).toHaveLength(0);
   });
@@ -127,7 +128,7 @@ describe('without a query', () => {
   it('joins every metered allowance and omits unlimited ones', async () => {
     stubRoutes({ usage: () => json(usageBody({}, { limit: 3, remaining: 1 })) });
     renderPage();
-    expect(await screen.findByText('3 of 5 AI searches left today · 1 of 3 image searches left')).toBeInTheDocument();
+    expect(await screen.findByText('3 of 5 AI searches left this week · 1 of 3 image searches left')).toBeInTheDocument();
   });
 
   it('shows no counter on an unlimited plan', async () => {
@@ -157,7 +158,8 @@ describe('keyword search', () => {
     expect(screen.getByText('Mid-century walnut credenza')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Mid-century walnut credenza/ })).toHaveAttribute('href', '/item/omega/12345');
     expect(screen.getByRole('img', { name: 'Mid-century walnut credenza' })).toBeInTheDocument();
-    expect(screen.getByText('Omega Cinema Props')).toBeInTheDocument();
+    // The page is rendered without a plan provider, which is the free view: the house is withheld.
+    expect(screen.getByText('Prop house withheld')).toBeInTheDocument();
   });
 
   it('shows the searching state while the request is open', () => {
@@ -189,6 +191,15 @@ describe('keyword search', () => {
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Ask AI to curate' }));
     expect(nav.router.push).toHaveBeenCalledWith('/search?q=credenza&ai=1');
+  });
+
+  it('greys out the curate button once the AI allowance is spent', async () => {
+    nav.searchParams = new URLSearchParams('q=credenza');
+    stubRoutes({ usage: () => json(usageBody({ used: 3, limit: 3, remaining: 0, allowed: false })) });
+    renderPage();
+    const curate = await screen.findByRole('button', { name: 'Ask AI to curate' });
+    await waitFor(() => expect(curate).toBeDisabled());
+    expect(nav.router.push).not.toHaveBeenCalled();
   });
 
   it('navigates on a new text search', async () => {
@@ -246,7 +257,7 @@ describe('AI text search', () => {
     nav.searchParams = new URLSearchParams('q=loft&ai=1');
     stubRoutes();
     renderPage();
-    expect(await screen.findByText('2 of 5 AI searches left today')).toBeInTheDocument();
+    expect(await screen.findByText('2 of 5 AI searches left this week')).toBeInTheDocument();
   });
 
   it('shows the zero-result state', async () => {
@@ -268,7 +279,7 @@ describe('AI text search', () => {
     expect(await screen.findByText('Search limit reached')).toBeInTheDocument();
     expect(screen.getByText('Daily AI search limit reached')).toBeInTheDocument();
     await waitFor(() => expect(calls(fetchMock, '/api/usage').length).toBeGreaterThanOrEqual(2));
-    expect(await screen.findByText('0 of 5 AI searches left today')).toBeInTheDocument();
+    expect(await screen.findByText('0 of 5 AI searches left this week')).toBeInTheDocument();
   });
 
   it('shows the generic error for other failures', async () => {

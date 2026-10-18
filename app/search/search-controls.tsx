@@ -3,7 +3,9 @@
 import { ImagePlus, Search, Sparkles, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { windowLabel } from '@/lib/plans';
 import { SEARCH_MODES, type SearchMode } from '@/lib/types';
+import type { Allowance } from '@/lib/usage';
 import { cn } from '@/lib/utils';
 import { AIPromptModal } from '@/components/ap/ai-prompt-modal';
 
@@ -33,19 +35,28 @@ const MODE_HINT: Record<SearchMode, string> = {
  * Ask AI chip (red means the live engine is armed), and a moodboard attach that
  * routes to vision search. Text submits navigate through the parent; moodboard
  * submits hand FormData up so files survive without a route change.
+ *
+ * `aiAllowance` is the org's AI search standing. Once it is spent the Ask AI
+ * chip is greyed out and disabled, an armed engine submits as keyword, and the
+ * hint says when the count comes back. Moodboard (vision) search is metered
+ * separately and is not affected here.
  */
 export function SearchControls({
   initialQuery,
   initialEngine,
   onText,
   onMultipart,
+  aiAllowance = null,
 }: {
   initialQuery: string;
   initialEngine: Engine;
   onText: (query: string, engine: Engine, budget?: number | null) => void;
   onMultipart: (form: FormData) => void;
+  aiAllowance?: Allowance | null;
 }) {
   const reduce = useReducedMotion();
+  const aiExhausted = aiAllowance?.allowed === false;
+  const spentWhen = aiAllowance ? windowLabel(aiAllowance.window) : '';
   const [value, setValue] = useState(initialQuery);
   const [engine, setEngine] = useState<Engine>(initialEngine);
   const [mode, setMode] = useState<SearchMode>('haiku');
@@ -113,12 +124,12 @@ export function SearchControls({
     }
 
     // AI engine with no files: open the modal so the user can add context and budget.
-    if (engine === 'ai') {
+    if (engine === 'ai' && !aiExhausted) {
       setModalOpen(true);
       return;
     }
 
-    onText(q, engine);
+    onText(q, aiExhausted ? 'keyword' : engine);
   }
 
   const hasFiles = files.length > 0;
@@ -188,7 +199,9 @@ export function SearchControls({
         {!hasFiles && (
           <button
             type="button"
-            aria-pressed={engine === 'ai'}
+            aria-pressed={engine === 'ai' && !aiExhausted}
+            disabled={aiExhausted}
+            title={aiExhausted ? `No AI searches left ${spentWhen}` : undefined}
             onClick={() => {
               if (engine === 'ai') {
                 setEngine('keyword');
@@ -200,9 +213,11 @@ export function SearchControls({
             aria-label="Ask AI"
             className={cn(
               'flex h-9 shrink-0 items-center rounded-md border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:px-3',
-              engine === 'ai'
-                ? 'border-accent text-accent-text'
-                : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary',
+              aiExhausted
+                ? 'cursor-not-allowed border-border text-text-disabled line-through'
+                : engine === 'ai'
+                  ? 'border-accent text-accent-text'
+                  : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary',
             )}
           >
             <Sparkles size={16} strokeWidth={1.5} aria-hidden className="sm:hidden" />
@@ -214,7 +229,7 @@ export function SearchControls({
           type="submit"
           className="h-10 shrink-0 rounded-md border border-border px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:border-border-strong hover:text-foreground active:scale-[0.98]"
         >
-          {hasFiles || engine === 'ai' ? 'Ask AI' : 'Search'}
+          {hasFiles || (engine === 'ai' && !aiExhausted) ? 'Ask AI' : 'Search'}
         </button>
       </motion.div>
 
@@ -272,9 +287,13 @@ export function SearchControls({
         </div>
       ) : (
         <p className="mt-3 text-[13px] leading-[19px] text-text-tertiary">
-          {engine === 'ai'
-            ? 'Interprets your brief and curates a set.'
-            : 'Exact metadata matches, instant. Attach a moodboard for vision search.'}
+          {aiExhausted
+            ? `AI searches used up ${spentWhen}. Keyword search stays open; the count comes back ${
+                aiAllowance?.window === 'day' ? 'at midnight UTC' : 'Monday'
+              }.`
+            : engine === 'ai'
+              ? 'Interprets your brief and curates a set.'
+              : 'Exact metadata matches, instant. Attach a moodboard for vision search.'}
         </p>
       )}
     </form>
