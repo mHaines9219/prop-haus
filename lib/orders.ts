@@ -42,6 +42,8 @@ export type Order = {
   /** Snapshotted at checkout so emails and forms read the order, not the live profile. */
   deliveryAddress?: Address;
   deliveryNotes?: string;
+  /** From the cart's request form: what is being shot and how the pieces are used. */
+  shootDetails?: string;
   totalCents?: number;
   items: OrderItem[];
   createdAt: string;
@@ -68,6 +70,7 @@ export type CreateOrderInput = {
   rentalEnd?: string;
   deliveryAddress?: Address;
   deliveryNotes?: string;
+  shootDetails?: string;
   idempotencyKey: string;
 };
 
@@ -86,6 +89,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       rental_end: input.rentalEnd ?? null,
       delivery_address: input.deliveryAddress ?? null,
       delivery_notes: input.deliveryNotes ?? null,
+      shoot_details: input.shootDetails ?? null,
       idempotency_key: input.idempotencyKey,
     })
     .select('id')
@@ -284,6 +288,7 @@ type OrderRow = {
   rental_end: string | null;
   delivery_address: Address | null;
   delivery_notes: string | null;
+  shoot_details?: string | null;
   total_cents: number | null;
   created_at: string;
   updated_at: string;
@@ -318,6 +323,7 @@ function toOrder(r: OrderRow): Order {
     ...(r.rental_end ? { rentalEnd: r.rental_end } : {}),
     ...(r.delivery_address ? { deliveryAddress: r.delivery_address } : {}),
     ...(r.delivery_notes ? { deliveryNotes: r.delivery_notes } : {}),
+    ...(r.shoot_details ? { shootDetails: r.shoot_details } : {}),
     ...(r.total_cents !== null ? { totalCents: r.total_cents } : {}),
     items: (r.order_items ?? []).map(toOrderItem),
     createdAt: r.created_at,

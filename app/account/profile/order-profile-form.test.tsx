@@ -190,14 +190,14 @@ describe('readiness summary', () => {
     renderForm(EMPTY_ORDER_PROFILE, NOT_READY);
     expect(
       screen.getByText(
-        '5 things missing before one-click: Company legal name, Ordering contact name, Ordering contact email, Delivery address, Authorization to complete forms',
+        '4 things missing before one-click: Company legal name, Ordering contact name, Ordering contact email, Authorization to complete forms',
       ),
     ).toBeInTheDocument();
   });
 
   it('uses the singular for one missing item', () => {
-    renderForm(READY_PROFILE, { ready: false, missing: ['Delivery address'] });
-    expect(screen.getByText('1 thing missing before one-click: Delivery address')).toBeInTheDocument();
+    renderForm(READY_PROFILE, { ready: false, missing: ['Authorization to complete forms'] });
+    expect(screen.getByText('1 thing missing before one-click: Authorization to complete forms')).toBeInTheDocument();
   });
 
   it('shows the ready token when nothing is missing', () => {

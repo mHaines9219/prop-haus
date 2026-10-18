@@ -42,6 +42,8 @@ export type ComposeInput = {
   rentalEnd?: string;
   deliveryAddress?: Address;
   deliveryNotes?: string;
+  /** From the cart's request form; one section in every vendor's email when present. */
+  shootDetails?: string;
   profile: OrderProfile;
   vendors: Record<string, Vendor>;
   minimums?: Record<string, VendorInsuranceMinimum>;
@@ -117,6 +119,7 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
 
   const address = formatAddress(input.deliveryAddress);
   const where = [address, input.deliveryNotes].filter((s): s is string => Boolean(s));
+  const shoot = input.shootDetails?.trim();
 
   const signature = [
     contact.name,
@@ -134,6 +137,7 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
     ['Items', ...items.map((it, i) => `${i + 1}. ${it.name}\n   ${it.sourceUrl}`)].join('\n'),
     `Rental window\n${window}`,
     where.length ? `Deliver to\n${where.join('\n')}` : 'Deliver to\nTo be confirmed',
+    ...(shoot ? [`Shoot details\n${shoot}`] : []),
     `Paperwork\n${paperwork.join('\n')}`,
     ask,
     signature.join('\n'),
@@ -146,6 +150,7 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
       section('Items', items.map(itemHtml).join('\n')),
       section('Rental window', `<p>${escapeHtml(window)}</p>`),
       section('Deliver to', `<p>${where.length ? where.map(escapeHtml).join('<br>') : 'To be confirmed'}</p>`),
+      ...(shoot ? [section('Shoot details', `<p>${escapeHtml(shoot).replace(/\n/g, '<br>')}</p>`)] : []),
       section('Paperwork', `<p>${paperwork.map(escapeHtml).join('<br>')}</p>`),
       `<p>${escapeHtml(ask)}</p>`,
       `<p>${signature.map(escapeHtml).join('<br>')}</p>`,

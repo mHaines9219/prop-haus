@@ -123,7 +123,7 @@ describe('AccountPage', () => {
     render(await AccountPage());
     const link = screen.getByRole('link', { name: /missing before one-click/ });
     expect(link).toHaveAttribute('href', '/account/profile');
-    expect(link).toHaveTextContent('5 things missing before one-click →');
+    expect(link).toHaveTextContent('4 things missing before one-click →');
   });
 
   it('uses the singular when exactly one thing is missing', async () => {

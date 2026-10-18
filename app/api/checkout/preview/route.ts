@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { currentSession } from '@/lib/session';
-import { normalizeAddress, orderDefaults, orderReadiness } from '@/lib/order-profile';
+import {
+  applyProductionPatch,
+  normalizeAddress,
+  normalizeProductionPatch,
+  orderDefaults,
+  orderReadiness,
+} from '@/lib/order-profile';
 import { getOrderProfile } from '@/lib/order-profile-store';
 import { getVendorMinimums } from '@/lib/insurance/minimums';
 import { composeOutreach } from '@/lib/outreach/compose';
@@ -13,6 +19,9 @@ type PreviewBody = {
   rentalEnd?: string;
   deliveryAddress?: unknown;
   deliveryNotes?: string;
+  shootDetails?: unknown;
+  /** The cart's production fields, applied for the preview but not saved. */
+  production?: unknown;
 };
 
 /**
@@ -28,7 +37,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'cart is empty' }, { status: 400 });
   }
 
-  const profile = await getOrderProfile(session.orgId);
+  const stored = await getOrderProfile(session.orgId);
+  const production = normalizeProductionPatch(body.production);
+  const profile = production ? applyProductionPatch(stored, production, { userId: session.userId }) : stored;
   const readiness = orderReadiness(profile);
   const defaults = orderDefaults(profile);
   const vendorIds = [...new Set(body.lines.map((l) => l.source))];
@@ -40,6 +51,7 @@ export async function POST(req: Request) {
     rentalEnd: body.rentalEnd || defaults.rentalEnd,
     deliveryAddress: normalizeAddress(body.deliveryAddress) ?? defaults.deliveryAddress,
     deliveryNotes: body.deliveryNotes?.trim() || defaults.deliveryNotes,
+    shootDetails: typeof body.shootDetails === 'string' ? body.shootDetails.trim() || undefined : undefined,
     profile,
     vendors: VENDORS,
     minimums,

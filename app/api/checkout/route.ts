@@ -2,8 +2,15 @@ import { NextResponse, after } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { createOrder, type CartLineInput } from '@/lib/orders';
 import { getProject } from '@/lib/projects';
-import { normalizeAddress, orderDefaults, orderReadiness } from '@/lib/order-profile';
-import { getOrderProfile } from '@/lib/order-profile-store';
+import {
+  applyProductionPatch,
+  normalizeAddress,
+  normalizeProductionPatch,
+  orderDefaults,
+  orderReadiness,
+  orderRequestReadiness,
+} from '@/lib/order-profile';
+import { getOrderProfile, updateOrderProfile } from '@/lib/order-profile-store';
 import { paymentProvider } from '@/lib/payments/provider';
 import { recordEvents } from '@/lib/analytics';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
@@ -17,6 +24,14 @@ type CheckoutBody = {
   rentalEnd?: string;
   deliveryAddress?: unknown;
   deliveryNotes?: string;
+  /** From the cart's request form: what is being shot and how the pieces are used. */
+  shootDetails?: unknown;
+  /**
+   * The production fields the cart asked for because the profile lacked them
+   * (legal name, ordering contact, authorization). Saved to the profile first,
+   * so the next cart does not ask again.
+   */
+  production?: unknown;
   /** Vendor emails the user edited on the cart: { vendorId, subject?, bodyText? }[]. */
   messages?: unknown;
   /** The project the order is for (its Jobs section lists it). Optional. */
@@ -39,8 +54,14 @@ export async function POST(req: Request) {
 
   // One-click-safe even without the UI: the profile fills whatever the body
   // leaves out, and an incomplete profile refuses rather than placing a half
-  // order.
-  const profile = await getOrderProfile(session.orgId);
+  // order. The cart's production fields land on the profile before that
+  // check, so filling them in the cart is the same as filling the profile.
+  let profile = await getOrderProfile(session.orgId);
+  const production = normalizeProductionPatch(body.production);
+  if (production) {
+    profile = applyProductionPatch(profile, production, { userId: session.userId });
+    await updateOrderProfile(session.orgId, profile);
+  }
   const readiness = orderReadiness(profile);
   if (!readiness.ready) {
     return NextResponse.json(
@@ -63,14 +84,31 @@ export async function POST(req: Request) {
     projectId = project.id;
   }
 
+  // The request itself: what the cart form asked for, with the profile's
+  // delivery defaults filling anything the body left out. Every vendor needs
+  // the dates and a location, so a request without them is refused the same
+  // way an incomplete profile is — the cart checks this first, this is the
+  // backstop.
+  const request = {
+    rentalStart: str(body.rentalStart) || defaults.rentalStart,
+    rentalEnd: str(body.rentalEnd) || defaults.rentalEnd,
+    deliveryAddress: normalizeAddress(body.deliveryAddress) ?? defaults.deliveryAddress,
+    deliveryNotes: str(body.deliveryNotes) || defaults.deliveryNotes,
+    shootDetails: str(body.shootDetails, SHOOT_DETAILS_MAX),
+  };
+  const requestReadiness = orderRequestReadiness(request);
+  if (!requestReadiness.ready) {
+    return NextResponse.json(
+      { error: 'request is incomplete', missing: requestReadiness.missing },
+      { status: 422 },
+    );
+  }
+
   const order = await createOrder({
     orgId: session.orgId,
     projectId,
     lines: body.lines,
-    rentalStart: body.rentalStart || defaults.rentalStart,
-    rentalEnd: body.rentalEnd || defaults.rentalEnd,
-    deliveryAddress: normalizeAddress(body.deliveryAddress) ?? defaults.deliveryAddress,
-    deliveryNotes: body.deliveryNotes?.trim() || defaults.deliveryNotes,
+    ...request,
     idempotencyKey: body.idempotencyKey,
   });
 
@@ -122,4 +160,13 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ id: order.id }, { status: 201 });
+}
+
+const SHOOT_DETAILS_MAX = 4000;
+
+/** A trimmed string from untrusted JSON, or undefined when blank or not a string. */
+function str(v: unknown, max = 500): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return t ? t.slice(0, max) : undefined;
 }

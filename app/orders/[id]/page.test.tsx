@@ -67,6 +67,7 @@ describe('OrderPage', () => {
       id: 'abcdef12-3456',
       status: 'processing',
       deliveryNotes: 'Loading dock B, ask for Sam',
+      shootDetails: 'Two-day commercial shoot, living room set',
       items: [
         makeOrderItem({ id: 'o1', vendor: 'Omega Cinema Props', status: 'confirmed', name: 'Credenza' }),
         makeOrderItem({ id: 'o2', vendor: 'Omega Cinema Props', status: 'pending', name: 'Lamp' }),
@@ -82,11 +83,13 @@ describe('OrderPage', () => {
     expect(screen.getByText('4 items from 2 vendors')).toBeInTheDocument();
     expect(screen.getByText(/September \d+, 2026/)).toBeInTheDocument();
 
-    expect(screen.getByText('Rental window')).toBeInTheDocument();
+    expect(screen.getByText('Request')).toBeInTheDocument();
     expect(screen.getByText('2026-09-07')).toBeInTheDocument();
     expect(screen.getByText('2026-09-14')).toBeInTheDocument();
     expect(screen.getByText('4100 W Alameda Ave, Burbank, CA 91505')).toBeInTheDocument();
     expect(screen.getByText('Loading dock B, ask for Sam')).toBeInTheDocument();
+    expect(screen.getByText('Shoot details')).toBeInTheDocument();
+    expect(screen.getByText('Two-day commercial shoot, living room set')).toBeInTheDocument();
 
     expect(screen.getByText('1 of 3 confirmed · 1 pending · 1 unavailable')).toBeInTheDocument();
     expect(screen.getByText('1 of 1 confirmed')).toBeInTheDocument();
@@ -137,7 +140,7 @@ describe('OrderPage', () => {
     });
     jobs.getJobDetail.mockResolvedValue(detailFor(order));
     render(await OrderPage(props()));
-    expect(screen.queryByText('Rental window')).not.toBeInTheDocument();
+    expect(screen.queryByText('Request')).not.toBeInTheDocument();
     expect(screen.getByText('1 item from 1 vendor')).toBeInTheDocument();
   });
 

@@ -9,6 +9,10 @@ import {
   normalizeOrderProfile,
   orderDefaults,
   orderReadiness,
+  orderRequestReadiness,
+  applyProductionPatch,
+  normalizeProductionPatch,
+  productionSummary,
   type OrderProfile,
 } from './order-profile';
 
@@ -31,7 +35,6 @@ describe('orderReadiness', () => {
         'Company legal name',
         'Ordering contact name',
         'Ordering contact email',
-        'Delivery address',
         'Authorization to complete forms',
       ],
     });
@@ -41,20 +44,79 @@ describe('orderReadiness', () => {
     expect(orderReadiness(READY)).toEqual({ ready: true, missing: [] });
   });
 
-  it('accepts a default window plus delivery notes in place of an address', () => {
-    const p: OrderProfile = {
-      ...READY,
-      defaults: { rentalWindowDays: 3, deliveryNotes: 'Stage 4 loading dock, ask for Sam' },
-    };
-    expect(orderReadiness(p).ready).toBe(true);
-    expect(orderReadiness({ ...p, defaults: { deliveryNotes: 'dock' } }).missing).toEqual([
-      'Delivery address',
-    ]);
+  it('does not need delivery defaults: the cart form asks for dates and location per order', () => {
+    expect(orderReadiness({ ...READY, defaults: {} })).toEqual({ ready: true, missing: [] });
+  });
+});
+
+describe('the production half of the cart form', () => {
+  it('summarises what the profile already has, without blanks', () => {
+    expect(productionSummary(EMPTY_ORDER_PROFILE)).toEqual({ formsOnBehalf: false });
+    expect(productionSummary({ ...READY, contacts: { ordering: { name: 'Sam Reyes', email: 'sam@nocturne.example', phone: '310' } } })).toEqual({
+      legalName: 'Nocturne Pictures LLC',
+      contactName: 'Sam Reyes',
+      contactEmail: 'sam@nocturne.example',
+      contactPhone: '310',
+      formsOnBehalf: true,
+    });
   });
 
-  it('treats a partial address as missing', () => {
-    const p: OrderProfile = { ...READY, defaults: { deliveryAddress: { line1: '4100 W Alameda Ave' } } };
-    expect(orderReadiness(p).missing).toEqual(['Delivery address']);
+  it('normalizes the body: trims, drops blanks and junk, and only ever grants authorization', () => {
+    expect(normalizeProductionPatch(undefined)).toBeUndefined();
+    expect(normalizeProductionPatch({ legalName: '  ', formsOnBehalf: false, junk: 1 })).toBeUndefined();
+    expect(normalizeProductionPatch({ legalName: ' Acme ', contactEmail: 'a@b.c', formsOnBehalf: 'yes' })).toEqual({
+      legalName: 'Acme',
+      contactEmail: 'a@b.c',
+    });
+    expect(normalizeProductionPatch({ formsOnBehalf: true })).toEqual({ formsOnBehalf: true });
+  });
+
+  it('writes the patch over the profile and stamps a first authorization', () => {
+    const now = new Date('2026-10-17T20:00:00Z');
+    const next = applyProductionPatch(
+      { ...EMPTY_ORDER_PROFILE, contacts: { ordering: { phone: '310' } } },
+      { legalName: 'Acme', contactName: 'Sam', contactEmail: 'sam@acme.example', formsOnBehalf: true },
+      { userId: 'u-1', now },
+    );
+    expect(next.company).toEqual({ legalName: 'Acme' });
+    expect(next.contacts.ordering).toEqual({ name: 'Sam', email: 'sam@acme.example', phone: '310' });
+    expect(next.authorization).toEqual({ formsOnBehalf: true, acceptedAt: now.toISOString(), acceptedByUserId: 'u-1' });
+  });
+
+  it('keeps an existing authorization stamp and everything the patch does not mention', () => {
+    const next = applyProductionPatch(READY, { contactPhone: '310' }, { userId: 'u-2' });
+    expect(next.authorization).toEqual(READY.authorization);
+    expect(next.company).toEqual(READY.company);
+    expect(next.contacts.ordering).toEqual({ name: 'Sam Reyes', email: 'sam@nocturne.example', phone: '310' });
+    expect(next.defaults).toEqual(READY.defaults);
+  });
+});
+
+describe('orderRequestReadiness', () => {
+  const address = { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' };
+
+  it('is ready with both dates and a full address; shoot details are optional', () => {
+    expect(orderRequestReadiness({ rentalStart: '2026-09-07', rentalEnd: '2026-09-14', deliveryAddress: address })).toEqual({
+      ready: true,
+      missing: [],
+    });
+  });
+
+  it('lists the dates and the location when both are missing', () => {
+    expect(orderRequestReadiness({}).missing).toEqual(['Rental dates', 'Location']);
+  });
+
+  it('needs both dates, in order', () => {
+    expect(orderRequestReadiness({ rentalStart: '2026-09-07', deliveryAddress: address }).missing).toEqual(['Rental dates']);
+    expect(
+      orderRequestReadiness({ rentalStart: '2026-09-14', rentalEnd: '2026-09-07', deliveryAddress: address }).missing,
+    ).toEqual(['Rental dates']);
+  });
+
+  it('treats a partial address as no location, and notes alone do not stand in for it', () => {
+    const dates = { rentalStart: '2026-09-07', rentalEnd: '2026-09-14' };
+    expect(orderRequestReadiness({ ...dates, deliveryAddress: { line1: '4100 W Alameda Ave' } }).missing).toEqual(['Location']);
+    expect(orderRequestReadiness({ ...dates, deliveryNotes: 'Stage 4 dock' }).missing).toEqual(['Location']);
   });
 });
 

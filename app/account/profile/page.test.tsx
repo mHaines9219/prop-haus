@@ -55,7 +55,6 @@ describe('OrderProfilePage', () => {
         'Company legal name',
         'Ordering contact name',
         'Ordering contact email',
-        'Delivery address',
         'Authorization to complete forms',
       ],
     });
