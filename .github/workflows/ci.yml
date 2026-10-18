@@ -1,3 +1,5 @@
+# scripts/boot.sh (`pnpm boot` / `pnpm ci:local`) replays these jobs locally.
+# Change a step here, change it there, same PR.
 name: CI
 
 on:
@@ -27,7 +29,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Two files with the same version stamp make `supabase db push` refuse the
@@ -40,6 +42,9 @@ jobs:
             exit 1
           fi
       - run: pnpm typecheck
+      # `next build` runs ESLint and fails on errors. Catch that here, in
+      # minutes, instead of after the integration job has booted a stack.
+      - run: pnpm lint
       - run: pnpm test:coverage
       - uses: actions/upload-artifact@v4
         if: always()
@@ -62,7 +67,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
@@ -71,7 +76,7 @@ jobs:
           version: latest
 
       - name: Start Supabase
-        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,realtime
+        run: supabase start -x studio,imgproxy,edge-runtime,analytics,vector,realtime
 
       - name: Export Supabase credentials
         run: |

@@ -2,11 +2,17 @@
   "name": "prop-haus",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "boot": "bash scripts/boot.sh",
+    "preflight": "bash scripts/boot.sh --check",
+    "ci:local": "bash scripts/boot.sh --full",
     "lint": "next lint",
     "scrape:merge": "tsx scrapers/merge.ts",
     "enrich": "tsx scripts/enrich.ts",

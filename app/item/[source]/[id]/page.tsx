@@ -21,6 +21,11 @@ import { GridCell, SeamGrid } from '@/components/ap/seam-grid';
  * dynamic-param route rendering per request (verified against `pnpm start` —
  * Cache-Control stayed no-store). Its presence is what opts unvisited paths
  * into on-demand static generation; prebuilding 90k item pages is not.
+ *
+ * There is deliberately no loading.tsx in this segment: a loading boundary
+ * streams a 200 shell before notFound() runs, so an unknown item would be
+ * served (and ISR-cached for a day) as a 200 with a 404 body. Cold pages
+ * block briefly instead; the cache serves the rest.
  */
 export const revalidate = 86400;
 

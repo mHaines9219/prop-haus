@@ -34,6 +34,20 @@ If you were asked to "pick up a task" or work on one of the MVP items, read
 TASKS.md, claim ONE task by updating its Status line, and follow its brief.
 Keep TASKS.md as the single source of truth for task status.
 
+Start the project with `pnpm boot` (scripts/boot.sh): it links Supabase,
+reports migration drift against production, runs the CI gate, then starts
+the dev server. `pnpm preflight` is the gate without the server; run it
+before opening a PR. Never `supabase db pull`; schema flows local → main →
+production through the CI migrate job (README, "Database migrations").
+
+scripts/boot.sh mirrors .github/workflows/ci.yml step for step. A change to
+either must land in the other in the same PR: a new or renamed CI step or
+package script, a new required env var or provider flag, the Node version,
+the Supabase project ref or local ports, the seed file, the stack exclude
+list. If a PR makes `pnpm boot` or `pnpm ci:local` need anything new, say
+so in the PR and update the script; do not leave the next person to find
+out at startup.
+
 Agents must NEVER stall on missing API keys, credentials, unchosen partners,
 or missing data. Build to a plug-and-play state: real integrations behind
 interfaces with working mock implementations, env vars documented in

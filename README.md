@@ -14,10 +14,24 @@ workstream board (multi-agent task briefs for the current MVP push).
 ## Local setup
 
 ```bash
-pnpm install
-cp .env.local.example .env.local   # paste your OPENROUTER_API_KEY
-pnpm dev
+cp .env.local.example .env.local   # paste your OPENROUTER_API_KEY and the Supabase keys
+pnpm boot                          # checks everything, then starts next dev
 ```
+
+`pnpm boot` (`scripts/boot.sh`) is the one way to start the project. It pins
+Node 22 through fnm, installs from the lockfile, links the hosted Supabase
+project non-interactively, compares `supabase/migrations/` with production's
+migration history, runs the CI gate (typecheck, lint, unit + component tests
+with coverage), and only then starts the dev server. Variants:
+
+| Command | What it adds |
+| --- | --- |
+| `pnpm preflight` | the same checks, no server; run before opening a PR |
+| `pnpm ci:local` | plus the CI integration job on a local Supabase stack (Docker): replay every migration, seed, integration tests, build, Playwright |
+| `pnpm boot --status` | link + drift only, a few seconds; the Claude Code session hook runs this |
+| `pnpm boot --push` | also applies migrations production lacks (`pnpm db:push`); normally merging to main does this |
+
+Nothing in `boot` touches production unless you pass `--push`.
 
 For the catalog and search to work end-to-end you also need to regenerate the data files (gitignored — they're huge):
 
@@ -49,9 +63,14 @@ SQL editor. Merging to main applies them (the `migrate` job in
 ```bash
 supabase migration new <name>      # always: real, unique timestamp
 # edit the new file, then prove it replays from scratch (CI does the same):
-supabase start && supabase stop --no-backup
+pnpm ci:local                      # fresh local stack, seed, integration, build, e2e
 pnpm db:migrations                 # local files vs remote history, side by side
 ```
+
+`supabase db pull` is not part of this flow. It regenerates a migration from
+production's schema and refuses to run while a local file has no remote row,
+which is exactly the state a merged-but-not-yet-applied migration is in.
+`pnpm boot --status` shows that state without the error.
 
 `pnpm db:migrations` and `pnpm db:push` wrap the CLI with the database password
 from `CATALOG_DATABASE_URL`, because the CLI hangs on its password prompt when

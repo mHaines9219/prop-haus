@@ -5,7 +5,12 @@ import { defineConfig } from 'vitest/config';
 
 const root = import.meta.dirname;
 
-/** KEY=VALUE lines from .env.local, for the integration project only. */
+/**
+ * KEY=VALUE lines from .env.local, for the integration project only. A value
+ * already set in the shell wins, the same precedence `next build` uses, so
+ * `scripts/boot.sh --full` can point the integration tests at a local stack
+ * while .env.local keeps the hosted project's keys.
+ */
 function localEnv(): Record<string, string> {
   const file = path.join(root, '.env.local');
   if (!fs.existsSync(file)) return {};
@@ -13,7 +18,7 @@ function localEnv(): Record<string, string> {
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
     const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
     if (!m || line.trim().startsWith('#')) continue;
-    out[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+    out[m[1]] = process.env[m[1]] ?? m[2].replace(/^(['"])(.*)\1$/, '$2');
   }
   return out;
 }

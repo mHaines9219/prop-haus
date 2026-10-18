@@ -68,6 +68,9 @@ export const dataTableFeatures = tableFeatures({
 
 export type DataTableFeatures = typeof dataTableFeatures;
 export type DataTableInstance<TData extends object> = ReactTable<DataTableFeatures, TData>;
+// TValue is `any` on purpose: one array holds columns whose accessors return
+// strings, numbers and dates, and ColumnDef is not covariant in TValue.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DataTableColumn<TData extends object> = ColumnDef<DataTableFeatures, TData, any>;
 export type DataTableRow<TData extends object> = Row<DataTableFeatures, TData>;
 

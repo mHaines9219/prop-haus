@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/boot.sh --status 2>&1 | tail -n 20",
+            "timeout": 90
+          }
+        ]
+      }
+    ]
+  }
+}

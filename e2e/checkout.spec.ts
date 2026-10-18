@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { addToCart } from './helpers/cart';
 
 /**
  * The product's one promise, end to end: fill the order profile once, add
@@ -8,19 +9,20 @@ import { expect, test } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
-test('the cart names what the profile is missing', async ({ page }) => {
+test('the cart asks for what the profile is missing, inline', async ({ page }) => {
   await page.goto('/item/omega/e2e-1');
-  await page.getByRole('button', { name: 'Add to cart' }).click();
+  await addToCart(page);
   await page.goto('/cart');
 
-  await expect(page.getByText(/things? missing before one-click/)).toBeVisible();
-  await expect(page.getByText('· Company legal name')).toBeVisible();
-  await expect(page.getByText('· Authorization to complete forms')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Place order' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /Complete your order profile/ })).toHaveAttribute(
-    'href',
-    '/account/profile',
-  );
+  // An empty profile never bounces the user to the profile page: the request
+  // form grows a "Your production" group and the click saves it.
+  const production = page.getByRole('group', { name: 'Your production' });
+  await expect(production).toBeVisible();
+  await expect(production.getByLabel('Company legal name')).toBeVisible();
+  await expect(production.getByLabel('Ordering contact')).toBeVisible();
+  await expect(production.getByRole('checkbox')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Complete your order profile/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Place order and send to 1 vendor' })).toBeVisible();
 });
 
 test('the order profile saves and reports itself ready', async ({ page }) => {
@@ -29,15 +31,18 @@ test('the order profile saves and reports itself ready', async ({ page }) => {
 
   await page.getByPlaceholder('As it appears on your contracts').fill('Nocturne Pictures LLC');
 
-  // Ordering contact is the first Name/Email pair on the page.
-  await page.getByPlaceholder('Name').first().fill('Sam Reyes');
-  await page.getByPlaceholder('Email').first().fill('sam@nocturne.example');
+  // Ordering contact is the first Name/Email pair on the page. Exact matches:
+  // getByPlaceholder is a case-insensitive substring match by default, so
+  // 'Name' would also hit "Production or trade name" and 'ST' hits "Street".
+  const exact = { exact: true } as const;
+  await page.getByPlaceholder('Name', exact).first().fill('Sam Reyes');
+  await page.getByPlaceholder('Email', exact).first().fill('sam@nocturne.example');
 
   // Address blocks appear in order: company, billing, delivery.
-  await page.getByPlaceholder('Street').nth(2).fill('4100 W Alameda Ave');
-  await page.getByPlaceholder('City').nth(2).fill('Burbank');
-  await page.getByPlaceholder('ST').nth(2).fill('CA');
-  await page.getByPlaceholder('ZIP').nth(2).fill('91505');
+  await page.getByPlaceholder('Street', exact).nth(2).fill('4100 W Alameda Ave');
+  await page.getByPlaceholder('City', exact).nth(2).fill('Burbank');
+  await page.getByPlaceholder('ST', exact).nth(2).fill('CA');
+  await page.getByPlaceholder('ZIP', exact).nth(2).fill('91505');
 
   await page.getByLabel(/Prop Haus may complete vendor forms/).check();
 
@@ -60,26 +65,32 @@ test('one click places a multi-vendor order and the order pages agree', async ({
   const { id: projectId } = (await created.json()) as { id: string };
 
   await page.goto('/item/omega/e2e-1');
-  await page.getByRole('button', { name: 'Add to cart' }).click();
+  await addToCart(page);
   await page.goto('/item/hpr/e2e-1');
-  await page.getByRole('button', { name: 'Add to cart' }).click();
+  await addToCart(page);
 
   await page.goto('/cart');
   await expect(page.getByText('2 items · 2 vendors')).toBeVisible();
-  await expect(page.getByText('Deliver to')).toBeVisible();
-  await expect(page.getByText('4100 W Alameda Ave, Burbank, CA 91505')).toBeVisible();
+  // The profile is complete now, so the production group is gone and the
+  // location is prefilled from the profile's delivery default.
+  await expect(page.getByRole('group', { name: 'Your production' })).toHaveCount(0);
+  await expect(page.getByLabel('Street')).toHaveValue('4100 W Alameda Ave');
+  await expect(page.getByLabel('City')).toHaveValue('Burbank');
 
+  await page.getByLabel('Start').fill('2026-11-02');
+  await page.getByLabel('End').fill('2026-11-06');
   await page.getByLabel('Project').selectOption(projectId);
-  await page.getByRole('button', { name: 'Place order' }).click();
-  await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/);
+  await page.getByRole('button', { name: 'Place order and send to 2 vendors' }).click();
+  await expect(page).toHaveURL(/\/orders\/[0-9a-f-]+$/);
 
   await expect(page.getByText('Job detail')).toBeVisible();
   await expect(page.getByText('PLACED')).toBeVisible();
   await expect(page.getByText('2 items from 2 vendors')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Omega Cinema Props' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Hand Prop Room' })).toBeVisible();
-  await expect(page.getByText('E2E Walnut Credenza')).toBeVisible();
-  await expect(page.getByText('E2E Leather Club Chair')).toBeVisible();
+  await expect(page.getByText('E2E Walnut Credenza').first()).toBeVisible();
+  await expect(page.getByText('E2E Leather Club Chair').first()).toBeVisible();
+  await expect(page.getByText('Deliver to')).toBeVisible();
   await expect(page.getByText('4100 W Alameda Ave, Burbank, CA 91505')).toBeVisible();
 
   const orderUrl = page.url();
