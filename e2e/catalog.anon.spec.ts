@@ -5,9 +5,10 @@ test.describe('catalog browsing', () => {
     await page.goto('/category/seating');
     await expect(page.getByRole('heading', { name: 'Seating' })).toBeVisible();
     // Three seated items are seeded; one has no photo and must not count.
+    // A card prints the name twice (plate caption and headline), hence .first().
     await expect(page.getByText('2 items')).toBeVisible();
-    await expect(page.getByText('E2E Leather Club Chair')).toBeVisible();
-    await expect(page.getByText('E2E Bentwood Cafe Chair')).toBeVisible();
+    await expect(page.getByText('E2E Leather Club Chair').first()).toBeVisible();
+    await expect(page.getByText('E2E Bentwood Cafe Chair').first()).toBeVisible();
     await expect(page.getByText('E2E Unphotographed Stool')).toHaveCount(0);
   });
 
@@ -34,7 +35,7 @@ test.describe('catalog browsing', () => {
     await page.goto('/item/hpr/e2e-1');
     await expect(page.getByText('Quote on request')).toBeVisible();
     await expect(page.getByText('More in Seating')).toBeVisible();
-    await expect(page.getByText('E2E Bentwood Cafe Chair')).toBeVisible();
+    await expect(page.getByText('E2E Bentwood Cafe Chair').first()).toBeVisible();
   });
 
   test('an unknown item is a 404', async ({ page }) => {

@@ -53,6 +53,14 @@ another worktree's dev server, and local auth only allows redirects to :3000
 
 ### PR 1 — CI goes green and becomes the gate (now, ~half day)
 
+> Status Oct 18 2026: done in the boot-script PR, except where noted below.
+> `next build` was the actual blocker (ESLint errors from the react-hooks 7
+> compiler rules; now warnings, see eslint.config.mjs). e2e fixes 1 and the
+> 404 regression 2 are in; `pnpm lint` is in the check job; toolchain pins 4
+> are in (.nvmrc, engines). `pnpm ci:local` (scripts/boot.sh --full)
+> reproduces the integration job locally. Still open: ci.yml items 3 other
+> than the lint step and the `-x` list; the react-hooks warnings themselves.
+
 Already in this worktree, uncommitted:
 - `supabase/migrations/20260830120001_crew_seed.sql:49` — `master's` → `master''s`.
 - `supabase/migrations/20260627181000_api_default_privileges.sql` — restores the

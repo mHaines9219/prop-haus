@@ -11,21 +11,25 @@ test.describe('projects', () => {
     await page.getByPlaceholder(/Production name/).fill(name);
     await page.getByRole('button', { name: 'Create project' }).click();
 
-    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
+    // Creation is paperwork-first: it lands on the project's checklist.
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f]{32}\/paperwork$/);
     await expect(page.getByRole('heading', { name })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Scenes' })).toBeVisible();
     await expect(page.getByText('Paperwork').first()).toBeVisible();
 
-    await page.goto('/projects');
-    const row = page.locator('a', { hasText: name });
-    await expect(row).toBeVisible();
+    await page.goto(page.url().replace(/\/paperwork$/, ''));
+    await expect(page.getByRole('heading', { name })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Scenes' })).toBeVisible();
 
-    await row.locator('xpath=..').getByRole('button', { name: 'Archive' }).click();
-    await expect(page.locator('a', { hasText: name })).toHaveCount(0);
+    await page.goto('/projects');
+    const row = page.getByRole('row').filter({ hasText: name });
+    await expect(row.getByRole('link', { name })).toBeVisible();
+
+    await row.getByRole('button', { name: 'Archive' }).click();
+    await expect(page.getByRole('link', { name })).toHaveCount(0);
 
     await page.goto('/projects?archived=1');
-    await expect(page.locator('a', { hasText: name })).toBeVisible();
-    await expect(page.getByText('Archived').first()).toBeVisible();
+    await expect(page.getByRole('link', { name })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: name }).getByText('Archived')).toBeVisible();
   });
 
   test('the projects API scopes reads to the session org', async ({ request }) => {
@@ -35,7 +39,7 @@ test.describe('projects', () => {
       id: string;
       folders: Array<{ name: string; kind: string }>;
     };
-    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(id).toMatch(/^[0-9a-f]{32}$/);
     expect(folders.map((f) => f.kind).sort()).toEqual(['paperwork', 'scene']);
 
     const list = await request.get('/api/projects');

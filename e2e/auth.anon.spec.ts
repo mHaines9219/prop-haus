@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { addToCart } from './helpers/cart';
 
 /** What a signed-out visitor can and cannot reach. */
 
@@ -51,11 +52,10 @@ test.describe('signed-out guards', () => {
 
   test('the cart asks a signed-out visitor to sign in before ordering', async ({ page }) => {
     await page.goto('/item/omega/e2e-2');
-    await page.getByRole('button', { name: 'Add to cart' }).click();
-    await expect(page.getByRole('button', { name: 'In your cart' })).toBeVisible();
+    await addToCart(page);
 
     await page.goto('/cart');
-    await expect(page.getByText('E2E Brass Floor Lamp')).toBeVisible();
+    await expect(page.getByText('E2E Brass Floor Lamp').first()).toBeVisible();
     await expect(page.getByText('1 item · 1 vendor')).toBeVisible();
     const signIn = page.getByRole('link', { name: 'Sign in' });
     await expect(signIn).toHaveAttribute('href', '/login?next=/cart');

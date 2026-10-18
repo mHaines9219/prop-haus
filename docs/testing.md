@@ -80,10 +80,22 @@ is the reference.
 Both need a Supabase. The cheapest is the local stack:
 
 ```bash
+pnpm ci:local            # scripts/boot.sh --full: the CI integration job, step for step
+```
+
+That boots a fresh local stack (Docker), replays every migration, loads
+`e2e/seed.sql`, runs the integration project, builds, and runs Playwright
+against the built app, exporting the local stack's keys over the ones in
+`.env.local` so nothing reaches the hosted project. Port 3000 busy with a
+dev server? The built app runs on 3100 (allowed in `supabase/config.toml`).
+
+By hand, the same thing is:
+
+```bash
 supabase start
-supabase status -o env   # copy API_URL, ANON_KEY, SERVICE_ROLE_KEY, DB_URL into .env.local
+supabase status -o env   # export API_URL, ANON_KEY, SERVICE_ROLE_KEY, DB_URL in the shell
 psql "$DB_URL" -f e2e/seed.sql
-pnpm test:integration
+pnpm test:integration    # shell values win over .env.local
 pnpm dev                 # in another shell
 pnpm test:e2e            # reuses the dev server
 ```
