@@ -18,6 +18,10 @@ cp .env.local.example .env.local   # paste your OPENROUTER_API_KEY and the Supab
 pnpm boot                          # checks everything, then starts next dev
 ```
 
+Optional: `ADMIN_EMAILS=a@x.com,b@y.com` names who can use the nav's VIEW AS
+control to see the site as any plan tier (lib/admin.ts). It defaults to the
+founder's address, so nothing is needed to try it.
+
 `pnpm boot` (`scripts/boot.sh`) is the one way to start the project. It pins
 Node 22 through fnm, installs from the lockfile, links the hosted Supabase
 project non-interactively, compares `supabase/migrations/` with production's

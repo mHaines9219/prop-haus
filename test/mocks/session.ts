@@ -16,7 +16,15 @@ export const USER_ID = '00000000-0000-4000-8000-00000000b001';
 export const OTHER_ORG_ID = '00000000-0000-4000-8000-00000000a002';
 
 export function signIn(over: Partial<Session> = {}): Session {
-  sessionState.current = { userId: USER_ID, orgId: ORG_ID, plan: 'free', ...over };
+  sessionState.current = {
+    userId: USER_ID,
+    orgId: ORG_ID,
+    plan: 'free',
+    actualPlan: 'free',
+    email: 'member@example.com',
+    isAdmin: false,
+    ...over,
+  };
   return sessionState.current;
 }
 

@@ -33,9 +33,11 @@ const PROFESSION_LABELS: Record<Profession, string> = {
   other: 'Other',
 };
 
+// The rate-card names (lib/pricing.ts), not the gating keys.
 const PLAN_LABELS: Record<PlanTier, string> = {
-  free: 'Free',
-  pro: 'Pro',
+  free: 'Browse',
+  directory: 'Directory',
+  pro: 'Coordinator',
 };
 
 type ProfileRow = {

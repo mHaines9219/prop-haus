@@ -157,7 +157,8 @@ describe('keyword search', () => {
     expect(screen.getByText('Mid-century walnut credenza')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Mid-century walnut credenza/ })).toHaveAttribute('href', '/item/omega/12345');
     expect(screen.getByRole('img', { name: 'Mid-century walnut credenza' })).toBeInTheDocument();
-    expect(screen.getByText('Omega Cinema Props')).toBeInTheDocument();
+    // The page is rendered without a plan provider, which is the free view: the house is withheld.
+    expect(screen.getByText('Prop house withheld')).toBeInTheDocument();
   });
 
   it('shows the searching state while the request is open', () => {

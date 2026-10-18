@@ -58,3 +58,11 @@ non-public path).
   (price/vendor) and filters, not on searching. Conversion tactic.
 - Result quality is embedding-only: good recall, mediocre precision
   ordering (no rerank).
+
+## Pricing (checked 2026-10-18)
+
+$100/mo for an individual, 30-day trial with no card, teams on custom
+pricing. A nav "Pricing" link, a pricing section mid-homepage, and an ROI
+line anchoring the fee against one rental ("one sofa rental = 6 months").
+No AI search. Our rate card (lib/pricing.ts) matches at $100 for the
+Coordinator tier and undercuts with Directory at $29.

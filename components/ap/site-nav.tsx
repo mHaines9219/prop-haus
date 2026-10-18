@@ -7,14 +7,17 @@ import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { createClient } from '@/lib/supabase/client';
 import { ThemeToggle } from './theme-toggle';
+import { ViewAsControl } from './view-as-control';
 
 /**
  * Party Line nav (DESIGN.md §9.1): the binder's top edge. Always green vinyl,
  * whatever the theme (near-black by lamplight). The wordmark is a paper
  * index tab, the city a coral one, like the "Fire 273-3110" tabs along the
  * top of the reference page. Flush right are the icons only: theme, cart,
- * account. There are no section links in the MVP: Crew is parked, and the
- * Dashboard is reached from the account page. Icon lettering is
+ * account, preceded by one cream condensed link: Rates. It is the one text
+ * link in the band because hidden pricing reads as evasive to B2B buyers
+ * (NN/g, "Show the price"); the rest stay icons. Crew is parked, and the
+ * Dashboard is reached from the account page. Lettering is
  * `binder-foreground`, the one color that never flips with the theme.
  */
 export function SiteNav() {
@@ -39,6 +42,13 @@ export function SiteNav() {
 
         {/* Icons — flush right */}
         <div className="flex items-center gap-5">
+          <ViewAsControl />
+          <Link
+            href="/pricing"
+            className="ink-underline font-heading text-[12px] font-extrabold uppercase tracking-[0.1em] text-binder-foreground/85 hover:text-binder-foreground"
+          >
+            Rates
+          </Link>
           <ThemeToggle />
           <CartLink />
           <AuthControl />

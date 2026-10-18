@@ -103,7 +103,7 @@ describe('AccountPage', () => {
     expect(screen.getByText('Set decorator')).toBeInTheDocument();
     expect(screen.getByText(/Mar \d+, 2026/)).toBeInTheDocument();
     expect(screen.getByText('Nocturne Pictures')).toBeInTheDocument();
-    expect(screen.getByText('Pro')).toBeInTheDocument();
+    expect(screen.getByText('Coordinator')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Order profile →' })).toHaveAttribute('href', '/account/profile');
     expect(screen.getByRole('link', { name: 'Open Dashboard' })).toHaveAttribute('href', '/projects');
   });

@@ -58,3 +58,9 @@ Fields shown: title, price+period, description, vendor (name, city, phone),
 SKU, size, quantity, **condition** (e.g. "Good"), category breadcrumb, full
 tag list, availability-calendar CTA, same-vendor "more like this" carousel.
 Condition is a field we don't carry at all.
+
+## Pricing (checked 2026-10-18)
+
+Free for buyers. Vendors pay $19–$195/mo by record count
+(propcart.com/pricing). The opposite side of the market from our rate card:
+we charge the production, never the house.

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { ItemCard } from '@/components/ap/item-card';
@@ -320,7 +321,13 @@ function AllowanceLine({ metrics }: { metrics: Record<MeteredMetric, Allowance> 
 
   if (parts.length === 0) return null;
   return (
-    <p className="mt-3 font-mono text-[13px] leading-[18px] text-text-tertiary">{parts.join(' · ')}</p>
+    <p className="mt-3 font-mono text-[13px] leading-[18px] text-text-tertiary">
+      <span>{parts.join(' · ')}</span>
+      {' · '}
+      <Link href="/pricing" className="ink-underline text-accent-text">
+        See rates
+      </Link>
+    </p>
   );
 }
 

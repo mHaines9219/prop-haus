@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useCart } from '@/lib/cart-store';
 import { makeCardItem } from '@/test/fixtures/catalog';
+import { planView, withPlan } from '@/test/helpers/plan';
 import { ItemCard } from './item-card';
 
 // The ruled-grid cell: one link to the item page, a LightWell plate, the
@@ -14,7 +15,7 @@ describe('ItemCard', () => {
   });
 
   it('renders the placard and links the whole cell to the item page', () => {
-    const { container } = render(<ItemCard item={makeCardItem()} />);
+    const { container } = render(withPlan(<ItemCard item={makeCardItem()} />, 'directory'));
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/item/omega/12345');
     expect(link).toHaveTextContent('Mid-century walnut credenza');
@@ -24,6 +25,17 @@ describe('ItemCard', () => {
     expect(container.querySelector('.aspect-\\[4\\/5\\]')).not.toBeNull();
     expect(container.querySelector('.bg-plate')).not.toBeNull();
     expect(screen.getByRole('img', { name: 'Mid-century walnut credenza' })).toHaveAttribute('src', 'https://omegacinemaprops.com/img/12345.jpg');
+  });
+
+  it('withholds the prop house on the Browse tier, and prints nothing while the plan is unknown', () => {
+    const { rerender } = render(<ItemCard item={makeCardItem()} />);
+    // No provider at all is the free view: fail closed.
+    expect(screen.getByRole('link')).toHaveTextContent('Prop house withheld');
+    expect(screen.getByRole('link')).not.toHaveTextContent('Omega Cinema Props');
+
+    rerender(withPlan(<ItemCard item={makeCardItem()} />, planView('pro', { status: 'loading' })));
+    expect(screen.getByRole('link')).not.toHaveTextContent('Prop house withheld');
+    expect(screen.getByRole('link')).not.toHaveTextContent('Omega Cinema Props');
   });
 
   it('URL-encodes the source id in the href', () => {

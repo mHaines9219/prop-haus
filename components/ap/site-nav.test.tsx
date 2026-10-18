@@ -50,10 +50,12 @@ describe('SiteNav', () => {
     auth.unsubscribe.mockReset();
   });
 
-  it('renders the wordmark and the icons, with no section links', () => {
+  it('renders the wordmark, the Rates link and the icons, with no section links', () => {
     render(<SiteNav />);
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Prop Haus' })).toHaveAttribute('href', '/');
+    // Rates is the one text link: hidden pricing reads as evasive to B2B buyers.
+    expect(screen.getByRole('link', { name: 'Rates' })).toHaveAttribute('href', '/pricing');
     // No section links in the MVP: Crew is parked and the Dashboard is reached from /account.
     expect(screen.queryByRole('link', { name: 'How it works' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Crew' })).toBeNull();

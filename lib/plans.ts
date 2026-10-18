@@ -16,6 +16,8 @@ import type { PlanTier } from './accounts';
 
 export type Entitlements = {
   // capabilities (boolean)
+  /** Print which prop house holds a piece (name, link, "Courtesy of"). */
+  vendorIdentity: boolean;
   outreachAutomation: boolean;
   paperworkGeneration: boolean;
   consolidatedInvoicing: boolean;
@@ -32,6 +34,7 @@ export type Entitlements = {
 export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
   free: {
     // Free during MVP validation; gating comes later.
+    vendorIdentity: false, // Browse shows the piece, not the house (lib/pricing.ts)
     outreachAutomation: true,
     paperworkGeneration: true, // MVP-12: free while validating; flip to false when the paywall goes live
     consolidatedInvoicing: false,
@@ -42,7 +45,24 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     seats: 1,
     savedItems: 50,
   },
+  directory: {
+    // The $29 tier: Browse plus the house behind every piece. Checkout, emails,
+    // forms and AI search are excluded on the rate card; they stay at the free
+    // tier's validation-era values here so Directory is never worse than free.
+    // Flip them with the free tier when the paywall goes live.
+    vendorIdentity: true,
+    outreachAutomation: true,
+    paperworkGeneration: true,
+    consolidatedInvoicing: false,
+    visionSearches: 3,
+    aiSearchesPerDay: 5,
+    activeProjects: null,
+    vendorsPerProject: null,
+    seats: 1,
+    savedItems: null,
+  },
   pro: {
+    vendorIdentity: true,
     outreachAutomation: true,
     paperworkGeneration: true,
     consolidatedInvoicing: true,

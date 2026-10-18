@@ -11,5 +11,6 @@ describe('SiteFooter', () => {
     expect(footer).toHaveTextContent('Prop Haus');
     expect(footer).toHaveTextContent('Los Angeles');
     expect(footer).toHaveTextContent(/All inventory shown belongs to and is owned by the listed source/);
+    expect(screen.getByRole('link', { name: 'Rates' })).toHaveAttribute('href', '/pricing');
   });
 });

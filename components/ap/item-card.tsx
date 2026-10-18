@@ -8,6 +8,7 @@ import { SOURCE_META } from '@/lib/types';
 import { useCart } from '@/lib/cart-store';
 import { cn } from '@/lib/utils';
 import { LightWell } from './light-well';
+import { VendorLine } from './vendor-credit';
 
 const PRICE_UNIT_LABELS: Record<string, string> = {
   day: 'DAY',
@@ -123,9 +124,10 @@ export function ItemCard({ item, marquee }: { item: CardItem; marquee?: boolean 
         </p>
         {/* Vendor credit left, price tag right */}
         <div className="mt-2.5 flex min-h-[27px] items-end justify-between gap-2">
-          <p className="truncate font-heading text-[11px] font-bold uppercase leading-[14px] tracking-[0.06em] text-foreground/75">
-            {SOURCE_META[item.source].name}
-          </p>
+          <VendorLine
+            name={SOURCE_META[item.source].name}
+            className="truncate font-heading text-[11px] font-bold uppercase leading-[14px] tracking-[0.06em] text-foreground/75"
+          />
           {dataLine && (
             <span className="tag shrink-0 font-mono tabular-nums">
               {dataLine}
