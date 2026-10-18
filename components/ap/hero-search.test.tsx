@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nav, resetNavigation } from '@/test/mocks/next-navigation';
+import { aiAllowance, planView, withPlan } from '@/test/helpers/plan';
 import { HeroSearch } from './hero-search';
 
 // The landing search pill: keyword submits route to /search, AI mode opens the
@@ -145,5 +146,33 @@ describe('HeroSearch', () => {
     window.localStorage.setItem('prophaus.searchEngine', 'quantum');
     render(<HeroSearch />);
     expect(screen.getByRole('button', { name: 'AI Mode' })).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+describe('HeroSearch with the AI allowance spent', () => {
+  const spent = () => planView('free', { aiSearches: aiAllowance({ used: 3, remaining: 0, allowed: false }) });
+
+  it('greys out AI MODE, disables it, and says when the count comes back', () => {
+    render(withPlan(<HeroSearch />, spent()));
+    const ai = screen.getByRole('button', { name: 'AI Mode' });
+    expect(ai).toBeDisabled();
+    expect(ai).toHaveAttribute('aria-pressed', 'false');
+    expect(ai).toHaveAttribute('title', 'No AI searches left this week');
+    expect(screen.getByText(/AI searches used up this week/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'See rates' })).toHaveAttribute('href', '/pricing');
+  });
+
+  it('submits a remembered AI engine as a keyword search instead of opening the modal', async () => {
+    window.localStorage.setItem('prophaus.searchEngine', 'ai');
+    render(withPlan(<HeroSearch />, spent()));
+    await userEvent.type(input(), 'brass lamp{Enter}');
+    expect(nav.router.push).toHaveBeenCalledWith('/search?q=brass%20lamp');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('stays live while the allowance has searches left', () => {
+    render(withPlan(<HeroSearch />, planView('free', { aiSearches: aiAllowance({ used: 2, remaining: 1 }) })));
+    expect(screen.getByRole('button', { name: 'AI Mode' })).toBeEnabled();
+    expect(screen.getByText('Attach a PDF or moodboard')).toBeInTheDocument();
   });
 });

@@ -23,7 +23,7 @@ import { POST } from './route';
  */
 
 function allowance(metric: MeteredMetric, over: Partial<Allowance> = {}): Allowance {
-  return { metric, period: 'p', used: 0, limit: 5, remaining: 5, allowed: true, ...over };
+  return { metric, period: 'p', window: 'week', used: 0, limit: 5, remaining: 5, allowed: true, ...over };
 }
 
 function result(over: Partial<SearchResponse> = {}): SearchResponse {
@@ -128,16 +128,28 @@ describe('session and gate', () => {
     expect(runSearch).not.toHaveBeenCalled();
   });
 
-  it('402 when the daily allowance is spent: no model call, no charge, paywall_hit recorded', async () => {
-    vi.mocked(getAllowance).mockResolvedValue(allowance('aiSearchesPerDay', { used: 5, remaining: 0, allowed: false }));
+  it('the 402 copy names the window: a daily plan hears midnight, not Monday', async () => {
+    signIn({ plan: 'pro' });
+    vi.mocked(getAllowance).mockResolvedValue(
+      allowance('aiSearches', { window: 'day', used: 5, remaining: 0, allowed: false }),
+    );
+    const res = await search({ query: 'walnut' });
+    expect(res.status).toBe(402);
+    expect((await readJson<{ error: string }>(res)).error).toBe(
+      'You have used all 5 AI searches on your plan today. Keyword search stays available, and the count resets at midnight UTC.',
+    );
+  });
+
+  it('402 when the allowance is spent: no model call, no charge, paywall_hit recorded', async () => {
+    vi.mocked(getAllowance).mockResolvedValue(allowance('aiSearches', { used: 5, remaining: 0, allowed: false }));
     const res = await search({ query: 'walnut' });
     expect(res.status).toBe(402);
     expect(await readJson(res)).toEqual({
-      error: 'You have used all 5 AI searches on your plan today. Keyword search stays available, and the count resets at midnight UTC.',
-      metric: 'aiSearchesPerDay',
-      usage: allowance('aiSearchesPerDay', { used: 5, remaining: 0, allowed: false }),
+      error: 'You have used all 5 AI searches on your plan this week. Keyword search stays available, and the count resets Monday 00:00 UTC.',
+      metric: 'aiSearches',
+      usage: allowance('aiSearches', { used: 5, remaining: 0, allowed: false }),
     });
-    expect(getAllowance).toHaveBeenCalledWith(ORG_ID, 'free', 'aiSearchesPerDay');
+    expect(getAllowance).toHaveBeenCalledWith(ORG_ID, 'free', 'aiSearches');
     expect(runSearch).not.toHaveBeenCalled();
     expect(recordUsage).not.toHaveBeenCalled();
     expect(db.rows('events')).toEqual([
@@ -145,7 +157,7 @@ describe('session and gate', () => {
         org_id: ORG_ID,
         user_id: null,
         type: 'paywall_hit',
-        payload: { feature: 'ai_search', metric: 'aiSearchesPerDay', query: 'walnut', mode: 'text' },
+        payload: { feature: 'ai_search', metric: 'aiSearches', query: 'walnut', mode: 'text' },
       }),
     ]);
   });
@@ -164,8 +176,8 @@ describe('session and gate', () => {
   it('gates with the plan on the session', async () => {
     signIn({ plan: 'pro' });
     await search({ query: 'walnut' });
-    expect(getAllowance).toHaveBeenCalledWith(ORG_ID, 'pro', 'aiSearchesPerDay');
-    expect(recordUsage).toHaveBeenCalledWith(ORG_ID, 'pro', 'aiSearchesPerDay');
+    expect(getAllowance).toHaveBeenCalledWith(ORG_ID, 'pro', 'aiSearches');
+    expect(recordUsage).toHaveBeenCalledWith(ORG_ID, 'pro', 'aiSearches');
   });
 });
 
@@ -175,8 +187,8 @@ describe('a search that hits', () => {
     expect(res.status).toBe(200);
     expect(runSearch).toHaveBeenCalledWith({ query: 'walnut', attachments: [], mode: 'text' });
     expect(recordUsage).toHaveBeenCalledTimes(1);
-    expect(recordUsage).toHaveBeenCalledWith(ORG_ID, 'free', 'aiSearchesPerDay');
-    expect(await readJson(res)).toEqual({ ...result(), usage: allowance('aiSearchesPerDay', { used: 1, remaining: 4 }) });
+    expect(recordUsage).toHaveBeenCalledWith(ORG_ID, 'free', 'aiSearches');
+    expect(await readJson(res)).toEqual({ ...result(), usage: allowance('aiSearches', { used: 1, remaining: 4 }) });
     expect(db.rows('events')).toEqual([
       expect.objectContaining({ org_id: ORG_ID, type: 'search', payload: { mode: 'text', query: 'walnut', resultCount: 1 } }),
     ]);
@@ -191,7 +203,7 @@ describe('a search that hits', () => {
 
   it('a text-capable mode with no image is charged as a text search', async () => {
     await search({ query: 'walnut', mode: 'haiku' });
-    expect(getAllowance).toHaveBeenCalledWith(ORG_ID, 'free', 'aiSearchesPerDay');
+    expect(getAllowance).toHaveBeenCalledWith(ORG_ID, 'free', 'aiSearches');
     expect(db.rows('events').map((e) => e.type)).toEqual(['search']);
   });
 });
@@ -203,7 +215,7 @@ describe('a search that misses', () => {
     expect(res.status).toBe(200);
     expect(recordUsage).not.toHaveBeenCalled();
     expect(getAllowance).toHaveBeenCalledTimes(2);
-    expect((await readJson<{ usage: Allowance }>(res)).usage).toEqual(allowance('aiSearchesPerDay'));
+    expect((await readJson<{ usage: Allowance }>(res)).usage).toEqual(allowance('aiSearches'));
     expect(db.rows('events').map((e) => [e.type, e.payload])).toEqual([
       ['search', { mode: 'text', query: 'zebra', resultCount: 0 }],
       ['zero_result_search', { query: 'zebra', mode: 'text' }],

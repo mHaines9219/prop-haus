@@ -6,7 +6,7 @@
  * Every gate routes through can() / withinLimit() / remaining() instead of
  * checking `plan === 'free'` inline.
  *
- * Metered allowances (visionSearches, aiSearchesPerDay) are counted in the
+ * Metered allowances (visionSearches, aiSearches) are counted in the
  * `usage_counters` table, which is SERVER-WRITTEN ONLY (service role). Storing
  * usage (count up) rather than "attempts left" (count down) means the limit can
  * change with no backfill, keeps full history, and can't be tampered with by a
@@ -23,7 +23,9 @@ export type Entitlements = {
   consolidatedInvoicing: boolean;
   // metered allowances — counted in usage_counters; null = unlimited
   visionSearches: number | null; // LIFETIME trial for free users (moodboard/image search)
-  aiSearchesPerDay: number | null; // resets daily (text search)
+  aiSearches: number | null; // text AI searches per window (below)
+  /** How often aiSearches resets: 'week' on Browse and Directory, 'day' on Coordinator. */
+  aiSearchWindow: 'day' | 'week';
   // current-state limits — derived by counting rows; no counter needed
   activeProjects: number | null;
   vendorsPerProject: number | null;
@@ -39,7 +41,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     paperworkGeneration: true, // MVP-12: free while validating; flip to false when the paywall goes live
     consolidatedInvoicing: false,
     visionSearches: 3, // 3 lifetime trial uses, then paywall
-    aiSearchesPerDay: 5,
+    aiSearches: 3,
+    aiSearchWindow: 'week',
     activeProjects: 2,
     vendorsPerProject: 3,
     seats: 1,
@@ -55,7 +58,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     paperworkGeneration: true,
     consolidatedInvoicing: false,
     visionSearches: 3,
-    aiSearchesPerDay: 5,
+    aiSearches: 5,
+    aiSearchWindow: 'week',
     activeProjects: null,
     vendorsPerProject: null,
     seats: 1,
@@ -67,7 +71,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, Entitlements> = {
     paperworkGeneration: true,
     consolidatedInvoicing: true,
     visionSearches: null,
-    aiSearchesPerDay: 10, // paid tier: 10/day, not unlimited — see lib/usage.ts
+    aiSearches: 5, // paid tier: 5 a day, not unlimited — see lib/usage.ts
+    aiSearchWindow: 'day',
     activeProjects: null,
     vendorsPerProject: null,
     seats: 10,
@@ -83,12 +88,24 @@ type LimitMetric = {
   [K in keyof Entitlements]: Entitlements[K] extends number | null ? K : never;
 }[keyof Entitlements];
 
-/** Metered metrics need a usage_counter; this maps each to its reset window. */
+/**
+ * Metered metrics need a usage_counter; this maps each to its reset window.
+ * 'plan' means the window is the plan's own (aiSearchWindow): weekly on the
+ * lower tiers, daily on Coordinator. See windowFor().
+ */
 export const METERED_METRICS = {
   visionSearches: 'lifetime',
-  aiSearchesPerDay: 'daily',
+  aiSearches: 'plan',
 } as const;
 export type MeteredMetric = keyof typeof METERED_METRICS;
+
+/** The reset window a counter lives in. */
+export type UsageWindow = 'lifetime' | 'day' | 'week';
+
+export function windowFor(plan: PlanTier, metric: MeteredMetric): UsageWindow {
+  const w = METERED_METRICS[metric];
+  return w === 'plan' ? PLAN_ENTITLEMENTS[plan].aiSearchWindow : w;
+}
 
 export function entitlementsFor(plan: PlanTier): Entitlements {
   return PLAN_ENTITLEMENTS[plan];
@@ -117,11 +134,42 @@ export function remaining(plan: PlanTier, metric: LimitMetric, current: number):
   return Math.max(0, limit - current);
 }
 
-/** The usage_counters.period key for a metered metric ('lifetime' or 'YYYY-MM-DD'). */
-export function usagePeriod(metric: MeteredMetric, now = new Date()): string {
-  if (METERED_METRICS[metric] === 'lifetime') return 'lifetime';
-  const y = now.getUTCFullYear();
-  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(now.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+/**
+ * The usage_counters.period key for a metered metric on a plan:
+ * 'lifetime', the UTC day ('2026-08-15'), or the ISO week ('2026-W33',
+ * Monday 00:00 UTC to Sunday). The keys never collide, so a plan change
+ * mid-week starts a fresh count rather than inheriting the other window's.
+ */
+export function usagePeriod(plan: PlanTier, metric: MeteredMetric, now = new Date()): string {
+  const window = windowFor(plan, metric);
+  if (window === 'lifetime') return 'lifetime';
+  if (window === 'day') {
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(now.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const { year, week } = isoWeek(now);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
+/** ISO 8601 week number in UTC: weeks start Monday; week 1 holds the year's first Thursday. */
+export function isoWeek(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7; // Sunday → 7
+  d.setUTCDate(d.getUTCDate() + 4 - day); // the Thursday of this week
+  const year = d.getUTCFullYear();
+  const jan1 = Date.UTC(year, 0, 1);
+  const week = Math.ceil(((d.getTime() - jan1) / 86_400_000 + 1) / 7);
+  return { year, week };
+}
+
+/** "today" / "this week" for a counter line, or '' for a lifetime trial. */
+export function windowLabel(window: UsageWindow): string {
+  return window === 'day' ? 'today' : window === 'week' ? 'this week' : '';
+}
+
+/** When the window turns over, for a spent-allowance message. */
+export function windowResetHint(window: UsageWindow): string {
+  return window === 'day' ? 'the count resets at midnight UTC' : 'the count resets Monday 00:00 UTC';
 }

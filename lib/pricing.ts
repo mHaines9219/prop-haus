@@ -42,8 +42,8 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     features: [
       { label: 'Search every piece in the catalog', included: true },
       { label: 'Photos, dimensions, and rental price', included: true },
+      { label: '3 AI searches a week', included: true },
       { label: 'Prop house names and links', included: false },
-      { label: 'AI search by scene or moodboard', included: false },
       { label: 'One-click checkout, emails, and forms', included: false },
     ],
     cta: 'Start browsing',
@@ -59,7 +59,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
       { label: 'Everything in Browse', included: true },
       { label: 'Prop house name and link on every piece', included: true },
       { label: 'Pull lists by project, across every house', included: true },
-      { label: 'AI search by scene or moodboard', included: false },
+      { label: '5 AI searches a week', included: true },
       { label: 'One-click checkout, emails, and forms', included: false },
     ],
     cta: 'Start Directory',
@@ -73,7 +73,7 @@ export const PRICING_TIERS: readonly PricingTier[] = [
     monthly: 100,
     features: [
       { label: 'Everything in Directory', included: true },
-      { label: 'AI search by scene, mood, or moodboard', included: true },
+      { label: '5 AI searches a day, by scene, mood, or moodboard', included: true },
       { label: 'One-click checkout across every house in the cart', included: true },
       { label: 'Vendor emails written and sent for you', included: true },
       { label: 'Paperwork filled from your profile. You sign.', included: true },
@@ -105,8 +105,8 @@ export const PRICING_FAQ: readonly { q: string; a: string }[] = [
     a: 'No. Vendors receive requests at no charge. You pay for the workflow, never a markup on the rental.',
   },
   {
-    q: 'Is the AI search unlimited?',
-    a: 'Coordinator includes AI search for day-to-day pulls under a fair-use daily cap. There is no per-search charge.',
+    q: 'How many AI searches do I get?',
+    a: 'Browse has 3 a week, Directory 5 a week, Coordinator 5 a day. Weekly counts reset Monday, daily at midnight UTC. Keyword search is always unlimited, and there is no per-search charge.',
   },
   {
     q: 'Can I cancel?',

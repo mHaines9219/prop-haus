@@ -8,6 +8,9 @@ import {
   limitFor,
   remaining,
   usagePeriod,
+  windowFor,
+  windowLabel,
+  windowResetHint,
   withinLimit,
 } from './plans';
 
@@ -37,7 +40,9 @@ describe('limitFor', () => {
   it('returns the ceiling, or null for unlimited', () => {
     expect(limitFor('free', 'visionSearches')).toBe(3);
     expect(limitFor('pro', 'visionSearches')).toBeNull();
-    expect(limitFor('pro', 'aiSearchesPerDay')).toBe(10);
+    expect(limitFor('free', 'aiSearches')).toBe(3);
+    expect(limitFor('directory', 'aiSearches')).toBe(5);
+    expect(limitFor('pro', 'aiSearches')).toBe(5);
   });
 });
 
@@ -68,21 +73,47 @@ describe('remaining', () => {
 });
 
 describe('usagePeriod', () => {
-  it('maps each metered metric to a reset window', () => {
-    expect(METERED_METRICS).toEqual({ visionSearches: 'lifetime', aiSearchesPerDay: 'daily' });
+  it('maps each metered metric to a reset window, the AI one per plan', () => {
+    expect(METERED_METRICS).toEqual({ visionSearches: 'lifetime', aiSearches: 'plan' });
+    expect(windowFor('free', 'aiSearches')).toBe('week');
+    expect(windowFor('directory', 'aiSearches')).toBe('week');
+    expect(windowFor('pro', 'aiSearches')).toBe('day');
+    expect(windowFor('pro', 'visionSearches')).toBe('lifetime');
   });
 
-  it('is the literal lifetime key for the trial metric', () => {
-    expect(usagePeriod('visionSearches', new Date('2026-08-15T23:30:00Z'))).toBe('lifetime');
+  it('is the literal lifetime key for the trial metric on every plan', () => {
+    expect(usagePeriod('free', 'visionSearches', new Date('2026-08-15T23:30:00Z'))).toBe('lifetime');
+    expect(usagePeriod('pro', 'visionSearches', new Date('2026-08-15T23:30:00Z'))).toBe('lifetime');
   });
 
-  it('is the UTC calendar day for the daily metric, zero-padded', () => {
-    expect(usagePeriod('aiSearchesPerDay', new Date('2026-08-15T23:30:00Z'))).toBe('2026-08-15');
-    expect(usagePeriod('aiSearchesPerDay', new Date('2026-08-16T00:10:00Z'))).toBe('2026-08-16');
-    expect(usagePeriod('aiSearchesPerDay', new Date('2026-01-05T12:00:00Z'))).toBe('2026-01-05');
+  it('is the UTC calendar day on the daily plan, zero-padded', () => {
+    expect(usagePeriod('pro', 'aiSearches', new Date('2026-08-15T23:30:00Z'))).toBe('2026-08-15');
+    expect(usagePeriod('pro', 'aiSearches', new Date('2026-08-16T00:10:00Z'))).toBe('2026-08-16');
+    expect(usagePeriod('pro', 'aiSearches', new Date('2026-01-05T12:00:00Z'))).toBe('2026-01-05');
+  });
+
+  it('is the ISO week on the weekly plans: Monday to Sunday, UTC', () => {
+    // 2026-08-15 is a Saturday, 2026-08-16 a Sunday, 2026-08-17 the next Monday.
+    expect(usagePeriod('free', 'aiSearches', new Date('2026-08-15T23:30:00Z'))).toBe('2026-W33');
+    expect(usagePeriod('free', 'aiSearches', new Date('2026-08-16T23:59:00Z'))).toBe('2026-W33');
+    expect(usagePeriod('directory', 'aiSearches', new Date('2026-08-17T00:00:00Z'))).toBe('2026-W34');
+    // Week 1 holds the first Thursday: Jan 1 2027 is a Friday, so it is still 2026-W53.
+    expect(usagePeriod('free', 'aiSearches', new Date('2027-01-01T12:00:00Z'))).toBe('2026-W53');
+    expect(usagePeriod('free', 'aiSearches', new Date('2027-01-04T12:00:00Z'))).toBe('2027-W01');
+    // Dec 29 2025 is a Monday and already belongs to 2026-W01.
+    expect(usagePeriod('free', 'aiSearches', new Date('2025-12-29T12:00:00Z'))).toBe('2026-W01');
   });
 
   it('defaults to now', () => {
-    expect(usagePeriod('aiSearchesPerDay')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(usagePeriod('pro', 'aiSearches')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(usagePeriod('free', 'aiSearches')).toMatch(/^\d{4}-W\d{2}$/);
+  });
+
+  it('labels the windows for the counter line and the spent message', () => {
+    expect(windowLabel('day')).toBe('today');
+    expect(windowLabel('week')).toBe('this week');
+    expect(windowLabel('lifetime')).toBe('');
+    expect(windowResetHint('day')).toMatch(/midnight UTC/);
+    expect(windowResetHint('week')).toMatch(/Monday/);
   });
 });

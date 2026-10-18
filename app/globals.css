@@ -497,6 +497,14 @@
     filter: saturate(1.15);
     box-shadow: inset 0 0 0 2px var(--ink);
   }
+  /* Spent allowance: the foil sticker goes grey. No swirl, no press. */
+  .ai-mode:disabled {
+    filter: saturate(0) contrast(0.85);
+    opacity: 0.55;
+    cursor: not-allowed;
+    animation: none;
+    box-shadow: none;
+  }
   @keyframes ai-swirl {
     to {
       --ai-swirl: 360deg;

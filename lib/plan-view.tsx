@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { PlanTier } from './accounts';
 import { getJson } from './api';
-import { PLAN_ENTITLEMENTS, type Entitlements } from './plans';
+import { PLAN_ENTITLEMENTS, type Entitlements, type MeteredMetric } from './plans';
+import type { Allowance } from './usage';
 
 /**
  * The caller's plan, as the client sees it.
@@ -26,6 +27,12 @@ export type PlanView = {
   plan: PlanTier;
   actualPlan: PlanTier;
   isAdmin: boolean;
+  /**
+   * The signed-in org's AI search standing (/api/usage), or null when signed
+   * out or not yet known. Shares the ['usage'] query with the search page, so
+   * a search that charges the counter updates every AI MODE tab at once.
+   */
+  aiSearches: Allowance | null;
 };
 
 type BooleanFeature = {
@@ -38,11 +45,13 @@ export const FREE_VIEW: PlanView = {
   plan: 'free',
   actualPlan: 'free',
   isAdmin: false,
+  aiSearches: null,
 };
 
 export const PlanContext = createContext<PlanView>(FREE_VIEW);
 
-type Me = Omit<PlanView, 'status'>;
+type Me = Omit<PlanView, 'status' | 'aiSearches'>;
+type Usage = { plan: PlanTier; metrics: Record<MeteredMetric, Allowance> };
 
 export function PlanProvider({ children }: { children: ReactNode }) {
   const me = useQuery({
@@ -50,12 +59,24 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     queryFn: () => getJson<Me>('/api/me'),
     staleTime: 5 * 60_000,
   });
+  const usage = useQuery({
+    queryKey: ['usage'],
+    queryFn: () => getJson<Usage>('/api/usage'),
+    enabled: me.data?.signedIn === true,
+  });
+  const aiSearches = usage.data?.metrics.aiSearches ?? null;
   const value: PlanView = me.data
-    ? { status: 'ready', ...me.data }
+    ? { status: 'ready', ...me.data, aiSearches }
     : me.isError
       ? FREE_VIEW
       : { ...FREE_VIEW, status: 'loading' };
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>;
+}
+
+/** The AI MODE tab's standing: spent (greyed out), or usable. */
+export function useAiSearchStanding(): { exhausted: boolean; allowance: Allowance | null } {
+  const { aiSearches } = usePlanView();
+  return { exhausted: aiSearches?.allowed === false, allowance: aiSearches };
 }
 
 export function usePlanView(): PlanView {

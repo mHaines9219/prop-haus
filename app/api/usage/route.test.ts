@@ -14,15 +14,16 @@ import { GET } from './route';
  * from the plan on the session rather than anything stored.
  */
 
-const TODAY = usagePeriod('aiSearchesPerDay');
+const THIS_WEEK = usagePeriod('free', 'aiSearches');
+const TODAY = usagePeriod('pro', 'aiSearches');
 
-function counter(orgId: string, metric: string, count: number, period = metric === 'visionSearches' ? 'lifetime' : TODAY) {
+function counter(orgId: string, metric: string, count: number, period = metric === 'visionSearches' ? 'lifetime' : THIS_WEEK) {
   return { org_id: orgId, period, metric, count };
 }
 
 type Snapshot = {
   plan: string;
-  metrics: Record<'visionSearches' | 'aiSearchesPerDay', { metric: string; period: string; used: number; limit: number | null; remaining: number | null; allowed: boolean }>;
+  metrics: Record<'visionSearches' | 'aiSearches', { metric: string; period: string; window: string; used: number; limit: number | null; remaining: number | null; allowed: boolean }>;
 };
 
 beforeEach(() => {
@@ -44,39 +45,40 @@ it('reports a fresh free org at zero with the plan ceilings', async () => {
   expect(await readJson(res)).toEqual({
     plan: 'free',
     metrics: {
-      visionSearches: { metric: 'visionSearches', period: 'lifetime', used: 0, limit: 3, remaining: 3, allowed: true },
-      aiSearchesPerDay: { metric: 'aiSearchesPerDay', period: TODAY, used: 0, limit: 5, remaining: 5, allowed: true },
+      visionSearches: { metric: 'visionSearches', period: 'lifetime', window: 'lifetime', used: 0, limit: 3, remaining: 3, allowed: true },
+      aiSearches: { metric: 'aiSearches', period: THIS_WEEK, window: 'week', used: 0, limit: 3, remaining: 3, allowed: true },
     },
   });
 });
 
-it('reads today’s counter and the lifetime counter for the session org only', async () => {
+it('reads this week’s counter and the lifetime counter for the session org only', async () => {
   db.seed('usage_counters', [
-    counter(ORG_ID, 'aiSearchesPerDay', 2),
-    counter(ORG_ID, 'aiSearchesPerDay', 5, '2020-01-01'),
+    counter(ORG_ID, 'aiSearches', 2),
+    counter(ORG_ID, 'aiSearches', 5, '2020-W01'),
     counter(ORG_ID, 'visionSearches', 1),
-    counter(OTHER_ORG_ID, 'aiSearchesPerDay', 5),
+    counter(OTHER_ORG_ID, 'aiSearches', 5),
     counter(OTHER_ORG_ID, 'visionSearches', 3),
   ]);
   const { metrics } = await readJson<Snapshot>(await GET());
-  expect(metrics.aiSearchesPerDay).toMatchObject({ used: 2, remaining: 3, allowed: true });
+  expect(metrics.aiSearches).toMatchObject({ used: 2, remaining: 1, allowed: true });
   expect(metrics.visionSearches).toMatchObject({ used: 1, remaining: 2, allowed: true });
 });
 
 it('closes the gate at the limit and never reports negative remaining', async () => {
-  db.seed('usage_counters', [counter(ORG_ID, 'aiSearchesPerDay', 5), counter(ORG_ID, 'visionSearches', 9)]);
+  db.seed('usage_counters', [counter(ORG_ID, 'aiSearches', 3), counter(ORG_ID, 'visionSearches', 9)]);
   const { metrics } = await readJson<Snapshot>(await GET());
-  expect(metrics.aiSearchesPerDay).toMatchObject({ used: 5, remaining: 0, allowed: false });
+  expect(metrics.aiSearches).toMatchObject({ used: 3, remaining: 0, allowed: false });
   expect(metrics.visionSearches).toMatchObject({ used: 9, remaining: 0, allowed: false });
 });
 
 it('applies the pro ceilings from the session plan', async () => {
   signIn({ plan: 'pro' });
-  db.seed('usage_counters', [counter(ORG_ID, 'visionSearches', 50), counter(ORG_ID, 'aiSearchesPerDay', 7)]);
+  // Pro counts by the day, so its row lives under today's key, not this week's.
+  db.seed('usage_counters', [counter(ORG_ID, 'visionSearches', 50), counter(ORG_ID, 'aiSearches', 2, TODAY)]);
   const body = await readJson<Snapshot>(await GET());
   expect(body.plan).toBe('pro');
   expect(body.metrics.visionSearches).toMatchObject({ used: 50, limit: null, remaining: null, allowed: true });
-  expect(body.metrics.aiSearchesPerDay).toMatchObject({ used: 7, limit: 10, remaining: 3, allowed: true });
+  expect(body.metrics.aiSearches).toMatchObject({ used: 2, limit: 5, remaining: 3, allowed: true, window: 'day' });
 });
 
 it('never consumes: only selects, no rpc, no writes', async () => {
@@ -100,9 +102,11 @@ it('surfaces a failed read rather than reporting zero usage', async () => {
 });
 
 describe('period', () => {
-  it('uses the UTC day for the daily metric', async () => {
+  it('uses the ISO week on free and the UTC day on pro', async () => {
     const { metrics } = await readJson<Snapshot>(await GET());
-    expect(metrics.aiSearchesPerDay.period).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(metrics.aiSearchesPerDay.period).toBe(new Date().toISOString().slice(0, 10));
+    expect(metrics.aiSearches.period).toMatch(/^\d{4}-W\d{2}$/);
+    signIn({ plan: 'pro' });
+    const pro = await readJson<Snapshot>(await GET());
+    expect(pro.metrics.aiSearches.period).toBe(new Date().toISOString().slice(0, 10));
   });
 });
