@@ -16,6 +16,7 @@ import { EMPTY_PASSPORT } from '../passport';
 import { recordEvents } from '../analytics';
 import { mailer, type MailAttachment } from '../mail/provider';
 import { VENDORS } from '../vendors';
+import { refreshVendorLinks, replyLinksFor } from '../vendor-links';
 import type { Order } from '../orders';
 import { composeOutreach, textToHtml, type Draft, type DraftAttachment, type VendorDocument } from './compose';
 
@@ -78,6 +79,7 @@ export async function sendOrderOutreach(
     const drafts = composeOutreach({
       lines: order.items.map((i) => ({
         itemId: i.itemId,
+        orderItemId: i.id,
         source: i.source,
         sourceId: i.sourceId,
         name: i.name,
@@ -97,6 +99,7 @@ export async function sendOrderOutreach(
       passport,
       fallbackTo: process.env.OUTREACH_FALLBACK_TO,
       bookingFlow: order.sandbox,
+      replyLinks: replyLinksFor(order),
     });
 
     const overrides = new Map((opts.overrides ?? []).map((o) => [o.vendorId, o]));
@@ -147,7 +150,10 @@ export type RetryResult =
   | { ok: true; message: OutboundMessage }
   | { ok: false; reason: 'not_found' | 'not_failed' };
 
-/** Re-send a failed message exactly as stored. Org-scoped. */
+/**
+ * Re-send a failed message as stored, with its vendor reply links re-signed so
+ * the retry never carries a token minted at the first attempt. Org-scoped.
+ */
 export async function retryOutboundMessage(id: string, orgId: string): Promise<RetryResult> {
   const db = createAdminClient();
   const { data } = await db.from('outbound_messages').select('*').eq('id', id).eq('org_id', orgId).maybeSingle();
@@ -155,11 +161,13 @@ export async function retryOutboundMessage(id: string, orgId: string): Promise<R
   const message = toMessage(data as MessageRow);
   if (message.status !== 'failed') return { ok: false, reason: 'not_failed' };
 
+  const bodyText = refreshVendorLinks(message.bodyText);
+  const bodyHtml = refreshVendorLinks(message.bodyHtml);
   await db
     .from('outbound_messages')
-    .update({ status: 'sending', error: null, updated_at: new Date().toISOString() })
+    .update({ status: 'sending', error: null, body_text: bodyText, body_html: bodyHtml, updated_at: new Date().toISOString() })
     .eq('id', id);
-  const sent = await deliver({ ...message, status: 'sending', error: undefined }, orgId);
+  const sent = await deliver({ ...message, bodyText, bodyHtml, status: 'sending', error: undefined }, orgId);
   return { ok: true, message: sent };
 }
 

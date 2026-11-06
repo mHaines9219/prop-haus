@@ -147,8 +147,13 @@ export function OutreachDrawer({
                   <BodyEditor value={message.bodyText} onChange={(bodyText) => editing.onChange({ bodyText })} />
                 ) : (
                   <pre className="mt-1.5 whitespace-pre-wrap border border-border bg-surface-inset px-3 py-3 font-sans text-[14px] leading-relaxed text-foreground">
-                    {message.bodyText}
+                    <Linkified text={message.bodyText} />
                   </pre>
+                )}
+                {!editing && message.status === 'sandbox' && message.bodyText.includes('/vendor/respond?t=') && (
+                  <p className="mt-2 font-mono text-[12px] text-text-tertiary">
+                    Sandbox. The reply links work: open one to answer as the vendor.
+                  </p>
                 )}
               </Row>
 
@@ -229,6 +234,29 @@ function Envelope({ message }: { message: DrawerMessage }) {
       )}
     </dl>
   );
+}
+
+const URL_RE = /https?:\/\/[^\s<>"]+/g;
+
+/**
+ * The sent body with its URLs as links. Item links open the vendor's page;
+ * on a sandbox order the vendor reply links let an admin answer as the house.
+ */
+function Linkified({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    const at = m.index ?? 0;
+    if (at > last) parts.push(text.slice(last, at));
+    parts.push(
+      <a key={at} href={m[0]} target="_blank" rel="noopener noreferrer" className="break-all underline underline-offset-2 hover:text-accent-text">
+        {m[0]}
+      </a>,
+    );
+    last = at + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }
 
 function BodyEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {

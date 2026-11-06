@@ -60,6 +60,8 @@ export type Order = {
 
 export type CartLineInput = {
   itemId: string;
+  /** The order_items row this line became. Set only when composing from a placed order. */
+  orderItemId?: string;
   source: string;
   sourceId: string;
   name: string;
