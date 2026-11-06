@@ -20,7 +20,8 @@ import { createServerClient } from "@supabase/ssr";
  */
 
 // Routes that only make sense with an owner. Everything else (browse, search,
-// item pages, cart) stays public.
+// item pages, cart, and /vendor/respond, where a vendor's signed reply link
+// lands with no account) stays public.
 const PROTECTED_PREFIXES = ['/projects'];
 
 function isProtected(pathname: string): boolean {

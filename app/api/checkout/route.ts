@@ -70,7 +70,7 @@ export async function POST(req: Request) {
   }
   // A cart left open while the sandbox switch was flipped elsewhere still
   // shows the old mode. Placing a live order from a page that promised
-  // "nothing sent" is the one way a sandbox test could email a vendor, so a
+  // "mail to the test inbox" is the one way a sandbox test could email a vendor, so a
   // mismatch in either direction is refused before anything is written.
   if (typeof body.sandbox === 'boolean' && body.sandbox !== session.sandbox) {
     return NextResponse.json({ error: MODE_CHANGED, reason: 'mode_changed' }, { status: 409 });

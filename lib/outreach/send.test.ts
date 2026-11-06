@@ -13,6 +13,7 @@ import {
   sendOrderOutreach,
   sentCountsByOrder,
 } from './send';
+import { SANDBOX_INBOX } from './constants';
 
 const omega = makeOrderItem();
 const heritage = makeOrderItem({
@@ -108,8 +109,11 @@ describe('sendOrderOutreach', () => {
     const omegaMail = mails.find((m) => m.to === 'orders@omegacinemaprops.com')!;
     const heritageMail = mails.find((m) => m.to === 'orders@heritagepropsla.com')!;
     expect(omegaMail.subject).toBe('Edited subject');
-    expect(omegaMail.text).toBe('Line one\n\nLine <two>');
+    // The user's words first, then the reply links the cart preview could not carry.
+    expect(omegaMail.text.startsWith('Line one\n\nLine <two>\n\nMark each item\n')).toBe(true);
+    expect(omegaMail.text.match(/vendor\/respond\?t=/g)).toHaveLength(2);
     expect(omegaMail.html).toContain('Line &lt;two&gt;');
+    expect(omegaMail.html.match(/href="[^"]*vendor\/respond\?t=/g)).toHaveLength(2);
     expect(heritageMail.subject).toMatch(/^Hold request/);
 
     expect(Object.fromEntries(db.rows('outbound_messages').map((r) => [r.vendor_id, r.edited]))).toEqual({
@@ -159,19 +163,21 @@ describe('sendOrderOutreach', () => {
     expect(db.rows('outbound_messages')[0].status).toBe('sent');
   });
 
-  it('writes a sandbox order as inquiries and never reaches a mailer, even with a real provider configured', async () => {
-    vi.stubEnv('MAIL_PROVIDER', 'resend');
-    vi.stubEnv('RESEND_API_KEY', 're_test_never_used');
-    vi.stubEnv('MAIL_FROM', 'Prop Haus <orders@prophaus.example>');
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-
+  it("sends a sandbox order's inquiries to the test inbox, never to a house, with the house named in the subject", async () => {
     await sendOrderOutreach(makeOrder({ sandbox: true, items: [omega, heritage] }));
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-    expect(db.rows('outbound_messages').map((r) => r.status)).toEqual(['sandbox', 'sandbox']);
-    expect(db.rows('events')).toEqual([]);
+    const mails = send.mock.calls.map(([m]) => m as MailMessage);
+    expect(mails.map((m) => m.to)).toEqual([SANDBOX_INBOX, SANDBOX_INBOX]);
+    expect(mails.every((m) => (m.cc ?? []).length === 0)).toBe(true);
+    expect(mails.map((m) => m.subject).sort()).toEqual([
+      expect.stringMatching(/^\[Sandbox · to Heritage Props LA\] Hold request/),
+      expect.stringMatching(/^\[Sandbox · to Omega Cinema Props\] Hold request/),
+    ]);
+    expect(db.rows('outbound_messages').map((r) => [r.to_email, r.status])).toEqual([
+      [SANDBOX_INBOX, 'sent'],
+      [SANDBOX_INBOX, 'sent'],
+    ]);
+    expect(db.rows('events').map((e) => e.type)).toEqual(['outreach_sent', 'outreach_sent']);
   });
 
   it('does nothing when outreach is switched off', async () => {

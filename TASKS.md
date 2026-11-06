@@ -1438,7 +1438,19 @@ Scope with Matthew before starting.
 
 ### FUT-5 · INBOUND — Vendor replies update the order
 
-**Status:** future
+**Status:** first cut done (Nov 6 2026) — signed reply links. Every line
+item in the outreach email carries "Item available" / "Item unavailable"
+links (`lib/vendor-links.ts`, HMAC over the order, line, vendor and action,
+30-day expiry, no storage). Opening one lands on the public
+`/vendor/respond` page, which sets the line status (`lib/vendor-respond.ts`:
+available → confirmed, unavailable → unavailable), records a
+`vendor_replied` event, and offers the other answer. Repeat clicks write
+nothing; the latest click wins. A sandbox order's draft on the order page
+carries the same links so an admin can answer as the house; a booking stage
+never moves from here. Needs from Matthew: `VENDOR_LINK_SECRET` and
+`NEXT_PUBLIC_APP_URL` in `.env.local` and `.env.local.example` (the dev
+secret and `http://localhost:3000` are the fallbacks). Still future: the
+inbound-mail half below.
 **Depends on:** MVP-11 (outreach messages carry an order-tagged reply-to)
 
 Close the loop on the outreach batch: receive vendor replies (an inbound
@@ -1510,4 +1522,4 @@ Token-burn guardrails:
 | FUT-2 | Spacelab 3D set preview | future | — |
 | FUT-3 | Chrome extension web clipper | future | — |
 | FUT-4 | Jobs Phase 2 (full dashboard port) | future | — |
-| FUT-5 | Inbound vendor replies update orders | future | — |
+| FUT-5 | Inbound vendor replies update orders | first cut done (reply links); inbound mail future | — |

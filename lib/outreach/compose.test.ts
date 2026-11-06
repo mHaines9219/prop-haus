@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PICKUP_LINE, composeOutreach, formatRentalWindow, textToHtml } from './compose';
+import { PICKUP_LINE, appendReplyLinks, composeOutreach, formatRentalWindow, textToHtml } from './compose';
 import type { Vendor } from '../vendors';
 import type { OrderProfile } from '../order-profile';
 import { makeCartLine, READY_PROFILE } from '@/test/fixtures/orders';
@@ -301,5 +301,57 @@ describe('the booking flow inquiry', () => {
     const [omega] = composeOutreach({ ...base, lines: [lines[0]!], profile: withCoi, bookingFlow: true });
     expect(omega!.bodyText).toContain('COI on file attached.');
     expect(omega!.attachments).toEqual([{ name: 'Nocturne-COI.pdf', storagePath: 'org/coi/abc.pdf', contentType: 'application/pdf' }]);
+  });
+});
+
+describe('vendor reply links', () => {
+  const replyLinks = ({ orderItemId, source }: { orderItemId: string; source: string }) => ({
+    available: `https://prophaus.example/vendor/respond?t=${source}-${orderItemId}-yes`,
+    unavailable: `https://prophaus.example/vendor/respond?t=${source}-${orderItemId}-no`,
+  });
+  const placed = [
+    makeCartLine({ itemId: 'omega-1', orderItemId: 'oi-1', source: 'omega', name: 'Walnut credenza', sourceUrl: 'https://omegacinemaprops.com/item/1' }),
+    makeCartLine({ itemId: 'omega-2', orderItemId: 'oi-2', source: 'omega', name: 'Brass floor lamp', sourceUrl: 'https://omegacinemaprops.com/item/2' }),
+  ];
+
+  it('puts exactly two links under each line item, in the text and the HTML', () => {
+    const [omega] = composeOutreach({ ...base, lines: placed, profile: withCoi, replyLinks });
+    const text = omega!.bodyText;
+    expect(text).toContain(
+      '1. Walnut credenza\n   https://omegacinemaprops.com/item/1\n   Item available: https://prophaus.example/vendor/respond?t=omega-oi-1-yes\n   Item unavailable: https://prophaus.example/vendor/respond?t=omega-oi-1-no\n2. Brass floor lamp',
+    );
+    expect(text.match(/vendor\/respond\?t=/g)).toHaveLength(4);
+    expect(omega!.bodyHtml.match(/href="https:\/\/prophaus\.example\/vendor\/respond\?t=/g)).toHaveLength(4);
+    expect(omega!.bodyHtml).toContain('>Item available</a>');
+    expect(omega!.bodyHtml).toContain('>Item unavailable</a>');
+    expect(omega!.items.map((i) => i.replyLinks)).toEqual([replyLinks({ orderItemId: 'oi-1', source: 'omega' }), replyLinks({ orderItemId: 'oi-2', source: 'omega' })]);
+    expect(text).toContain('The links under each item mark it available or unavailable on our order.');
+  });
+
+  it('writes no links for a cart preview, where the lines have no order item yet', () => {
+    const [omega] = composeOutreach({ ...base, lines: [lines[0]!], profile: withCoi, replyLinks });
+    expect(omega!.bodyText).not.toContain('vendor/respond');
+    expect(omega!.bodyHtml).not.toContain('vendor/respond');
+    expect(omega!.items[0]!.replyLinks).toBeUndefined();
+    expect(omega!.bodyText).toContain('Please confirm availability and send a quote. Reply to this email.');
+  });
+});
+
+describe('appendReplyLinks', () => {
+  const items = [
+    { name: 'Walnut credenza', sourceUrl: 'https://omega.example/1', replyLinks: { available: 'https://p.example/vendor/respond?t=a1', unavailable: 'https://p.example/vendor/respond?t=a0' } },
+    { name: 'Brass floor lamp', sourceUrl: 'https://omega.example/2' },
+  ];
+
+  it('adds a closing block with two links per linked item under the user\'s own words', () => {
+    const out = appendReplyLinks('Hi Omega,\n\nholding these two.\n\nSam\n', items);
+    expect(out).toBe(
+      'Hi Omega,\n\nholding these two.\n\nSam\n\nMark each item\nWalnut credenza\n   Item available: https://p.example/vendor/respond?t=a1\n   Item unavailable: https://p.example/vendor/respond?t=a0',
+    );
+    expect(textToHtml(out).match(/href="https:\/\/p\.example\/vendor\/respond\?t=/g)).toHaveLength(2);
+  });
+
+  it('leaves a body alone when no item carries links', () => {
+    expect(appendReplyLinks('Hi Omega.', [items[1]!])).toBe('Hi Omega.');
   });
 });

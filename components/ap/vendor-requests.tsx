@@ -3,11 +3,16 @@
 import { useState } from 'react';
 import { ApiError, postJson } from '@/lib/api';
 import type { OutboundMessage } from '@/lib/outreach/send';
+import { SANDBOX_INBOX } from '@/lib/outreach/constants';
 import { StatusToken, messageStatusSpec } from '@/components/ap/status-token';
 import { OutreachDrawer, formatSentAt } from '@/components/ap/outreach-drawer';
 
-/** The "Vendor requests" section on an order: what went out, to whom, and whether it landed. */
-export function VendorRequests({ initial }: { initial: OutboundMessage[] }) {
+/**
+ * The "Vendor requests" section on an order: what went out, to whom, and
+ * whether it landed. On a sandbox order the drafts' vendor reply links are
+ * live for the admin reading them, so a house's answer can be simulated.
+ */
+export function VendorRequests({ initial, sandbox = false }: { initial: OutboundMessage[]; sandbox?: boolean }) {
   const [messages, setMessages] = useState(initial);
   const [openId, setOpenId] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -90,6 +95,7 @@ export function VendorRequests({ initial }: { initial: OutboundMessage[] }) {
                 status: open.status,
                 sentAt: open.sentAt,
                 error: open.error,
+                sandbox,
               }
             : null
         }
@@ -100,12 +106,13 @@ export function VendorRequests({ initial }: { initial: OutboundMessage[] }) {
 }
 
 /** "Sent to 3 vendors." / "Sent to 2 of 3 vendors. 1 failed." / "Sending to 3 vendors." */
-export function headline(messages: { status: string }[]): string {
+export function headline(messages: { status: string; to?: string }[]): string {
   const total = messages.length;
   const sent = messages.filter((m) => m.status === 'sent').length;
   const failed = messages.filter((m) => m.status === 'failed').length;
   const noun = `vendor${total !== 1 ? 's' : ''}`;
   if (messages.every((m) => m.status === 'sandbox')) return `Sandbox. Written for ${total} ${noun}, none sent.`;
+  if (messages.every((m) => m.to === SANDBOX_INBOX)) return `Sandbox. ${total} ${noun}, all to ${SANDBOX_INBOX}.`;
   if (sent === total) return `Sent to ${total} ${noun}.`;
   if (failed === 0) return `Sending to ${total} ${noun}.`;
   return `Sent to ${sent} of ${total} ${noun}. ${failed} failed.`;

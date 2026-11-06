@@ -190,3 +190,36 @@ describe('formatSentAt', () => {
     expect(formatSentAt('2026-11-06T18:30:00')).toBe('Nov 6, 6:30 PM');
   });
 });
+
+// Vendor reply links (FUT-5): the read-only body's URLs are links, the
+// vendor's own reply links only on a sandbox order.
+const LINKED_BODY =
+  'Items\n1. Walnut credenza\n   https://omegacinemaprops.com/item/1\n   Item available: http://localhost:3000/vendor/respond?t=abc.def\n   Item unavailable: http://localhost:3000/vendor/respond?t=ghi.jkl\n\nReply to this email.';
+
+describe('OutreachDrawer vendor reply links', () => {
+  it('on a sandbox order, turns every URL in the body into a link that opens in a new tab and keeps the words', () => {
+    render(<OutreachDrawer message={message({ bodyText: LINKED_BODY, status: 'sent', sandbox: true })} onClose={() => {}} />);
+    const links = within(dialog()).getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      'https://omegacinemaprops.com/item/1',
+      'http://localhost:3000/vendor/respond?t=abc.def',
+      'http://localhost:3000/vendor/respond?t=ghi.jkl',
+    ]);
+    for (const a of links) expect(a).toHaveAttribute('target', '_blank');
+    expect(within(dialog()).getByText(/Item available:/)).toBeInTheDocument();
+    expect(within(dialog()).getByText(/open one to answer as the vendor/)).toBeInTheDocument();
+  });
+
+  it('on a live order, links the item pages but keeps the vendor reply links as plain text', () => {
+    render(<OutreachDrawer message={message({ bodyText: LINKED_BODY, status: 'sent' })} onClose={() => {}} />);
+    expect(within(dialog()).getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['https://omegacinemaprops.com/item/1']);
+    expect(within(dialog()).getByText(/vendor\/respond\?t=abc\.def/)).toBeInTheDocument();
+    expect(within(dialog()).queryByText(/open one to answer as the vendor/)).toBeNull();
+  });
+
+  it('keeps the editable body a plain textarea with no links', () => {
+    render(<EditableHarness initial={message({ bodyText: LINKED_BODY })} />);
+    expect(within(dialog()).getAllByRole('textbox')).toHaveLength(2);
+    expect(within(dialog()).queryByRole('link')).toBeNull();
+  });
+});
