@@ -31,6 +31,15 @@ export NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
   NEXT_DIST_DIR=.next-local \
   PORT=3000
 
+cat <<'NOTE'
+
+  LOCAL STACK on http://localhost:3000 (not the hosted project).
+  Sign in with the EMAIL LINK, then open it in Mailpit: http://127.0.0.1:54324
+  "Continue with Google" does not work here: the local auth service has no
+  Google client, so Google never calls back. Use `pnpm dev` for Google sign-in.
+
+NOTE
+
 if command -v fnm >/dev/null 2>&1; then
   eval "$(fnm env)"
   exec fnm exec --using "$(cat .nvmrc)" -- pnpm dev
