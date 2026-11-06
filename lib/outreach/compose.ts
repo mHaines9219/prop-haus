@@ -11,7 +11,9 @@ import { formatAddress, type Address, type OrderProfile } from '../order-profile
 import { checkCompatibility, type VendorInsuranceMinimum } from '../insurance/minimums';
 import { PASSPORT_KIND_SPECS, type Passport, type PassportKind } from '../passport';
 import { vendorAsksFor, type Vendor } from '../vendors';
+import { INSURER_NAME } from '../insurance/issuer';
 import { inquiryPacket } from '../booking/packet';
+import { insuranceRouteFor } from '../insurance/route';
 
 export type DraftAttachment = { name: string; storagePath: string; contentType: string };
 
@@ -127,10 +129,13 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
 
   const attachments: DraftAttachment[] = [];
   const paperwork: string[] = [];
-  if (input.bookingFlow) {
+  const route = input.bookingFlow ? insuranceRouteFor(profile.insurance) : null;
+  if (route) {
     const w9 = input.passport?.documents.w9;
     if (w9) attachments.push({ name: w9.name, storagePath: w9.storagePath, contentType: w9.mime });
-    paperwork.push(...inquiryPacket({ vendorName, w9OnFile: Boolean(w9) }).map((p) => p.line));
+    const onFile = route.route === 'on_file' ? profile.insurance.coiDocument : undefined;
+    if (onFile) attachments.push({ name: onFile.name, storagePath: onFile.storagePath, contentType: contentTypeFor(onFile.name) });
+    paperwork.push(...inquiryPacket({ vendorName, w9OnFile: Boolean(w9), insurance: route }).map((p) => p.line));
   } else {
     const coi = profile.insurance.coiDocument;
     if (coi) attachments.push({ name: coi.name, storagePath: coi.storagePath, contentType: contentTypeFor(coi.name) });
@@ -198,12 +203,17 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
   );
 
   const warnings: string[] = [];
-  // The gap check reads the production's own coverage; in the booking flow the
-  // insurer writes each certificate to the house's terms, so there is no gap to warn about.
-  const minimum = input.bookingFlow ? undefined : input.minimums?.[vendorId];
+  // The gap check reads the production's own coverage. On the fallback route
+  // the insurer writes each certificate to the house's terms, so there is
+  // nothing to compare; on the production's own routes a shortfall is where
+  // the fallback gets offered.
+  const minimum = route?.route === 'athos' ? undefined : input.minimums?.[vendorId];
   if (minimum) {
     const result = checkCompatibility(profile.insurance, minimum);
-    if (!result.compatible) warnings.push(...result.gaps);
+    if (!result.compatible) {
+      warnings.push(...result.gaps);
+      if (route) warnings.push(`${INSURER_NAME} can issue this certificate instead.`);
+    }
   }
   if (needsVendorAddress) {
     warnings.push(to ? `No address on file for ${vendorName}. This goes to ${to}.` : `No address on file for ${vendorName}.`);

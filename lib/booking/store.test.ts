@@ -13,8 +13,8 @@ import { advanceBooking, listBookings, openBookings } from './store';
  * open at checkout, then one event at a time per house.
  */
 
-function seed(over: Record<string, unknown> = {}) {
-  db.seed('organizations', [{ id: ORG_ID, order_profile: {}, passport: {} }]);
+function seed(over: Record<string, unknown> = {}, insurance: Record<string, unknown> = {}) {
+  db.seed('organizations', [{ id: ORG_ID, order_profile: { insurance }, passport: {} }]);
   db.seed('orders', [orderRow({ sandbox: true, rental_start: '2026-12-01', rental_end: '2026-12-05', ...over })]);
   db.seed('order_items', [
     orderItemRow({ id: 'oi-1' }),
@@ -46,6 +46,15 @@ describe('openBookings', () => {
     expect(bookings[0]!.packet.find((p) => p.kind === 'w9')).toMatchObject({ status: 'to_follow' });
     expect(bookings[0]!.history).toEqual([expect.objectContaining({ event: 'open', from: null, to: 'inquiry_sent' })]);
     expect(db.rows('orders')[0].payment_method).toMatchObject({ last4: '4242' });
+  });
+
+  it('reads the certificate route off the profile when the inquiry goes out', async () => {
+    seed({}, { carrier: 'Hiscox', glLimit: 2_000_000, broker: { name: 'Acme Insurance', email: 'certs@acme.example' } });
+    const [hpr] = await open();
+    expect(hpr!.insurance).toEqual({ route: 'own', brokerName: 'Acme Insurance', brokerEmail: 'certs@acme.example' });
+    expect(hpr!.packet.find((p) => p.kind === 'insurability')!.line).toBe(
+      'COI naming Hand Prop Room follows from our broker, Acme Insurance, when you confirm.',
+    );
   });
 
   it('is safe to call twice', async () => {
@@ -84,6 +93,33 @@ describe('advanceBooking', () => {
     // What was returned is what was stored.
     const stored = (await listBookings('order-1', ORG_ID)).find((b) => b.vendorId === 'omega')!;
     expect(stored).toMatchObject({ stage: 'captured', amountCents: 27_000 });
+  });
+
+  it("own policy: confirming writes the broker's request, and the broker's certificate carries the production's limits", async () => {
+    seed({}, { carrier: 'Hiscox', glLimit: 3_000_000, aggregateLimit: 4_000_000, broker: { name: 'Acme Insurance', email: 'certs@acme.example' } });
+    await open();
+    const confirmed = await step('omega', { event: 'confirm', amountCents: 12_000 });
+    if (!confirmed.ok) throw new Error(confirmed.message);
+    expect(confirmed.bookings.find((b) => b.vendorId === 'omega')!.coiRequest).toMatchObject({ to: 'certs@acme.example' });
+
+    expect(await step('omega', { event: 'issue_coi' })).toMatchObject({ ok: false, reason: 'invalid_transition' });
+    const received = await step('omega', { event: 'receive_coi' });
+    if (!received.ok) throw new Error(received.message);
+    expect(received.bookings.find((b) => b.vendorId === 'omega')).toMatchObject({
+      stage: 'coi_issued',
+      certificate: { issuer: 'Acme Insurance', glLimit: 3_000_000, aggregateLimit: 4_000_000, holderName: 'Omega Cinema Props' },
+    });
+  });
+
+  it('certificate on file: it is attached, and nobody issues anything', async () => {
+    seed({}, { coiDocument: { storagePath: 'org/coi.pdf', name: 'Nocturne-COI.pdf', uploadedAt: '2026-10-01T00:00:00Z' } });
+    await open();
+    await step('omega', { event: 'confirm', amountCents: 12_000 });
+    const attached = await step('omega', { event: 'attach_coi' });
+    if (!attached.ok) throw new Error(attached.message);
+    const omega = attached.bookings.find((b) => b.vendorId === 'omega')!;
+    expect(omega.coiRequest).toBeUndefined();
+    expect(omega.certificate).toMatchObject({ issuer: 'on file', certificateNumber: 'Nocturne-COI.pdf', issuedAt: '2026-10-01T00:00:00Z' });
   });
 
   it('a decline marks that house unavailable; the order settles once every house has answered', async () => {

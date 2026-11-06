@@ -31,6 +31,8 @@ type Editing = {
   edited: boolean;
   onChange: (patch: { subject?: string; bodyText?: string }) => void;
   onReset: () => void;
+  /** What the click does with this draft, when it is not "send it". */
+  footnote?: string;
 };
 
 export function OutreachDrawer({
@@ -90,7 +92,7 @@ export function OutreachDrawer({
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div className="min-w-0">
                 <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-                  {editing ? 'Email draft' : 'Email sent'}
+                  {editing ? 'Email draft' : message.status === 'sandbox' ? 'Email written, not sent' : 'Email sent'}
                 </p>
                 <h2 className="mt-1 truncate font-heading text-[18px] font-bold tracking-[-0.02em]">
                   {message.vendorName}
@@ -182,7 +184,7 @@ export function OutreachDrawer({
             {editing && (
               <div className="border-t border-border px-5 py-4">
                 <p className="font-mono text-[12px] text-text-tertiary">
-                  {editing.edited ? 'Your edit goes out with the click.' : 'Sent as written with the click.'}
+                  {editing.footnote ?? (editing.edited ? 'Your edit goes out with the click.' : 'Sent as written with the click.')}
                 </p>
               </div>
             )}

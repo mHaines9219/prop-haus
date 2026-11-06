@@ -12,9 +12,11 @@ import { createAdminClient } from '../supabase/admin';
 import { recordEvents } from '../analytics';
 import { getOrderById, setItemStatus, setOrderStatus, type Order } from '../orders';
 import { getPassport } from '../passport-store';
+import { getOrderProfile } from '../order-profile-store';
+import { insuranceRouteFor } from '../insurance/route';
 import { EMPTY_PASSPORT } from '../passport';
 import { getVendorMinimums, type VendorInsuranceMinimum } from '../insurance/minimums';
-import { certificateIssuer, certificateTerms } from '../insurance/issuer';
+import { certificateIssuer, certificateTerms, type Certificate } from '../insurance/issuer';
 import { EXTRA_KINDS, paymentProvider, type ExtraKind } from '../payments/provider';
 import { VENDORS } from '../vendors';
 import type { Source } from '../types';
@@ -49,8 +51,14 @@ export async function openBookings(order: Order): Promise<Booking[]> {
     .eq('org_id', order.orgId);
   if (cardError) throw cardError;
 
-  const passport = await getPassport(order.orgId).catch(() => EMPTY_PASSPORT);
+  const [passport, profile] = await Promise.all([
+    getPassport(order.orgId).catch(() => EMPTY_PASSPORT),
+    getOrderProfile(order.orgId),
+  ]);
   const w9OnFile = Boolean(passport.documents.w9);
+  // Decided once, when the inquiry goes out, so the packet and every later
+  // step read the same route even if the profile changes mid-booking.
+  const insurance = insuranceRouteFor(profile.insurance);
   const at = new Date().toISOString();
 
   const houses = new Map<string, string>();
@@ -64,7 +72,8 @@ export async function openBookings(order: Order): Promise<Booking[]> {
       vendor_name: vendorName,
       stage: 'inquiry_sent',
       state: {
-        packet: inquiryPacket({ vendorName, w9OnFile }),
+        packet: inquiryPacket({ vendorName, w9OnFile, insurance }),
+        insurance,
         extras: [],
         history: [{ event: 'open', from: null, to: 'inquiry_sent', at }],
       } satisfies BookingState,
@@ -126,7 +135,7 @@ export async function advanceBooking(
   const booking = bookings.find((b) => b.vendorId === vendorId);
   if (!booking) return fail('not_found', 'Booking not found.');
 
-  const to = nextStage(booking.stage, input.event);
+  const to = nextStage(booking.stage, input.event, booking.insurance.route);
   if (!to) return fail('invalid_transition', `${booking.vendorName} is at ${booking.stage}; ${input.event} does not apply.`);
 
   const effect = await EFFECTS[input.event]({ order, booking, input });
@@ -175,9 +184,16 @@ type Effect = { patch: Partial<BookingState> } | { error: string };
 
 /** What each event does beyond changing the stage. One entry per event, nowhere else. */
 const EFFECTS: Record<BookingEventType, (ctx: EffectContext) => Promise<Effect>> = {
-  async confirm({ input }) {
+  async confirm({ booking, input }) {
     if (!isPositiveCents(input.amountCents)) return { error: "The house's total must be more than zero." };
-    return { patch: { amountCents: input.amountCents } };
+    // On the production's own policy, the certificate request goes to their
+    // broker the moment the house confirms. In the sandbox it is written and
+    // kept on the booking, never sent.
+    const coiRequest =
+      booking.insurance.route === 'own'
+        ? { ...(booking.insurance.brokerEmail ? { to: booking.insurance.brokerEmail } : {}), writtenAt: new Date().toISOString() }
+        : undefined;
+    return { patch: { amountCents: input.amountCents, ...(coiRequest ? { coiRequest } : {}) } };
   },
 
   async decline({ input }) {
@@ -186,13 +202,36 @@ const EFFECTS: Record<BookingEventType, (ctx: EffectContext) => Promise<Effect>>
   },
 
   async issue_coi({ order, booking }) {
-    const minimums: Record<string, VendorInsuranceMinimum> = await getVendorMinimums([booking.vendorId]).catch(() => ({}));
-    const vendor = VENDORS[booking.vendorId as Source] ?? { name: booking.vendorName };
-    const terms = certificateTerms(vendor, minimums[booking.vendorId], {
-      start: order.rentalStart,
-      end: order.rentalEnd,
-    });
+    const terms = await termsFor(order, booking);
     const certificate = await certificateIssuer.issue({ orderId: order.id, vendorId: booking.vendorId, terms });
+    return { patch: { certificate } };
+  },
+
+  // The broker's certificate arriving. The real event is an upload or an
+  // inbound email; the sandbox stands in a record with the production's own
+  // limits on it.
+  async receive_coi({ order, booking }) {
+    const profile = await getOrderProfile(order.orgId);
+    const certificate: Certificate = {
+      ...(await termsFor(order, booking, profile.insurance)),
+      certificateNumber: `BRK-${order.id.slice(0, 8).toUpperCase()}-${booking.vendorId.toUpperCase()}`,
+      issuer: booking.insurance.brokerName ?? 'the production\'s insurer',
+      issuedAt: new Date().toISOString(),
+    };
+    return { patch: { certificate } };
+  },
+
+  // The certificate already on file, attached to this house's booking.
+  async attach_coi({ order, booking }) {
+    const profile = await getOrderProfile(order.orgId);
+    const doc = profile.insurance.coiDocument;
+    if (!doc) return { error: 'No certificate is on file any more. Upload one on the order profile.' };
+    const certificate: Certificate = {
+      ...(await termsFor(order, booking, profile.insurance)),
+      certificateNumber: doc.name,
+      issuer: 'on file',
+      issuedAt: doc.uploadedAt,
+    };
     return { patch: { certificate } };
   },
 
@@ -254,6 +293,22 @@ async function projectOntoOrder(order: Order, booking: Booking, input: BookingEv
   if (status !== order.status) await setOrderStatus(order.id, order.orgId, status);
 }
 
+/**
+ * The certificate's terms for one house: the house's own minimums where it has
+ * them, and on the production's own routes the production's limits, since that
+ * is what their certificate will say.
+ */
+async function termsFor(order: Order, booking: Booking, own?: { glLimit?: number; aggregateLimit?: number }) {
+  const minimums: Record<string, VendorInsuranceMinimum> = await getVendorMinimums([booking.vendorId]).catch(() => ({}));
+  const vendor = VENDORS[booking.vendorId as Source] ?? { name: booking.vendorName };
+  const terms = certificateTerms(vendor, minimums[booking.vendorId], { start: order.rentalStart, end: order.rentalEnd });
+  return {
+    ...terms,
+    ...(own?.glLimit ? { glLimit: own.glLimit } : {}),
+    ...(own?.aggregateLimit ? { aggregateLimit: own.aggregateLimit } : {}),
+  };
+}
+
 function fail(reason: AdvanceFailure, message: string): AdvanceResult {
   return { ok: false, reason, message };
 }
@@ -273,6 +328,8 @@ function isPositiveCents(v: unknown): v is number {
 function stateOf(b: Booking): BookingState {
   return {
     packet: b.packet,
+    insurance: b.insurance,
+    coiRequest: b.coiRequest,
     amountCents: b.amountCents,
     declineNote: b.declineNote,
     certificate: b.certificate,
@@ -303,6 +360,8 @@ function toBooking(r: BookingRow): Booking {
     vendorName: r.vendor_name,
     stage: r.stage as BookingStage,
     packet: state.packet ?? [],
+    insurance: state.insurance ?? { route: 'athos' },
+    ...(state.coiRequest ? { coiRequest: state.coiRequest } : {}),
     ...(state.amountCents !== undefined ? { amountCents: state.amountCents } : {}),
     ...(state.declineNote ? { declineNote: state.declineNote } : {}),
     ...(state.certificate ? { certificate: state.certificate } : {}),

@@ -10,6 +10,17 @@
         "scripts/dev-local.sh"
       ],
       "port": 3000
+    },
+    {
+      "name": "local-stack-3100",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "ADMIN_EMAILS=sandbox-admin@example.com",
+        "PORT=3100",
+        "bash",
+        "scripts/dev-local.sh"
+      ],
+      "port": 3100
     }
   ]
 }

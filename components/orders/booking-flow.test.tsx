@@ -17,7 +17,8 @@ function booking(over: Partial<Booking> = {}): Booking {
     vendorId: 'omega',
     vendorName: 'Omega Cinema Props',
     stage: 'inquiry_sent',
-    packet: inquiryPacket({ vendorName: 'Omega Cinema Props', w9OnFile: false }),
+    packet: inquiryPacket({ vendorName: 'Omega Cinema Props', w9OnFile: false, insurance: { route: 'athos' } }),
+    insurance: { route: 'athos' },
     extras: [],
     history: [{ event: 'open', from: null, to: 'inquiry_sent', at: '2026-11-06T18:00:00Z' }],
     createdAt: '2026-11-06T18:00:00Z',
@@ -86,12 +87,34 @@ describe('BookingFlow', () => {
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ event: 'confirm', amountCents: 31_050 });
   });
 
+  it("offers the broker's certificate on the production's own policy, and shows the request that went to them", () => {
+    mount([
+      booking({
+        stage: 'confirmed',
+        amountCents: 27_000,
+        insurance: { route: 'own', brokerName: 'Acme Insurance', brokerEmail: 'certs@acme.example' },
+        coiRequest: { to: 'certs@acme.example', writtenAt: '2026-11-06T18:10:00Z' },
+      }),
+    ]);
+    expect(screen.getByText("Certificate route: the production's own policy, broker Acme Insurance (certs@acme.example).")).toBeInTheDocument();
+    expect(screen.getByText(/Certificate request to certs@acme.example written .*Not sent \(sandbox\)\./)).toBeInTheDocument();
+    expect(screen.getByText('COI is next: Acme Insurance sends one naming this house.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(["Broker's COI arrives"]);
+  });
+
+  it('attaches the certificate on file instead of issuing one', () => {
+    mount([booking({ stage: 'confirmed', amountCents: 27_000, insurance: { route: 'on_file', documentName: 'Nocturne-COI.pdf' } })]);
+    expect(screen.getByText('Certificate route: COI on file, Nocturne-COI.pdf.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Attach COI on file']);
+  });
+
   it('says when the hold waits for pickup to come closer', () => {
     mount([booking({ stage: 'coi_issued', amountCents: 27_000 })]);
     expect(
       screen.getByText('Hold of $270.00 is due Nov 25. A hold lasts about 7 days, so it waits until pickup is that close.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Place hold' })).toBeInTheDocument();
+    expect(screen.getByText('Certificate route: ATHOS, the fallback insurer. Nothing on file.')).toBeInTheDocument();
   });
 
   it('offers capture or a lapse on a held house, and prints the certificate', () => {

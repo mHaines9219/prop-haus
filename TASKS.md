@@ -1231,6 +1231,13 @@ hold. Holds are captured and paid out at pickup, with one receipt.
   (`saveCard`, `placeHold`, `capture`, `chargeExtra`). Only `SandboxPayments`
   exists. `lib/insurance/issuer.ts`: the certificate seam. Only
   `SandboxIssuer` exists; it records a certificate and produces no document.
+- Three certificate routes (`lib/insurance/route.ts`), decided per booking
+  when the inquiry goes out: `own` (policy or broker on the profile; the
+  broker's certificate request is written on confirmation and the
+  certificate "arrives"), `on_file` (the profile's COI is attached), `athos`
+  (nothing on file; the fallback insurer issues). The inquiry packet line,
+  the gap warnings (own routes only, with the fallback offered on a
+  shortfall) and the order page's buttons follow the route.
 - Sandbox switch: an admin-only httpOnly cookie (`ph-sandbox`, lib/admin.ts),
   flipped from the tab in the bottom-right corner of every page. An order
   placed with it on has `orders.sandbox = true`.
@@ -1246,7 +1253,11 @@ hold. Holds are captured and paid out at pickup, with one receipt.
   `UNPRICED_LINE_CENTS` in `lib/booking/machine.ts`.
 - `certificateTerms` in `lib/insurance/issuer.ts`: holder is the house's
   name, no holder address, generic additional-insured wording, coverage is
-  the rental window, limits default to $1M / $2M.
+  the rental window, limits default to $1M / $2M (the production's own limits
+  on the `own` and `on_file` routes).
+- The `own` route's broker request is a record on the booking, not an email
+  yet; the broker's certificate "arriving" is a sandbox button standing in
+  for an upload or an inbound email.
 
 **Not built**
 - Any real provider: Stripe (SetupIntent, manual-capture PaymentIntents,

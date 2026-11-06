@@ -14,31 +14,58 @@
 
 import type { OrderStatus } from '../orders';
 import type { Certificate } from '../insurance/issuer';
+import type { BookingInsurance, InsuranceRoute } from '../insurance/route';
 import { HOLD_LIFETIME_DAYS, type Capture, type ExtraCharge, type ExtraKind, type Hold } from '../payments/provider';
 
 export const BOOKING_STAGES = ['inquiry_sent', 'confirmed', 'coi_issued', 'hold_placed', 'captured', 'declined'] as const;
 export type BookingStage = (typeof BOOKING_STAGES)[number];
 
-export const BOOKING_EVENTS = ['confirm', 'decline', 'issue_coi', 'place_hold', 'expire_hold', 'capture', 'charge_extra'] as const;
+export const BOOKING_EVENTS = [
+  'confirm',
+  'decline',
+  'issue_coi',
+  'receive_coi',
+  'attach_coi',
+  'place_hold',
+  'expire_hold',
+  'capture',
+  'charge_extra',
+] as const;
 export type BookingEventType = (typeof BOOKING_EVENTS)[number];
 
 const TRANSITIONS: Record<BookingStage, Partial<Record<BookingEventType, BookingStage>>> = {
   inquiry_sent: { confirm: 'confirmed', decline: 'declined' },
-  confirmed: { issue_coi: 'coi_issued' },
+  confirmed: { issue_coi: 'coi_issued', receive_coi: 'coi_issued', attach_coi: 'coi_issued' },
   coi_issued: { place_hold: 'hold_placed' },
   hold_placed: { capture: 'captured', expire_hold: 'coi_issued' },
   captured: { charge_extra: 'captured' },
   declined: {},
 };
 
+/**
+ * How a confirmed house gets its certificate, by insurance route: the fallback
+ * insurer issues one, the production's own broker sends one, or the one on
+ * file is attached. One of the three, decided by the route, never a choice.
+ */
+export const CERTIFICATE_EVENT: Record<InsuranceRoute, BookingEventType> = {
+  athos: 'issue_coi',
+  own: 'receive_coi',
+  on_file: 'attach_coi',
+};
+
+const CERTIFICATE_EVENTS = new Set<BookingEventType>(Object.values(CERTIFICATE_EVENT));
+
 /** The stage an event leads to, or null when the booking cannot take that event now. */
-export function nextStage(stage: BookingStage, event: BookingEventType): BookingStage | null {
+export function nextStage(stage: BookingStage, event: BookingEventType, route: InsuranceRoute): BookingStage | null {
+  if (CERTIFICATE_EVENTS.has(event) && event !== CERTIFICATE_EVENT[route]) return null;
   return TRANSITIONS[stage][event] ?? null;
 }
 
 /** What can happen to a booking at this stage, the forward step first. */
-export function availableEvents(stage: BookingStage): BookingEventType[] {
-  return Object.keys(TRANSITIONS[stage]) as BookingEventType[];
+export function availableEvents(stage: BookingStage, route: InsuranceRoute): BookingEventType[] {
+  return (Object.keys(TRANSITIONS[stage]) as BookingEventType[]).filter(
+    (event) => !CERTIFICATE_EVENTS.has(event) || event === CERTIFICATE_EVENT[route],
+  );
 }
 
 /** The stages a booking passes through when nothing goes wrong, in order. */
@@ -65,6 +92,10 @@ export type BookingHistoryEntry = {
 /** Everything the stages have produced so far. Stored as order_bookings.state. */
 export type BookingState = {
   packet: PacketItem[];
+  /** How this house gets its certificate (lib/insurance/route.ts). */
+  insurance: BookingInsurance;
+  /** The certificate request written to the production's broker on confirmation (`own` route). */
+  coiRequest?: { to?: string; writtenAt: string };
   /** The house's confirmed total. Set when it confirms. */
   amountCents?: number;
   declineNote?: string;
@@ -196,7 +227,9 @@ export const STAGE_LABEL: Record<BookingStage, string> = {
 export const EVENT_LABEL: Record<BookingEventType, string> = {
   confirm: 'House confirms',
   decline: 'House declines',
-  issue_coi: 'Issue COI',
+  issue_coi: 'ATHOS issues COI',
+  receive_coi: "Broker's COI arrives",
+  attach_coi: 'Attach COI on file',
   place_hold: 'Place hold',
   expire_hold: 'Let hold lapse',
   capture: 'Pickup: capture and pay out',

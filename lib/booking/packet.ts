@@ -4,10 +4,10 @@
  * Pure, so the email composer and the booking record print the same lines.
  */
 
-import { INSURER_NAME } from '../insurance/issuer';
+import { issuerLabel, packetInsuranceLine, type BookingInsurance } from '../insurance/route';
 import type { PacketItem } from './machine';
 
-export function inquiryPacket(input: { vendorName: string; w9OnFile: boolean }): PacketItem[] {
+export function inquiryPacket(input: { vendorName: string; w9OnFile: boolean; insurance: BookingInsurance }): PacketItem[] {
   return [
     {
       kind: 'info_sheet',
@@ -26,9 +26,14 @@ export function inquiryPacket(input: { vendorName: string; w9OnFile: boolean }):
     },
     {
       kind: 'insurability',
-      label: `Proof of insurability from ${INSURER_NAME}`,
+      label:
+        input.insurance.route === 'on_file'
+          ? 'COI on file'
+          : input.insurance.route === 'own'
+            ? `COI from ${issuerLabel(input.insurance)} on confirmation`
+            : `Proof of insurability from ${issuerLabel(input.insurance)}`,
       status: 'included',
-      line: `Proof of insurability from ${INSURER_NAME}. A certificate naming ${input.vendorName} is issued when you confirm.`,
+      line: packetInsuranceLine(input.vendorName, input.insurance),
     },
   ];
 }

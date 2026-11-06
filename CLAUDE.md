@@ -322,10 +322,15 @@ mailer, the card is a test card, and each house is moved through its stages
 by hand on the order page. A live checkout is exactly sections 3 to 5.
 
 Rules while it is sandbox only:
-- The flow has an insurer (ATHOS) issue a certificate per house. That is the
-  insurer's act, never Prop Haus's, and it is SIMULATED: no certificate
-  document is produced. The Sep 2026 "no COI issuance" decision stands for
-  everything live until Matthew says otherwise.
+- The certificate step has three routes, read off the order profile
+  (`lib/insurance/route.ts`): the production's OWN policy and broker by
+  default (the broker is asked for a certificate naming the house when it
+  confirms), a certificate already ON FILE (attached, nothing issued), and
+  ATHOS as the FALLBACK when nothing is on file or the production's policy
+  falls short of a house's minimums. On every route the issuer is the broker
+  or the insurer, never Prop Haus, and in the sandbox it is SIMULATED: no
+  certificate document is produced. The Sep 2026 "no COI issuance" decision
+  stands for everything live until Matthew says otherwise.
 - Payments and certificates sit behind `lib/payments/provider.ts` and
   `lib/insurance/issuer.ts`. Only the sandbox implementations exist.
 - A stage change is decided in one place, the table in

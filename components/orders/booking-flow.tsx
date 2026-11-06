@@ -16,6 +16,7 @@ import {
   type BookingEventType,
 } from '@/lib/booking/machine';
 import { EXTRA_KINDS, type ExtraKind, type SavedCard } from '@/lib/payments/provider';
+import { issuerLabel } from '@/lib/insurance/route';
 import { StatusToken, bookingStageSpec } from '@/components/ap/status-token';
 import { cn } from '@/lib/utils';
 
@@ -245,7 +246,7 @@ function SandboxActions({
   suggestedCents: number;
   onAdvance: (input: BookingEventInput) => void;
 }) {
-  const events = availableEvents(booking.stage);
+  const events = availableEvents(booking.stage, booking.insurance.route);
   const [dollars, setDollars] = useState(() => (suggestedCents / 100).toFixed(2));
   const [extraDollars, setExtraDollars] = useState('');
   const [kind, setKind] = useState<ExtraKind>('damage');
@@ -363,19 +364,42 @@ function moneyLines(b: Booking, cardLabel: string, rentalStart: string | undefin
 
 function paperworkLines(b: Booking): string[] {
   const packet = b.packet.map((p) => (p.status === 'to_follow' ? `${p.label} (to follow)` : p.label)).join(' · ');
-  const lines = [`Inquiry packet: ${packet}.`];
+  const lines = [`Inquiry packet: ${packet}.`, `Certificate route: ${routeLine(b)}`];
+  if (b.coiRequest) {
+    lines.push(
+      `Certificate request to ${b.coiRequest.to ?? 'the broker'} written ${moment(b.coiRequest.writtenAt)}. Not sent (sandbox).`,
+    );
+  }
   const c = b.certificate;
   if (c) {
+    const verb = b.insurance.route === 'on_file' ? 'on file' : `issued by ${c.issuer}`;
     lines.push(
-      `COI ${c.certificateNumber} issued by ${c.issuer}, naming ${c.holderName}. ${usd(c.glLimit * 100, 0)} per occurrence, ${usd(c.aggregateLimit * 100, 0)} aggregate. ${coverage(c.coverageStart, c.coverageEnd)}`,
+      `COI ${c.certificateNumber} ${verb}, naming ${c.holderName}. ${usd(c.glLimit * 100, 0)} per occurrence, ${usd(c.aggregateLimit * 100, 0)} aggregate. ${coverage(c.coverageStart, c.coverageEnd)}`,
       c.additionalInsuredWording,
     );
   } else if (b.stage === 'confirmed') {
-    lines.push('COI is next: the insurer issues one naming this house.');
+    lines.push(
+      b.insurance.route === 'on_file'
+        ? 'COI is next: the one on file is attached to this house.'
+        : `COI is next: ${issuerLabel(b.insurance)} sends one naming this house.`,
+    );
   } else if (b.stage === 'declined') {
     lines.push('No certificate issued.');
   }
   return lines;
+}
+
+/** "own broker, Acme Insurance (acme@x.com)" / "COI on file, Nocturne-COI.pdf" / "ATHOS, the fallback insurer". */
+function routeLine(b: Booking): string {
+  const i = b.insurance;
+  switch (i.route) {
+    case 'on_file':
+      return `COI on file${i.documentName ? `, ${i.documentName}` : ''}.`;
+    case 'own':
+      return `the production's own policy${i.brokerName ? `, broker ${i.brokerName}` : ''}${i.brokerEmail ? ` (${i.brokerEmail})` : ''}.`;
+    case 'athos':
+      return `${issuerLabel(i)}, the fallback insurer. Nothing on file.`;
+  }
 }
 
 function coverage(start?: string, end?: string): string {

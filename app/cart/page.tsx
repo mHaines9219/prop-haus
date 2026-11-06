@@ -686,6 +686,7 @@ export default function CartPage() {
                 edited: Boolean(openEdit),
                 onChange: (patch) => editDraft(openDraft, patch),
                 onReset: () => resetDraft(openDraft.vendorId),
+                ...(sandbox ? { footnote: 'Kept on the order with the click. Not sent.' } : {}),
               }
             : undefined
         }
