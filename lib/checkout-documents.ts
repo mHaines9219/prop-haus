@@ -37,6 +37,7 @@ export function cartDocuments(
   passport: Passport,
   now = new Date(),
   vendors: Record<string, Vendor> = VENDORS,
+  asksFor: (vendor: Pick<Vendor, 'asksFor'>) => PassportKind[] = vendorAsksFor,
 ): CartDocument[] {
   const ids = [...new Set(vendorIds)];
   if (ids.length === 0) return [];
@@ -45,7 +46,7 @@ export function cartDocuments(
   for (const id of ids) {
     const vendor = vendors[id as Source];
     const name = vendor?.name ?? id;
-    for (const kind of vendorAsksFor(vendor ?? {})) {
+    for (const kind of asksFor(vendor ?? {})) {
       askedBy.set(kind, [...(askedBy.get(kind) ?? []), name]);
     }
   }
@@ -63,6 +64,15 @@ export function cartDocuments(
       ...(document ? { document } : {}),
     };
   });
+}
+
+/**
+ * The booking flow's cart. Every house gets the same inquiry packet
+ * (lib/booking/packet.ts), and the W-9 is the one piece of it the production
+ * uploads: the card is on file and the insurer issues each certificate.
+ */
+export function packetDocuments(vendorIds: string[], passport: Passport, now = new Date()): CartDocument[] {
+  return cartDocuments(vendorIds, passport, now, VENDORS, () => ['w9']);
 }
 
 /** "Asked for by Omega Cinema Props and HPR", or "Every vendor in your cart asks for this." */

@@ -37,6 +37,23 @@ with coverage), and only then starts the dev server. Variants:
 
 Nothing in `boot` touches production unless you pass `--push`.
 
+To try a change whose migration production does not have yet, run the app
+against the local stack instead. It takes port 3000, so stop `pnpm dev`
+first:
+
+```bash
+supabase start && supabase migration up --local
+pnpm dev:local                     # http://localhost:3000, sign in through Mailpit at :54324
+```
+
+### Sandbox mode
+
+Admins (`ADMIN_EMAILS`) get a SANDBOX tab in the bottom-right corner of every
+page. With it on, the cart places a sandbox order: nothing is sent to any
+vendor, the card is a test card, and the order page shows one booking per
+house with buttons that move it through the booking flow by hand (confirm,
+issue COI, place hold, pickup). See TASKS.md · MVP-14.
+
 For the catalog and search to work end-to-end you also need to regenerate the data files (gitignored — they're huge):
 
 ```bash

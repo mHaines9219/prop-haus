@@ -11,6 +11,7 @@ import { formatAddress, type Address, type OrderProfile } from '../order-profile
 import { checkCompatibility, type VendorInsuranceMinimum } from '../insurance/minimums';
 import { PASSPORT_KIND_SPECS, type Passport, type PassportKind } from '../passport';
 import { vendorAsksFor, type Vendor } from '../vendors';
+import { inquiryPacket } from '../booking/packet';
 
 export type DraftAttachment = { name: string; storagePath: string; contentType: string };
 
@@ -56,6 +57,13 @@ export type ComposeInput = {
    */
   passport?: Passport;
   fallbackTo?: string;
+  /**
+   * The booking flow's inquiry: the Paperwork section is the inquiry packet
+   * (lib/booking/packet.ts) instead of the production's own COI and the
+   * documents each house asks for. A card is on file and the insurer issues a
+   * certificate per house on confirmation, so neither is the production's to send.
+   */
+  bookingFlow?: boolean;
 };
 
 /**
@@ -117,29 +125,34 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
     ...(l.image ? { image: l.image } : {}),
   }));
 
-  const coi = profile.insurance.coiDocument;
   const attachments: DraftAttachment[] = [];
-  if (coi) attachments.push({ name: coi.name, storagePath: coi.storagePath, contentType: contentTypeFor(coi.name) });
-  // What this house asks a new customer for, beyond the COI: attach what the
-  // passport has, name what it does not. Only the vendors that ask get it.
-  const asked = vendorAsksFor(vendor ?? {}).filter((k) => k !== 'coi');
-  const onFile = asked.filter((k) => input.passport?.documents[k]);
-  const toFollow = asked.filter((k) => !input.passport?.documents[k]);
-  for (const kind of onFile) {
-    const doc = input.passport!.documents[kind]!;
-    attachments.push({ name: doc.name, storagePath: doc.storagePath, contentType: doc.mime });
+  const paperwork: string[] = [];
+  if (input.bookingFlow) {
+    const w9 = input.passport?.documents.w9;
+    if (w9) attachments.push({ name: w9.name, storagePath: w9.storagePath, contentType: w9.mime });
+    paperwork.push(...inquiryPacket({ vendorName, w9OnFile: Boolean(w9) }).map((p) => p.line));
+  } else {
+    const coi = profile.insurance.coiDocument;
+    if (coi) attachments.push({ name: coi.name, storagePath: coi.storagePath, contentType: contentTypeFor(coi.name) });
+    // What this house asks a new customer for, beyond the COI: attach what the
+    // passport has, name what it does not. Only the vendors that ask get it.
+    const asked = vendorAsksFor(vendor ?? {}).filter((k) => k !== 'coi');
+    const onFile = asked.filter((k) => input.passport?.documents[k]);
+    const toFollow = asked.filter((k) => !input.passport?.documents[k]);
+    for (const kind of onFile) {
+      const doc = input.passport!.documents[kind]!;
+      attachments.push({ name: doc.name, storagePath: doc.storagePath, contentType: doc.mime });
+    }
+    if (coi) paperwork.push('COI on file attached.');
+    else if (profile.insurance.broker?.name) {
+      const broker = profile.insurance.broker;
+      paperwork.push(`COI to follow from our broker, ${broker.name}${broker.email ? ` (${broker.email})` : ''}.`);
+    } else paperwork.push('COI to follow.');
+    if (onFile.length) paperwork.push(`${joinNames(onFile.map(kindLabel))} attached.`);
+    if (toFollow.length) paperwork.push(`${joinNames(toFollow.map(kindLabel))} to follow.`);
   }
   const forms = (input.documents ?? []).filter((d) => d.vendorId === vendorId);
   for (const f of forms) attachments.push({ name: f.name, storagePath: f.storagePath, contentType: f.contentType });
-
-  const paperwork: string[] = [];
-  if (coi) paperwork.push('COI on file attached.');
-  else if (profile.insurance.broker?.name) {
-    const broker = profile.insurance.broker;
-    paperwork.push(`COI to follow from our broker, ${broker.name}${broker.email ? ` (${broker.email})` : ''}.`);
-  } else paperwork.push('COI to follow.');
-  if (onFile.length) paperwork.push(`${joinNames(onFile.map(kindLabel))} attached.`);
-  if (toFollow.length) paperwork.push(`${joinNames(toFollow.map(kindLabel))} to follow.`);
   if (forms.length) paperwork.push(`Completed ${joinNames(forms.map((f) => f.name))} attached.`);
 
   const address = formatAddress(input.deliveryAddress);
@@ -185,7 +198,9 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
   );
 
   const warnings: string[] = [];
-  const minimum = input.minimums?.[vendorId];
+  // The gap check reads the production's own coverage; in the booking flow the
+  // insurer writes each certificate to the house's terms, so there is no gap to warn about.
+  const minimum = input.bookingFlow ? undefined : input.minimums?.[vendorId];
   if (minimum) {
     const result = checkCompatibility(profile.insurance, minimum);
     if (!result.compatible) warnings.push(...result.gaps);

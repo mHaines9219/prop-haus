@@ -23,6 +23,7 @@ export function signIn(over: Partial<Session> = {}): Session {
     actualPlan: 'free',
     email: 'member@example.com',
     isAdmin: false,
+    sandbox: false,
     ...over,
   };
   return sessionState.current;

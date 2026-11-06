@@ -41,6 +41,7 @@ export function makeOrder(over: Partial<Order> = {}): Order {
     rentalStart: '2026-09-07',
     rentalEnd: '2026-09-14',
     deliveryAddress: { line1: '4100 W Alameda Ave', city: 'Burbank', state: 'CA', zip: '91505' },
+    sandbox: false,
     items: [makeOrderItem()],
     createdAt: '2026-09-02T10:00:00.000Z',
     updatedAt: '2026-09-02T10:00:00.000Z',

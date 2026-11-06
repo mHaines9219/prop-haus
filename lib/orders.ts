@@ -2,6 +2,7 @@ import type { Source } from './types';
 import type { Address } from './order-profile';
 import { createAdminClient } from './supabase/admin';
 import { DEFAULT_JOB_STATUS, isJobStatus, type JobStatus } from './job-status';
+import type { SavedCard } from './payments/provider';
 
 export type { JobStatus } from './job-status';
 
@@ -45,6 +46,13 @@ export type Order = {
   /** From the cart's request form: what is being shot and how the pieces are used. */
   shootDetails?: string;
   totalCents?: number;
+  /**
+   * Placed with the admin sandbox switch on. No inquiry it writes is ever
+   * handed to a mailer, and its bookings (lib/booking) advance by hand.
+   */
+  sandbox: boolean;
+  /** The card saved at checkout by the booking flow. No charge until pickup. */
+  paymentMethod?: SavedCard;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -71,6 +79,7 @@ export type CreateOrderInput = {
   deliveryAddress?: Address;
   deliveryNotes?: string;
   shootDetails?: string;
+  sandbox?: boolean;
   idempotencyKey: string;
 };
 
@@ -90,6 +99,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       delivery_address: input.deliveryAddress ?? null,
       delivery_notes: input.deliveryNotes ?? null,
       shoot_details: input.shootDetails ?? null,
+      // Written only when on, so a live checkout never depends on the column.
+      ...(input.sandbox ? { sandbox: true } : {}),
       idempotency_key: input.idempotencyKey,
     })
     .select('id')
@@ -290,6 +301,8 @@ type OrderRow = {
   delivery_notes: string | null;
   shoot_details?: string | null;
   total_cents: number | null;
+  sandbox?: boolean | null;
+  payment_method?: SavedCard | null;
   created_at: string;
   updated_at: string;
   order_items: OrderItemRow[] | null;
@@ -325,6 +338,8 @@ function toOrder(r: OrderRow): Order {
     ...(r.delivery_notes ? { deliveryNotes: r.delivery_notes } : {}),
     ...(r.shoot_details ? { shootDetails: r.shoot_details } : {}),
     ...(r.total_cents !== null ? { totalCents: r.total_cents } : {}),
+    sandbox: r.sandbox === true,
+    ...(r.payment_method ? { paymentMethod: r.payment_method } : {}),
     items: (r.order_items ?? []).map(toOrderItem),
     createdAt: r.created_at,
     updatedAt: r.updated_at,

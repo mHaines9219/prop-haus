@@ -27,6 +27,8 @@ export type PlanView = {
   plan: PlanTier;
   actualPlan: PlanTier;
   isAdmin: boolean;
+  /** The admin sandbox switch is on: checkout sends nothing and orders advance by hand. */
+  sandbox: boolean;
   /**
    * The signed-in org's AI search standing (/api/usage), or null when signed
    * out or not yet known. Shares the ['usage'] query with the search page, so
@@ -45,6 +47,7 @@ export const FREE_VIEW: PlanView = {
   plan: 'free',
   actualPlan: 'free',
   isAdmin: false,
+  sandbox: false,
   aiSearches: null,
 };
 

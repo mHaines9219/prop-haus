@@ -1200,6 +1200,69 @@ prefill through real Anvil templates (the mock filler produces the PDF).
 
 ---
 
+### MVP-14 · BOOKING-FLOW — One checkout, many houses, tested in a sandbox
+
+**Status:** in progress — feat/booking-flow-sandbox. Built and walked end to
+end on a local stack (Nov 6, 2026). SANDBOX ONLY: a live checkout is
+unchanged. Needs from Matthew before any of it goes live: the decision that
+reverses the Sep 2026 "no COI issuance" rule (the flow has ATHOS issue a COI
+per house), a Stripe Connect account and each house onboarded to it, the
+platform fee and who bears it, and each house's certificate holder address
+and additional-insured wording.
+
+**Source:** "SetList · one checkout, many houses" booking flow (Matthew, Nov
+2026). The card is saved at checkout with no charge. Each house gets its own
+inquiry packet. A house that confirms gets its own certificate and its own
+hold. Holds are captured and paid out at pickup, with one receipt.
+
+**What exists**
+- `lib/booking/machine.ts`: the per-house state machine. One transition
+  table: `inquiry_sent → confirmed → coi_issued → hold_placed → captured`,
+  with `declined`, a lapsed hold going back to `coi_issued`, and extra
+  charges after capture. Also the hold-timing rule, the order status read off
+  the houses, and the one receipt.
+- `lib/booking/store.ts`: `openBookings` (checkout) and `advanceBooking` (one
+  event, refused off the sandbox, refused when the booking moved underneath).
+  The advance endpoint is admins only.
+- Checkout refuses (409) a click whose cart showed one mode while the session
+  is in the other, and a replayed key whose order was placed in the other
+  mode, so a stale "sandbox" tab can never place a live order.
+- `lib/payments/provider.ts`: the payment seam, reshaped to the flow
+  (`saveCard`, `placeHold`, `capture`, `chargeExtra`). Only `SandboxPayments`
+  exists. `lib/insurance/issuer.ts`: the certificate seam. Only
+  `SandboxIssuer` exists; it records a certificate and produces no document.
+- Sandbox switch: an admin-only httpOnly cookie (`ph-sandbox`, lib/admin.ts),
+  flipped from the tab in the bottom-right corner of every page. An order
+  placed with it on has `orders.sandbox = true`.
+- A sandbox order writes each inquiry to `outbound_messages` with status
+  `sandbox` and never reaches a mailer, whatever `MAIL_PROVIDER` says.
+- `/orders/[id]` shows one box per house with the three lanes (money,
+  paperwork, messages) and the buttons that advance it by hand.
+- `pnpm dev:local` runs the app against the local Supabase stack on 3000
+  (stop `pnpm dev` first).
+
+**PLACEHOLDER, marked in code**
+- `PLATFORM_FEE_BPS` (10%, taken from the house's payout) and
+  `UNPRICED_LINE_CENTS` in `lib/booking/machine.ts`.
+- `certificateTerms` in `lib/insurance/issuer.ts`: holder is the house's
+  name, no holder address, generic additional-insured wording, coverage is
+  the rental window, limits default to $1M / $2M.
+
+**Not built**
+- Any real provider: Stripe (SetupIntent, manual-capture PaymentIntents,
+  Connect transfers), ATHOS, a proof-of-insurability document.
+- Anything that advances a booking without a person: a house's reply
+  (FUT-5), the hold scheduler, the hold-expiry clock.
+- Race safety for real money: `advanceBooking` runs the provider call before
+  its guarded write. Fine for a sandbox that moves nothing; real rails need
+  the write first or an idempotency key per event.
+- The booking flow on a live order. Promoting it means real providers behind
+  the two seams and dropping the `order.sandbox` guards in
+  `app/api/checkout/route.ts` and `lib/booking/store.ts`.
+- The production info sheet as its own document (the email is the sheet).
+
+---
+
 ## Future tasks (not MVP — do not start unless assigned)
 
 ### FUT-1 · VENDOR-EXPAND — Book all vendor categories
@@ -1431,6 +1494,7 @@ Token-burn guardrails:
 | MVP-10 | Order profile (one-click readiness) | done — PR #89 | high |
 | MVP-11 | Vendor outreach emails (sent with the click) | done — PR #90 | high |
 | MVP-12 | Vendor paperwork via Anvil | done — PR #90 | high |
+| MVP-14 | Booking flow, sandbox only | in progress — feat/booking-flow-sandbox | high |
 | FUT-1 | Book all vendor categories | future | — |
 | FUT-2 | Spacelab 3D set preview | future | — |
 | FUT-3 | Chrome extension web clipper | future | — |

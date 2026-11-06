@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "local-stack",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "ADMIN_EMAILS=sandbox-admin@example.com",
+        "bash",
+        "scripts/dev-local.sh"
+      ],
+      "port": 3000
+    }
+  ]
+}

@@ -10,6 +10,8 @@ export type MeResponse = {
   plan: 'free' | 'directory' | 'pro';
   actualPlan: 'free' | 'directory' | 'pro';
   isAdmin: boolean;
+  /** The admin sandbox switch is on (lib/admin.ts SANDBOX_COOKIE). */
+  sandbox: boolean;
 };
 
 /**
@@ -23,7 +25,13 @@ export type MeResponse = {
 export async function GET() {
   const session = await currentSession();
   const body: MeResponse = session
-    ? { signedIn: true, plan: session.plan, actualPlan: session.actualPlan, isAdmin: session.isAdmin }
-    : { signedIn: false, plan: 'free', actualPlan: 'free', isAdmin: false };
+    ? {
+        signedIn: true,
+        plan: session.plan,
+        actualPlan: session.actualPlan,
+        isAdmin: session.isAdmin,
+        sandbox: session.sandbox,
+      }
+    : { signedIn: false, plan: 'free', actualPlan: 'free', isAdmin: false, sandbox: false };
   return NextResponse.json(body, { headers: { 'cache-control': 'private, no-store' } });
 }

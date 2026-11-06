@@ -19,7 +19,8 @@ import { VENDORS } from '../vendors';
 import type { Order } from '../orders';
 import { composeOutreach, textToHtml, type Draft, type DraftAttachment, type VendorDocument } from './compose';
 
-export type MessageStatus = 'sending' | 'sent' | 'failed';
+/** `sandbox`: written for a sandbox order and never handed to a mailer. */
+export type MessageStatus = 'sending' | 'sent' | 'failed' | 'sandbox';
 
 export type OutboundMessage = {
   id: string;
@@ -95,12 +96,20 @@ export async function sendOrderOutreach(
       documents: await vendorDocuments(order.id),
       passport,
       fallbackTo: process.env.OUTREACH_FALLBACK_TO,
+      bookingFlow: order.sandbox,
     });
 
     const overrides = new Map((opts.overrides ?? []).map((o) => [o.vendorId, o]));
     for (const draft of drafts) {
       const override = overrides.get(draft.vendorId);
-      const row = await insertMessage(order, applyOverride(draft, override), Boolean(override));
+      const message = applyOverride(draft, override);
+      // A sandbox order's inquiries are a record of what would go out. The
+      // mailer is never reached, whatever MAIL_PROVIDER says.
+      if (order.sandbox) {
+        await insertMessage(order, message, Boolean(override), 'sandbox');
+        continue;
+      }
+      const row = await insertMessage(order, message, Boolean(override), 'sending');
       await deliver(row, order.orgId);
     }
   } catch (err) {
@@ -167,7 +176,12 @@ function applyOverride(draft: Draft, override: MessageOverride | undefined): Dra
   };
 }
 
-async function insertMessage(order: Order, draft: Draft, edited: boolean): Promise<OutboundMessage> {
+async function insertMessage(
+  order: Order,
+  draft: Draft,
+  edited: boolean,
+  status: 'sending' | 'sandbox',
+): Promise<OutboundMessage> {
   const { data, error } = await createAdminClient()
     .from('outbound_messages')
     .insert({
@@ -182,7 +196,7 @@ async function insertMessage(order: Order, draft: Draft, edited: boolean): Promi
       body_text: draft.bodyText,
       body_html: draft.bodyHtml,
       attachments: draft.attachments,
-      status: 'sending',
+      status,
       edited,
     })
     .select('*')

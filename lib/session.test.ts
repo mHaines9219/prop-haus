@@ -18,8 +18,8 @@ type ProfileRow = { org_id: string | null; organizations: unknown } | null;
 
 const ADMIN = 'mhaines9219@gmail.com';
 
-/** The request's cookie jar; only the view-as cookie matters here. */
-const jar: { viewAs?: string } = {};
+/** The request's cookie jar: the two admin cookies. */
+const jar: { viewAs?: string; sandbox?: string } = {};
 
 function mockSupabase(opts: {
   user: { id: string; email?: string } | null;
@@ -57,9 +57,15 @@ async function load() {
 beforeEach(() => {
   vi.resetModules();
   delete jar.viewAs;
+  delete jar.sandbox;
   vi.doMock('next/headers', () => ({
     cookies: async () => ({
-      get: (name: string) => (name === 'ph-view-as' && jar.viewAs ? { value: jar.viewAs } : undefined),
+      get: (name: string) =>
+        name === 'ph-view-as' && jar.viewAs
+          ? { value: jar.viewAs }
+          : name === 'ph-sandbox' && jar.sandbox
+            ? { value: jar.sandbox }
+            : undefined,
     }),
   }));
 });
@@ -98,6 +104,7 @@ describe('signed in', () => {
       actualPlan: 'pro',
       email: null,
       isAdmin: false,
+      sandbox: false,
     });
     expect(await s.currentOrgId()).toBe('org-1');
     expect(await s.currentPlan()).toBe('pro');
@@ -207,5 +214,26 @@ describe('masquerade', () => {
     });
     const s = await load();
     expect(await s.currentPlan()).toBe('pro');
+  });
+});
+
+describe('sandbox', () => {
+  it('is on for an admin carrying the cookie, and off without it', async () => {
+    mockSupabase({ user: { id: 'user-1', email: ADMIN }, profile: { org_id: 'org-1', organizations: { plan: 'pro' } } });
+    expect((await (await load()).currentSession())?.sandbox).toBe(false);
+
+    vi.resetModules();
+    jar.sandbox = '1';
+    mockSupabase({ user: { id: 'user-1', email: ADMIN }, profile: { org_id: 'org-1', organizations: { plan: 'pro' } } });
+    expect((await (await load()).currentSession())?.sandbox).toBe(true);
+  });
+
+  it('the cookie is inert for everyone else', async () => {
+    jar.sandbox = '1';
+    mockSupabase({
+      user: { id: 'user-1', email: 'member@example.com' },
+      profile: { org_id: 'org-1', organizations: { plan: 'free' } },
+    });
+    expect((await (await load()).currentSession())?.sandbox).toBe(false);
   });
 });

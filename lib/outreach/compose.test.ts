@@ -244,3 +244,38 @@ describe('formatRentalWindow', () => {
     expect(formatRentalWindow()).toBe('Dates to be confirmed');
   });
 });
+
+describe('the booking flow inquiry', () => {
+  const w9 = { name: 'W9.pdf', storagePath: 'org/passport/w9.pdf', mime: 'application/pdf', uploadedAt: '2026-10-01T00:00:00Z' };
+
+  it('prints the inquiry packet in place of the production\'s own COI and the house\'s asks', () => {
+    const [omega] = composeOutreach({ ...base, lines: [lines[0]!], profile: withCoi, bookingFlow: true });
+    expect(omega!.bodyText).toContain(
+      [
+        'Paperwork',
+        'Production info sheet: the details in this email.',
+        'W-9 to follow.',
+        'Payment method on file. Nothing is charged until pickup.',
+        'Proof of insurability from ATHOS. A certificate naming Omega Cinema Props is issued when you confirm.',
+      ].join('\n'),
+    );
+    expect(omega!.bodyText).not.toContain('COI on file attached');
+    expect(omega!.attachments).toEqual([]);
+  });
+
+  it('attaches the W-9 when the passport has one, and raises no insurance gap', () => {
+    const [omega] = composeOutreach({
+      ...base,
+      lines: [lines[0]!],
+      profile: { ...withCoi, insurance: {} },
+      passport: { documents: { w9 } },
+      minimums: {
+        omega: { vendorId: 'omega', vendorName: 'Omega Cinema Props', glLimit: 5_000_000, aggregateLimit: 5_000_000, workersCompRequired: true, additionalInsuredRequired: true },
+      },
+      bookingFlow: true,
+    });
+    expect(omega!.bodyText).toContain('W-9 attached.');
+    expect(omega!.attachments).toEqual([{ name: 'W9.pdf', storagePath: 'org/passport/w9.pdf', contentType: 'application/pdf' }]);
+    expect(omega!.warnings).toEqual([]);
+  });
+});

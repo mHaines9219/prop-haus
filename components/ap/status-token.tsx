@@ -171,14 +171,37 @@ export function checklistStatusSpec(status: string, fulfillment: string): TokenS
   }
 }
 
-/** outbound_messages.status — sending/sent/failed. */
+/** outbound_messages.status — sending/sent/failed, or sandbox (written, never sent). */
 export function messageStatusSpec(status: string): TokenSpec {
   switch (status) {
+    case 'sandbox':
+      return { tone: 'pending', label: 'NOT SENT' };
     case 'sent':
       return { tone: 'confirmed', label: 'SENT' };
     case 'failed':
       return { tone: 'unavailable', label: 'FAILED' };
     default:
       return { tone: 'pending', label: 'SENDING' };
+  }
+}
+
+/**
+ * order_bookings.stage (lib/booking/machine.ts). Waiting on the house is grey,
+ * every step between its yes and pickup stands by in amber, pickup is green.
+ */
+export function bookingStageSpec(stage: string): TokenSpec {
+  switch (stage) {
+    case 'confirmed':
+      return { tone: 'quoted', label: 'CONFIRMED' };
+    case 'coi_issued':
+      return { tone: 'quoted', label: 'COI ISSUED' };
+    case 'hold_placed':
+      return { tone: 'quoted', label: 'HOLD PLACED' };
+    case 'captured':
+      return { tone: 'confirmed', label: 'PICKED UP' };
+    case 'declined':
+      return { tone: 'unavailable', label: 'DECLINED' };
+    default:
+      return { tone: 'pending', label: 'INQUIRY OUT' };
   }
 }

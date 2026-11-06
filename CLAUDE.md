@@ -307,6 +307,34 @@ interface with a mock implementation that produces stub PDFs.
 
 ---
 
+## 6. Booking Flow (sandbox only, Nov 2026)
+
+A second shape for checkout is built and under test (TASKS.md · MVP-14),
+from the "one checkout, many houses" booking flow: the card is saved at
+checkout with no charge, each house gets its own inquiry packet, a house
+that confirms gets its own certificate and its own hold, and the holds are
+captured and paid out at pickup.
+
+It runs ONLY for an order placed with the admin SANDBOX switch on (the tab
+in the bottom-right corner of every page, admins only). A sandbox order
+sends nothing: each inquiry is written to the order and never handed to a
+mailer, the card is a test card, and each house is moved through its stages
+by hand on the order page. A live checkout is exactly sections 3 to 5.
+
+Rules while it is sandbox only:
+- The flow has an insurer (ATHOS) issue a certificate per house. That is the
+  insurer's act, never Prop Haus's, and it is SIMULATED: no certificate
+  document is produced. The Sep 2026 "no COI issuance" decision stands for
+  everything live until Matthew says otherwise.
+- Payments and certificates sit behind `lib/payments/provider.ts` and
+  `lib/insurance/issuer.ts`. Only the sandbox implementations exist.
+- A stage change is decided in one place, the table in
+  `lib/booking/machine.ts`. Add a stage or an event there.
+- Never let a sandbox order reach a real provider, and never let a
+  non-sandbox order be advanced by hand.
+
+---
+
 # Vendor Philosophy
 
 The platform is NOT intended to replace vendors.

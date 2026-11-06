@@ -32,6 +32,16 @@ export function isAdminEmail(email: string | null | undefined, env?: Env): boole
  */
 export const VIEW_AS_COOKIE = 'ph-view-as';
 
+/**
+ * The sandbox switch: an admin testing the booking flow end to end. While it
+ * is on, an order the admin places is a sandbox order: its inquiries are
+ * written but never handed to a mailer, its card is a test card, and its
+ * bookings advance by hand from the order page. httpOnly and admin-only for
+ * the same reason as the masquerade cookie: lib/session.ts reads it only
+ * after the allowlist check.
+ */
+export const SANDBOX_COOKIE = 'ph-sandbox';
+
 export function parseViewAs(value: string | undefined | null): PlanTier | null {
   return value && (PLAN_TIERS as readonly string[]).includes(value) ? (value as PlanTier) : null;
 }

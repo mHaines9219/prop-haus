@@ -32,6 +32,7 @@ export const EVENT_TYPES = [
   'crew_status_changed', // payload: { crewRequestId, status }
   'outreach_sent', // payload: { orderId, messageId, vendorId }
   'outreach_failed', // payload: { orderId, messageId, vendorId, error }
+  'booking_advanced', // payload: { orderId, vendorId, event, from, to, sandbox }
   'document_filled', // payload: { orderId, documentId, vendorId, kind, status, missing }
   'document_signed', // payload: { orderId, documentId, vendorId, kind }
   'document_failed', // payload: { orderId, documentId, vendorId, kind, error }

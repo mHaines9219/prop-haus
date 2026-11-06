@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from './supabase/server';
 import { PLAN_TIERS, type PlanTier } from './accounts';
-import { isAdminEmail, parseViewAs, VIEW_AS_COOKIE } from './admin';
+import { isAdminEmail, parseViewAs, SANDBOX_COOKIE, VIEW_AS_COOKIE } from './admin';
 
 /**
  * Who is asking, and what are they entitled to.
@@ -29,6 +29,8 @@ export type Session = {
   email: string | null;
   /** On the ADMIN_EMAILS allowlist (lib/admin.ts); may masquerade. */
   isAdmin: boolean;
+  /** An admin with the sandbox switch on: orders placed now send nothing and advance by hand. */
+  sandbox: boolean;
 };
 
 function isPlanTier(v: unknown): v is PlanTier {
@@ -82,7 +84,9 @@ export const currentSession = cache(async (): Promise<Session | null> => {
   // what a member of that tier sees, usage counters included.
   const email = user.email ?? null;
   const isAdmin = isAdminEmail(email);
-  const viewAs = isAdmin ? parseViewAs((await cookies()).get(VIEW_AS_COOKIE)?.value) : null;
+  const jar = isAdmin ? await cookies() : null;
+  const viewAs = parseViewAs(jar?.get(VIEW_AS_COOKIE)?.value);
+  const sandbox = jar?.get(SANDBOX_COOKIE)?.value === '1';
 
   return {
     userId: user.id,
@@ -91,6 +95,7 @@ export const currentSession = cache(async (): Promise<Session | null> => {
     actualPlan: plan,
     email,
     isAdmin,
+    sandbox,
   };
 });
 
