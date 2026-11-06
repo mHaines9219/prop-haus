@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Upload } from 'lucide-react';
 import { MAX_PAPERWORK_BYTES, checkPaperworkFile } from '@/lib/paperwork';
 import { ApiError, postForm } from '@/lib/api';
@@ -14,6 +14,7 @@ import { ApiError, postForm } from '@/lib/api';
  */
 export function UploadForm({ projectId, folderId }: { projectId: string; folderId: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -39,7 +40,7 @@ export function UploadForm({ projectId, folderId }: { projectId: string; folderI
         saved += 1;
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
-          window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+          router.push(`/login?next=${encodeURIComponent(pathname)}`);
           return;
         }
         failed.push(`${file.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
@@ -81,7 +82,7 @@ export function UploadForm({ projectId, folderId }: { projectId: string; folderI
         </div>
         <label
           className={
-            'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 ' +
+            'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 ' +
             (busy ? 'pointer-events-none opacity-50' : '')
           }
         >

@@ -23,7 +23,7 @@ control to see the site as any plan tier (lib/admin.ts). It defaults to the
 founder's address, so nothing is needed to try it.
 
 `pnpm boot` (`scripts/boot.sh`) is the one way to start the project. It pins
-Node 22 through fnm, installs from the lockfile, links the hosted Supabase
+Node 24 through fnm, installs from the lockfile, links the hosted Supabase
 project non-interactively, compares `supabase/migrations/` with production's
 migration history, runs the CI gate (typecheck, lint, unit + component tests
 with coverage), and only then starts the dev server. Variants:

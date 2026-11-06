@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDialogFocus } from '@/hooks/use-dialog-focus';
 import { cn } from '@/lib/utils';
 import { CREW_COPY, ROSTER_MAX_FILE_BYTES, ROSTER_MAX_WORK_PHOTOS } from '@/lib/crew';
 
@@ -25,11 +26,8 @@ export function JoinRoster() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [fileNote, setFileNote] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const nameRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) setTimeout(() => nameRef.current?.focus(), 50);
-  }, [open]);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, modalRef);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -106,7 +104,7 @@ export function JoinRoster() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-9 shrink-0 items-center rounded-md border border-border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
+        className="flex h-9 shrink-0 items-center border border-border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
       >
         {CREW_COPY.joinCta}
       </button>
@@ -120,13 +118,14 @@ export function JoinRoster() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
-              className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-background/80"
               onClick={() => setOpen(false)}
               aria-hidden
             />
 
             <motion.div
               key="modal"
+              ref={modalRef}
               role="dialog"
               aria-modal
               aria-label={CREW_COPY.joinCta}
@@ -150,7 +149,7 @@ export function JoinRoster() {
                     type="button"
                     onClick={() => setOpen(false)}
                     aria-label="Close"
-                    className="flex h-8 w-8 items-center justify-center rounded-sm text-text-tertiary transition-colors duration-150 hover:text-foreground"
+                    className="flex h-8 w-8 items-center justify-center text-text-tertiary transition-colors duration-150 hover:text-foreground"
                   >
                     <X size={18} strokeWidth={1.5} />
                   </button>
@@ -167,7 +166,7 @@ export function JoinRoster() {
                     <button
                       type="button"
                       onClick={() => setOpen(false)}
-                      className="h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-foreground/7"
+                      className="h-9 border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-foreground/7"
                     >
                       Done
                     </button>
@@ -179,12 +178,12 @@ export function JoinRoster() {
                         Name
                       </span>
                       <input
-                        ref={nameRef}
+                        data-autofocus
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Your name"
-                        className="h-10 w-full rounded-md border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
+                        className="h-10 w-full border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
                       />
                     </label>
 
@@ -197,7 +196,7 @@ export function JoinRoster() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
-                        className="h-10 w-full rounded-md border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
+                        className="h-10 w-full border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
                       />
                     </label>
 
@@ -210,7 +209,7 @@ export function JoinRoster() {
                         value={website}
                         onChange={(e) => setWebsite(e.target.value)}
                         placeholder="yourportfolio.com"
-                        className="h-10 w-full rounded-md border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
+                        className="h-10 w-full border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
                       />
                     </label>
 
@@ -223,7 +222,7 @@ export function JoinRoster() {
                         value={social}
                         onChange={(e) => setSocial(e.target.value)}
                         placeholder="@handle or link"
-                        className="h-10 w-full rounded-md border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
+                        className="h-10 w-full border border-border bg-card px-3 font-mono text-[14px] text-foreground outline-none transition-colors duration-150 placeholder:text-text-tertiary focus:border-accent"
                       />
                     </label>
 
@@ -269,14 +268,14 @@ export function JoinRoster() {
                       <button
                         type="button"
                         onClick={() => setOpen(false)}
-                        className="h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-foreground/7"
+                        className="h-9 border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:bg-foreground/7"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={!canSubmit || status === 'submitting'}
-                        className="h-9 rounded-md border border-accent px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent transition-colors duration-150 hover:bg-accent/12 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="h-9 border border-accent px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent transition-colors duration-150 hover:bg-accent/12 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {status === 'submitting' ? 'Sending…' : 'Send application'}
                       </button>
@@ -323,7 +322,7 @@ function FilePicker({
         <label
           className={cn(
             'flex h-16 w-16 items-center justify-center border border-dashed border-border font-mono text-[20px] font-light text-text-tertiary transition-colors duration-150',
-            round ? 'rounded-full' : 'rounded-md',
+            round && 'rounded-full',
             disabled
               ? 'cursor-not-allowed opacity-40'
               : 'cursor-pointer hover:border-accent hover:text-accent focus-within:border-accent focus-within:text-accent',
@@ -354,7 +353,7 @@ function Thumb({ file, round, onRemove }: { file: File; round: boolean; onRemove
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
 
   return (
-    <div className={cn('relative h-16 w-16 overflow-hidden border border-border bg-background', round ? 'rounded-full' : 'rounded-md')}>
+    <div className={cn('relative h-16 w-16 overflow-hidden border border-border bg-background', round && 'rounded-full')}>
       {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
       <img src={url} alt={file.name} className="h-full w-full object-cover" />
       <button

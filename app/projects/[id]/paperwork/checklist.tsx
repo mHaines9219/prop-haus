@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ApiError, postForm, postJson } from '@/lib/api';
@@ -170,11 +170,12 @@ function splitActions(item: ChecklistItem): { primary: ChecklistAction | null; s
 }
 
 const GHOST =
-  'h-8 shrink-0 rounded-[2px] border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 disabled:opacity-40';
+  'h-8 shrink-0 border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 disabled:opacity-40';
 const TEXT_ACTION = 'font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 disabled:opacity-40';
 
 function ChecklistRow({ projectId, item }: { projectId: string; item: ChecklistItem }) {
   const router = useRouter();
+  const pathname = usePathname();
   const fileRef = useRef<HTMLInputElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState<ChecklistAction | null>(null);
@@ -199,7 +200,7 @@ function ChecklistRow({ projectId, item }: { projectId: string; item: ChecklistI
       router.refresh();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+        router.push(`/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
       setError(err instanceof Error && err.message ? err.message : 'That did not go through. Try again.');

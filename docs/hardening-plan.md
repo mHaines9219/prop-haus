@@ -15,7 +15,7 @@ replay of every migration, the integration project, `pnpm build`, Playwright,
 
 | Layer | State today |
 | --- | --- |
-| Typecheck, unit, ui tests | Green. 2059 pass, 15 expected-fail, coverage 86/81/86/88 vs 80/70/80/80 thresholds. Needs Node 22 (no pin exists; local default is 25). |
+| Typecheck, unit, ui tests | Green. 2059 pass, 15 expected-fail, coverage 86/81/86/88 vs 80/70/80/80 thresholds. Needs Node 24 (pinned in .nvmrc since Nov 6 2026; local default is 25). |
 | Lint | Dead. `next lint` crashes on legacy `.eslintrc.json` + ESLint 9 + flat-only eslint-config-next 16. Not in CI. A flat config (drafted at `eslint.config.mjs`) runs and reports 42 errors / 21 warnings. |
 | CI integration job | Red on every run since it was created (0 successes). Dies in "Start Supabase". Root causes found and fixed in this worktree: unescaped apostrophe in `20260830120001_crew_seed.sql:49`, and no API-role grants on a fresh stack (new `20260627181000_api_default_privileges.sql`). With both, all 54 files replay and the integration project passes 26/26. |
 | Build | Green against the local stack (60 static pages). |
@@ -28,7 +28,7 @@ replay of every migration, the integration project, `pnpm build`, Playwright,
 ## Reproducing CI locally (what worked)
 
 ```bash
-fnm exec --using 22.14.0 pnpm install --frozen-lockfile
+fnm exec --using 24 pnpm install --frozen-lockfile
 supabase start -x studio,imgproxy,edge-runtime,analytics,vector,realtime
 eval "$(supabase status -o env)"
 export NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
@@ -40,7 +40,7 @@ export NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
   CI=true PORT=3100
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/seed.sql
 # integration: use a scratch vitest config that does NOT merge .env.local (see PR 1 guard)
-fnm exec --using 22.14.0 pnpm build && fnm exec --using 22.14.0 pnpm test:e2e
+fnm exec --using 24 pnpm build && fnm exec --using 24 pnpm test:e2e
 ```
 
 Gotchas: `next build`/`next start` load `.env.local` (prod keys) underneath the

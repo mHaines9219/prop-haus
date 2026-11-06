@@ -106,7 +106,7 @@ export function CrewDirectory({
                 <button
                   type="button"
                   onClick={() => select(null)}
-                  className="mt-5 h-9 rounded-md border border-border px-4 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
+                  className="mt-5 h-9 border border-border px-4 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
                 >
                   Show all crew
                 </button>
@@ -160,7 +160,7 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border px-3 font-mono text-[12px] transition-colors duration-150',
+        'flex h-8 shrink-0 items-center gap-2 whitespace-nowrap border px-3 font-mono text-[12px] transition-colors duration-150',
         selected
           ? 'border-accent text-accent'
           : 'border-border text-text-secondary hover:border-border/70 hover:text-foreground',

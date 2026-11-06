@@ -58,4 +58,31 @@ describe('LightWell', () => {
     expect(container.firstElementChild).toHaveClass('h-full', 'w-full', 'mx-auto');
     expect(container.firstElementChild).not.toHaveClass('aspect-[4/5]');
   });
+
+  it('fades a photo in on load and falls back to the name plate when it fails', () => {
+    render(<LightWell src="https://x.test/room.jpg" alt="Room" mode="photo" name="Hotel lobby" />);
+    const img = screen.getByRole('img', { name: 'Room' });
+    const fader = img.closest('.transition-opacity')!;
+    fireEvent.load(img);
+    expect(fader).toHaveClass('opacity-100');
+    fireEvent.error(img);
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByText('Hotel lobby')).toBeInTheDocument();
+  });
+
+  it('prints on the brighter plate when lit, in every state', () => {
+    const { container, rerender } = render(<LightWell src="https://x.test/a.jpg" alt="A" lit />);
+    expect(container.querySelector('.bg-plate-lit')).not.toBeNull();
+    expect(container.querySelector('.bg-plate')).toBeNull();
+    rerender(<LightWell alt="A" lit name="Lamp" />);
+    expect(container.querySelector('.bg-plate-lit')).not.toBeNull();
+  });
+
+  it('keeps radius 0 on the well, with an ink rule instead of a shadow', () => {
+    const { container } = render(<LightWell src="https://x.test/a.jpg" alt="A" />);
+    for (const el of [container.firstElementChild!, ...container.querySelectorAll('*')]) {
+      expect(el.getAttribute('class') ?? '').not.toMatch(/\brounded|\bshadow/);
+    }
+    expect(container.firstElementChild).toHaveClass('border-ink/70');
+  });
 });

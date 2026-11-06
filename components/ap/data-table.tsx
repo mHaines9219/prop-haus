@@ -219,7 +219,7 @@ export function DataTable<TData extends object>({
                     table.resetColumnFilters();
                     table.resetGlobalFilter();
                   }}
-                  className="mt-4 h-8 rounded-md border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:bg-surface-inset hover:text-foreground"
+                  className="mt-4 h-8 border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:bg-surface-inset hover:text-foreground"
                 >
                   Clear filters
                 </button>

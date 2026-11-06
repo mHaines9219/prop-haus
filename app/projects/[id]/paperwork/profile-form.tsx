@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ApiError, patchJson, postJson } from '@/lib/api';
 import { PRODUCTION_TYPES } from '@/lib/accounts';
 import type { IntakeTurn } from '@/lib/intake/turn';
@@ -38,6 +38,7 @@ export function ProfileForm({
   provider: 'mock' | 'openrouter';
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [saved, setSaved] = useState<ProjectProfile>(initialProfile);
   const [profile, setProfile] = useState<ProjectProfile>(initialProfile);
   const [busy, setBusy] = useState<'save' | 'generate' | null>(null);
@@ -54,7 +55,7 @@ export function ProfileForm({
   }, []);
 
   function redirectToLogin() {
-    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    router.push(`/login?next=${encodeURIComponent(pathname)}`);
   }
 
   /** Write the draft. Sends the whole draft (lists replace) plus the paths it no longer has. */
@@ -362,15 +363,15 @@ export function forgottenPaths(before: ProjectProfile, after: ProjectProfile): s
 // ---- pieces ----
 
 const INPUT =
-  'w-full rounded-[2px] border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled transition-colors duration-150 hover:border-border-strong focus:border-border-strong focus:outline-none disabled:opacity-50';
+  'w-full border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled transition-colors duration-150 hover:border-border-strong focus:border-border-strong focus:outline-none disabled:opacity-50';
 
 const PRIMARY =
-  'h-8 rounded-[2px] bg-primary px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover disabled:opacity-40';
+  'h-8 bg-primary px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover disabled:opacity-40';
 
 const GHOST =
-  'h-8 rounded-[2px] border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary';
+  'h-8 border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary';
 
-const CHIP = 'h-8 rounded-[2px] border px-3 text-[13px] leading-none transition-colors duration-150';
+const CHIP = 'h-8 border px-3 text-[13px] leading-none transition-colors duration-150';
 const CHIP_ON = 'border-foreground bg-foreground text-background';
 const CHIP_OFF = 'border-border text-text-secondary hover:border-border-strong hover:text-foreground';
 

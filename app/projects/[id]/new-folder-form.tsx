@@ -63,18 +63,19 @@ export function NewFolderForm({ projectId, suggestedName }: { projectId: string;
             <form onSubmit={submit} className="flex flex-col gap-2 pb-5 sm:flex-row">
               <input
                 type="text"
+                aria-label="Folder name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={`${suggestedName} — e.g. “Sc. 12 diner” or “Apt interior”`}
                 maxLength={120}
                 autoFocus
-                className="h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
+                className="h-9 w-full border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none"
                 disabled={busy}
               />
               <button
                 type="submit"
                 disabled={busy}
-                className="h-9 shrink-0 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
+                className="h-9 shrink-0 border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
               >
                 {busy ? 'Adding…' : 'Add scene'}
               </button>

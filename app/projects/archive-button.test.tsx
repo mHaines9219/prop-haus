@@ -83,5 +83,14 @@ describe('ArchiveButton', () => {
     await user.click(button);
     await waitFor(() => expect(button).toBeEnabled());
     expect(nav.router.refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t archive. Try again.');
+  });
+
+  it('says a failed restore did not go through', async () => {
+    const user = userEvent.setup();
+    stubFetch(() => Promise.reject(new TypeError('offline')));
+    renderButton(true);
+    await user.click(screen.getByRole('button', { name: 'Restore' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t restore. Try again.');
   });
 });

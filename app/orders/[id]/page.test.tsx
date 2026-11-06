@@ -5,7 +5,7 @@ import { signIn, signOut, ORG_ID } from '@/test/mocks/session';
 import { makeOrder, makeOrderItem } from '@/test/fixtures/orders';
 import { summarizeOrder, type Order } from '@/lib/orders';
 import type { PreparedScene } from '@/lib/spacelab/handoff';
-import OrderPage from './page';
+import OrderPage, { generateMetadata } from './page';
 
 vi.mock('@/lib/session', async () => (await import('@/test/mocks/session')).sessionModule());
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
@@ -49,6 +49,12 @@ beforeEach(() => {
 });
 
 describe('OrderPage', () => {
+  it('titles the tab with the short order number', async () => {
+    await expect(generateMetadata(props('abcdef12-3456'))).resolves.toEqual({
+      title: 'Order #ABCDEF12 · Prop Haus',
+    });
+  });
+
   it('redirects a signed-out visitor to /login carrying the order path', async () => {
     signOut();
     await expect(OrderPage(props('order-9'))).rejects.toThrow('/login?next=%2Forders%2Forder-9');
