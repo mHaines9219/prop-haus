@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:local": "bash scripts/dev-local.sh",
     "build": "next build",
     "start": "next start",
     "boot": "bash scripts/boot.sh",

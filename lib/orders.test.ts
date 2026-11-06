@@ -142,6 +142,7 @@ describe('row mapping', () => {
       orgId: ORG_ID,
       status: 'placed',
       jobStatus: 'active',
+      sandbox: false,
       items: [
         {
           id: 'oi-1',

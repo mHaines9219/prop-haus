@@ -63,6 +63,7 @@ export async function POST(req: Request) {
     minimums,
     passport,
     fallbackTo: process.env.OUTREACH_FALLBACK_TO,
+    bookingFlow: session.sandbox,
   });
 
   return NextResponse.json({ drafts, readiness });

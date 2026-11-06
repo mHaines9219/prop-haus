@@ -6,6 +6,7 @@ import type { OrderDefaults } from '@/lib/order-profile';
 import type { Draft } from '@/lib/outreach/compose';
 import { makePropItem } from '@/test/fixtures/catalog';
 import { nav, resetNavigation } from '@/test/mocks/next-navigation';
+import { planView, withPlan } from '@/test/helpers/plan';
 import CartPage from './page';
 
 // The cart is the one-click surface: it reads readiness from the profile,
@@ -393,6 +394,7 @@ describe('placing the order', () => {
       rentalStart: '2026-09-03',
       rentalEnd: '2026-09-10',
       messages: [],
+      sandbox: false,
       idempotencyKey: UUID,
     });
     expect(useCart.getState().lines).toEqual([]);
@@ -829,5 +831,49 @@ describe('documents', () => {
     await waitFor(() => expect(coi).toHaveTextContent('Upload this document as a PDF or an image.'));
     expect(coi).toHaveTextContent('Not on file. Noted as to follow.');
     expect(within(coi).getByRole('button', { name: 'Upload' })).toBeInTheDocument();
+  });
+});
+
+describe('sandbox', () => {
+  async function renderSandboxCart() {
+    render(withPlan(<CartPage />, planView('pro', { isAdmin: true, sandbox: true })));
+    await screen.findByRole('heading', { name: 'Cart' });
+  }
+
+  it('says a test card is saved and nothing is sent, and still places the order with one click', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes();
+    await renderSandboxCart();
+
+    const payment = await screen.findByRole('group', { name: 'Payment' });
+    expect(within(payment).getByText('Test card · Visa ···· 4242')).toBeInTheDocument();
+    expect(within(payment).getByText(/No charge and no hold now/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Place order and send/ })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Place sandbox order · 2 vendors, nothing sent' }));
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout')).toHaveLength(1);
+  });
+
+  it('tells the server which mode it showed, and prints the refusal when the switch moved', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubRoutes(() =>
+      json({ error: 'Sandbox mode changed since this cart loaded. Reload the cart and place the order again.', reason: 'mode_changed' }, 409),
+    );
+    await renderSandboxCart();
+    await user.click(await screen.findByRole('button', { name: /^Place sandbox order/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sandbox mode changed since this cart loaded.');
+    const call = fetchMock.mock.calls.find(([url]) => url === '/api/checkout')!;
+    expect(JSON.parse(call[1]?.body as string)).toMatchObject({ sandbox: true });
+    expect(nav.router.push).not.toHaveBeenCalled();
+    expect(useCart.getState().lines).toHaveLength(2);
+  });
+
+  it('shows none of it with the switch off', async () => {
+    stubRoutes();
+    await renderCart();
+    await placeOrder();
+    expect(screen.queryByRole('group', { name: 'Payment' })).toBeNull();
   });
 });

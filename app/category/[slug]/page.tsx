@@ -1,15 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import {
-  categoryAttributeFacets,
-  categoryCards,
-  filterCategoryCards,
-  type BrowsePage,
-  type CategoryPage as NarrowedPage,
-} from '@/lib/catalog-db';
+import { catalogOrEmpty, categoryAttributeFacets, categoryCards, filterCategoryCards, type BrowsePage, type CategoryPage as NarrowedPage } from '@/lib/catalog-db';
 import { CATEGORIES, categoryName } from '@/lib/categories';
-import { categoryHref, countSelected, parseFilters, type AttributeFilters } from '@/lib/category-filters';
+import { EMPTY_FACETS, categoryHref, countSelected, parseFilters, type AttributeFilters } from '@/lib/category-filters';
 import type { CardItem } from '@/lib/types';
 import { CategoryFilters } from '@/components/ap/category-filters';
 import { CategorySearch } from '@/components/ap/category-search';
@@ -52,13 +46,18 @@ export default async function CategoryPage({
 
   // Loaded here, not in the sections below: async children are a server-only
   // feature, and the page test renders this tree in jsdom.
+  // catalogOrEmpty: this page prerenders at build; a build with no catalog
+  // configured gets an empty category rather than a failed build.
   const [facets, view] = await Promise.all([
-    categoryAttributeFacets(slug),
+    catalogOrEmpty(EMPTY_FACETS, () => categoryAttributeFacets(slug)),
     narrowed
-      ? filterCategoryCards(slug, { query, filters }, RENDER_LIMIT).then(
-          (page) => ({ kind: 'narrowed' as const, page }),
-        )
-      : categoryCards(slug, RENDER_LIMIT).then((page) => ({ kind: 'browse' as const, page })),
+      ? catalogOrEmpty<NarrowedPage>({ items: [], capped: false }, () =>
+          filterCategoryCards(slug, { query, filters }, RENDER_LIMIT),
+        ).then((page) => ({ kind: 'narrowed' as const, page }))
+      : catalogOrEmpty<BrowsePage>({ items: [], total: 0 }, () => categoryCards(slug, RENDER_LIMIT)).then((page) => ({
+          kind: 'browse' as const,
+          page,
+        })),
   ]);
 
   return (

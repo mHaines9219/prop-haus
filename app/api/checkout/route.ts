@@ -11,12 +11,12 @@ import {
   orderRequestReadiness,
 } from '@/lib/order-profile';
 import { getOrderProfile, updateOrderProfile } from '@/lib/order-profile-store';
-import { paymentProvider } from '@/lib/payments/provider';
 import { recordEvents } from '@/lib/analytics';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
-import { formsEnabled } from '@/lib/forms/filler';
+import { formsEnabled, formsProvider } from '@/lib/forms/filler';
 import { buildOrderPaperwork } from '@/lib/forms/packet';
-import { normalizeOverrides, sendOrderOutreach } from '@/lib/outreach/send';
+import { listOrderMessages, normalizeOverrides, sendOrderOutreach } from '@/lib/outreach/send';
+import { openBookings } from '@/lib/booking/store';
 
 type CheckoutBody = {
   lines: CartLineInput[];
@@ -36,6 +36,12 @@ type CheckoutBody = {
   messages?: unknown;
   /** The project the order is for (its Jobs section lists it). Optional. */
   projectId?: unknown;
+  /**
+   * The mode the cart was showing when it was clicked. The server decides the
+   * mode from the session; this only lets it refuse a click whose page said
+   * one thing while the session says another.
+   */
+  sandbox?: unknown;
   idempotencyKey: string;
 };
 
@@ -50,6 +56,13 @@ export async function POST(req: Request) {
   }
   if (!Array.isArray(body.lines) || body.lines.length === 0) {
     return NextResponse.json({ error: 'cart is empty' }, { status: 400 });
+  }
+  // A cart left open while the sandbox switch was flipped elsewhere still
+  // shows the old mode. Placing a live order from a page that promised
+  // "nothing sent" is the one way a sandbox test could email a vendor, so a
+  // mismatch in either direction is refused before anything is written.
+  if (typeof body.sandbox === 'boolean' && body.sandbox !== session.sandbox) {
+    return NextResponse.json({ error: MODE_CHANGED, reason: 'mode_changed' }, { status: 409 });
   }
 
   // One-click-safe even without the UI: the profile fills whatever the body
@@ -110,8 +123,14 @@ export async function POST(req: Request) {
     projectId,
     lines: body.lines,
     ...request,
+    sandbox: session.sandbox,
     idempotencyKey: body.idempotencyKey,
   });
+  // A replayed key returns the order as it was first placed. If that was in
+  // the other mode, running this mode's steps on it would be wrong either way.
+  if (order.sandbox !== session.sandbox) {
+    return NextResponse.json({ error: MODE_CHANGED, reason: 'mode_changed' }, { status: 409 });
+  }
 
   // ── POST-CHECKOUT HOOKS ──────────────────────────────────────────────────
   // Non-fatal extension points for follow-on tasks.
@@ -121,7 +140,7 @@ export async function POST(req: Request) {
     orgId: session.orgId,
     userId: session.userId,
     type: 'order_placed',
-    payload: { orderId: order.id, itemCount: order.items.length, vendorCount },
+    payload: { orderId: order.id, itemCount: order.items.length, vendorCount, sandbox: order.sandbox },
   });
 
   // FUT-2: warm the Spacelab set preview — generate a 3D model per ordered item
@@ -131,6 +150,28 @@ export async function POST(req: Request) {
   // sent. It is non-fatal by construction (queueSpacelabHandoff swallows its own
   // errors) and skippable with SPACELAB_PREWARM=off.
   after(() => queueSpacelabHandoff(order, session.orgId));
+
+  // ── BOOKING FLOW (sandbox) ───────────────────────────────────────────────
+  // An admin with the sandbox switch on places a sandbox order: the card is
+  // saved with no charge, one booking opens per house, and each inquiry is
+  // written but never handed to a mailer. All of it finishes before the
+  // response so the order page the cart lands on is already complete; the
+  // bookings then advance by hand from that page.
+  if (order.sandbox) {
+    // Each step finds its own earlier work, so a replayed or interrupted click
+    // finishes what is missing and writes nothing twice.
+    await openBookings(order);
+    const written = await listOrderMessages(order.id, session.orgId).catch(() => []);
+    if (written.length === 0) {
+      // Only the mock filler: a sandbox order never calls a real forms provider.
+      if (formsEnabled() && formsProvider() === 'mock') {
+        await buildOrderPaperwork(order.id, session.orgId, session.plan);
+      }
+      await sendOrderOutreach(order, { overrides: normalizeOverrides(body.messages) });
+    }
+    return NextResponse.json({ id: order.id }, { status: 201 });
+  }
+  // ── end BOOKING FLOW ─────────────────────────────────────────────────────
 
   // ── MVP-12 PAPERWORK ─────────────────────────────────────────────────────
   // Every vendor form we have a template for, filled from the order profile
@@ -151,19 +192,12 @@ export async function POST(req: Request) {
   after(() => sendOrderOutreach(order, { overrides }));
   // ── end MVP-11 ───────────────────────────────────────────────────────────
 
-  // Payment abstraction — NullProvider in MVP; swap for real rails later.
-  if (order.totalCents) {
-    await paymentProvider.authorize({
-      orderId: order.id,
-      amountCents: order.totalCents,
-      currency: 'usd',
-    });
-  }
-
   return NextResponse.json({ id: order.id }, { status: 201 });
 }
 
 const SHOOT_DETAILS_MAX = 4000;
+
+const MODE_CHANGED = 'Sandbox mode changed since this cart loaded. Reload the cart and place the order again.';
 
 /** A trimmed string from untrusted JSON, or undefined when blank or not a string. */
 function str(v: unknown, max = 500): string | undefined {

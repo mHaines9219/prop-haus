@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { catalogFacets } from '@/lib/catalog-db';
+import { EMPTY_CATALOG_FACETS, catalogFacets, catalogOrEmpty } from '@/lib/catalog-db';
 import { HowItWorks } from '@/components/ap/how-it-works';
 import { PageTransition } from '@/components/ap/page-transition';
 import { CategoryShelf } from '@/components/ap/category-shelf';
@@ -36,7 +36,7 @@ function fmtBig(n: number): string {
 }
 
 export default async function HomePage() {
-  const facets = await catalogFacets();
+  const facets = await catalogOrEmpty(EMPTY_CATALOG_FACETS, catalogFacets);
 
   const categories = META_CATEGORIES.map((m) => ({
     name: m.name,

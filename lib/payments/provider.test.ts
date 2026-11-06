@@ -1,47 +1,47 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NullProvider, paymentProvider } from './provider';
+import { describe, expect, it } from 'vitest';
+import { HOLD_LIFETIME_DAYS, SandboxPayments } from './provider';
 
-/** The stub rails: every call succeeds, logs, and returns a token that names its input. */
+/** The sandbox rails: every call succeeds, moves no money, and is marked as sandbox. */
 
-beforeEach(() => {
-  vi.spyOn(console, 'log').mockImplementation(() => {});
-});
+const NOW = new Date('2026-11-06T18:00:00.000Z');
+const p = new SandboxPayments(() => NOW);
 
-describe('NullProvider', () => {
-  const p = new NullProvider();
-
-  it('authorizes with a token derived from the order id', async () => {
-    await expect(p.authorize({ orderId: 'o1', amountCents: 5000, currency: 'usd' })).resolves.toEqual({
-      authToken: 'null_auth_o1',
-    });
-    expect(console.log).toHaveBeenCalledWith('[payments/null] authorize', {
-      orderId: 'o1',
-      amountCents: 5000,
-      currency: 'usd',
+describe('SandboxPayments', () => {
+  it('saves a test card without charging or holding anything', async () => {
+    const card = await p.saveCard({ orgId: 'org', orderId: 'o1' });
+    expect(card).toEqual({
+      id: 'sbx_pm_o1',
+      brand: 'Visa',
+      last4: '4242',
+      setupIntentId: 'sbx_seti_o1',
+      savedAt: NOW.toISOString(),
     });
   });
 
-  it('captures a hold into a charge id', async () => {
-    await expect(p.capture({ authToken: 'null_auth_o1' })).resolves.toEqual({ chargeId: 'null_charge_null_auth_o1' });
-    expect(console.log).toHaveBeenCalledWith('[payments/null] capture', { authToken: 'null_auth_o1' });
+  it('places a hold that lapses a hold-lifetime later', async () => {
+    const card = await p.saveCard({ orgId: 'org', orderId: 'o1' });
+    const hold = await p.placeHold({ card, orderId: 'o1', vendorId: 'omega', amountCents: 27_000 });
+    expect(hold.amountCents).toBe(27_000);
+    expect(hold.id).toMatch(/^sbx_hold_o1_omega_/);
+    const days = (Date.parse(hold.expiresAt) - Date.parse(hold.placedAt)) / 86_400_000;
+    expect(days).toBe(HOLD_LIFETIME_DAYS);
   });
 
-  it('refunds fully or partially with the same shape', async () => {
-    await expect(p.refund({ chargeId: 'c1' })).resolves.toEqual({ refundId: 'null_refund_c1' });
-    await expect(p.refund({ chargeId: 'c1', amountCents: 100 })).resolves.toEqual({ refundId: 'null_refund_c1' });
-    expect(console.log).toHaveBeenLastCalledWith('[payments/null] refund', { chargeId: 'c1', amountCents: 100 });
+  it('captures a hold and splits it between the house and the fee', async () => {
+    const card = await p.saveCard({ orgId: 'org', orderId: 'o1' });
+    const hold = await p.placeHold({ card, orderId: 'o1', vendorId: 'omega', amountCents: 27_000 });
+    const capture = await p.capture({ hold, vendorId: 'omega', feeCents: 2_700 });
+    expect(capture).toMatchObject({ amountCents: 27_000, feeCents: 2_700, payoutCents: 24_300 });
+    expect(capture.chargeId).toMatch(/^sbx_ch_/);
+    expect(capture.transferId).toMatch(/^sbx_tr_omega_/);
   });
 
-  it('chains authorize → capture → refund', async () => {
-    const { authToken } = await p.authorize({ orderId: 'o2', amountCents: 1, currency: 'usd' });
-    const { chargeId } = await p.capture({ authToken });
-    const { refundId } = await p.refund({ chargeId });
-    expect(refundId).toBe('null_refund_null_charge_null_auth_o2');
-  });
-});
-
-describe('paymentProvider', () => {
-  it('is the null provider until real rails are chosen', () => {
-    expect(paymentProvider).toBeInstanceOf(NullProvider);
+  it('charges an extra on the saved card, keeping the note only when there is one', async () => {
+    const card = await p.saveCard({ orgId: 'org', orderId: 'o1' });
+    const late = await p.chargeExtra({ card, vendorId: 'omega', kind: 'late_fee', amountCents: 5_000 });
+    expect(late).toMatchObject({ kind: 'late_fee', amountCents: 5_000 });
+    expect(late).not.toHaveProperty('note');
+    const damage = await p.chargeExtra({ card, vendorId: 'omega', kind: 'damage', amountCents: 9_000, note: 'Chipped veneer' });
+    expect(damage.note).toBe('Chipped veneer');
   });
 });

@@ -13,7 +13,8 @@ import { db } from '@/test/mocks/supabase-admin';
 import { afterCalls, flushAfter, resetAfter } from '@/test/mocks/next-server';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
 import { buildOrderPaperwork } from '@/lib/forms/packet';
-import { paymentProvider } from '@/lib/payments/provider';
+import { LogMailer } from '@/lib/mail/provider';
+import { retryOutboundMessage } from '@/lib/outreach/send';
 import { POST } from './route';
 
 /**
@@ -219,7 +220,7 @@ describe('the click', () => {
       expect.objectContaining({
         org_id: ORG_ID,
         type: 'order_placed',
-        payload: { orderId: db.rows('orders')[0].id, itemCount: 3, vendorCount: 2 },
+        payload: { orderId: db.rows('orders')[0].id, itemCount: 3, vendorCount: 2, sandbox: false },
       }),
     ]);
   });
@@ -231,22 +232,6 @@ describe('the click', () => {
     expect(afterCalls).toHaveLength(3);
     await flushAfter();
     expect(queueSpacelabHandoff).toHaveBeenCalledWith(expect.objectContaining({ orgId: ORG_ID }), ORG_ID);
-  });
-
-  it('authorizes payment only when the order carries a total', async () => {
-    seedOrg();
-    const authorize = vi.spyOn(paymentProvider, 'authorize');
-    await POST(jsonRequest('/api/checkout', body));
-    expect(authorize).not.toHaveBeenCalled();
-
-    db.reset();
-    db.relation('orders', 'order_items', 'order_id');
-    db.unique('orders', ['org_id', 'idempotency_key']);
-    seedOrg();
-    db.seed('orders', [{ id: 'pre', org_id: ORG_ID, idempotency_key: 'paid', total_cents: 5000, status: 'placed' }]);
-    // A replay of an order that already has a total exercises the authorize path.
-    await POST(jsonRequest('/api/checkout', { ...body, idempotencyKey: 'paid' }));
-    expect(authorize).toHaveBeenCalledWith({ orderId: 'pre', amountCents: 5000, currency: 'usd' });
   });
 
   it('still answers 201 when analytics is down', async () => {
@@ -348,5 +333,138 @@ describe('idempotency', () => {
     seedOrg();
     db.failNext('orders', 'insert', { code: '57014', message: 'statement timeout' });
     await expect(POST(jsonRequest('/api/checkout', body))).rejects.toMatchObject({ message: 'statement timeout' });
+  });
+});
+
+describe('sandbox', () => {
+  const twoHouses = {
+    lines: [
+      makeCartLine(),
+      makeCartLine({ itemId: 'hpr-9', source: 'hpr', sourceId: '9', vendor: 'Hand Prop Room', priceCents: undefined }),
+    ],
+    rentalStart: '2026-12-01',
+    rentalEnd: '2026-12-05',
+    idempotencyKey: 'sandbox-1',
+  };
+
+  beforeEach(() => {
+    signIn({ isAdmin: true, sandbox: true });
+    seedOrg();
+    vi.mocked(buildOrderPaperwork).mockClear();
+  });
+
+  it('places a sandbox order: card saved, one booking per house, nothing charged or held', async () => {
+    const res = await POST(jsonRequest('/api/checkout', twoHouses));
+    expect(res.status).toBe(201);
+
+    const [order] = db.rows('orders');
+    expect(order.sandbox).toBe(true);
+    expect(order.payment_method).toMatchObject({ brand: 'Visa', last4: '4242', id: expect.stringMatching(/^sbx_pm_/) });
+
+    const bookings = db.rows('order_bookings');
+    expect(bookings.map((b) => [b.vendor_id, b.stage]).sort()).toEqual([
+      ['hpr', 'inquiry_sent'],
+      ['omega', 'inquiry_sent'],
+    ]);
+    for (const b of bookings) {
+      const state = b.state as { packet: { kind: string }[]; hold?: unknown; capture?: unknown };
+      expect(state.packet.map((p) => p.kind)).toEqual(['info_sheet', 'w9', 'payment_on_file', 'insurability']);
+      expect(state.hold).toBeUndefined();
+      expect(state.capture).toBeUndefined();
+    }
+  });
+
+  it('writes every inquiry before answering and hands none to the mailer', async () => {
+    const send = vi.spyOn(LogMailer.prototype, 'send');
+    send.mockClear();
+    await POST(jsonRequest('/api/checkout', twoHouses));
+
+    // Written inline, not in an after() hook: the order page is complete on arrival.
+    const messages = db.rows('outbound_messages');
+    expect(messages.map((m) => m.status)).toEqual(['sandbox', 'sandbox']);
+    expect(messages.every((m) => m.sent_at === undefined && m.provider_message_id === undefined)).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+    expect(buildOrderPaperwork).toHaveBeenCalledTimes(1);
+
+    const omega = messages.find((m) => m.vendor_id === 'omega')!;
+    expect(omega.body_text).toContain('Payment method on file. Nothing is charged until pickup.');
+    expect(omega.body_text).toContain('A certificate naming Omega Cinema Props is issued when you confirm.');
+    expect(omega.body_text).not.toContain('COI to follow');
+  });
+
+  it('a replayed click opens nothing twice', async () => {
+    await POST(jsonRequest('/api/checkout', twoHouses));
+    await POST(jsonRequest('/api/checkout', twoHouses));
+    expect(db.rows('orders')).toHaveLength(1);
+    expect(db.rows('order_bookings')).toHaveLength(2);
+    expect(db.rows('outbound_messages')).toHaveLength(2);
+  });
+
+  it('a sandbox inquiry cannot be sent later through retry', async () => {
+    const send = vi.spyOn(LogMailer.prototype, 'send');
+    await POST(jsonRequest('/api/checkout', twoHouses));
+    send.mockClear();
+    const [message] = db.rows('outbound_messages');
+    expect(await retryOutboundMessage(String(message.id), ORG_ID)).toEqual({ ok: false, reason: 'not_failed' });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('a click that died after opening the bookings finishes on replay', async () => {
+    await POST(jsonRequest('/api/checkout', twoHouses));
+    db.rows('outbound_messages').length = 0;
+    await POST(jsonRequest('/api/checkout', twoHouses));
+    expect(db.rows('order_bookings')).toHaveLength(2);
+    expect(db.rows('outbound_messages').map((m) => m.status)).toEqual(['sandbox', 'sandbox']);
+  });
+
+  it('never calls a real forms provider: paperwork is skipped unless the filler is the mock', async () => {
+    vi.stubEnv('FORMS_PROVIDER', 'anvil');
+    await POST(jsonRequest('/api/checkout', twoHouses));
+    vi.unstubAllEnvs();
+    expect(buildOrderPaperwork).not.toHaveBeenCalled();
+    expect(db.rows('outbound_messages')).toHaveLength(2);
+  });
+
+  it('409 when the cart showed sandbox but the switch is off, and nothing is written or sent', async () => {
+    signIn({ isAdmin: true, sandbox: false });
+    const send = vi.spyOn(LogMailer.prototype, 'send');
+    send.mockClear();
+    const res = await POST(jsonRequest('/api/checkout', { ...twoHouses, sandbox: true }));
+    expect(res.status).toBe(409);
+    expect(await readJson(res)).toMatchObject({ reason: 'mode_changed' });
+    await flushAfter();
+    expect(db.rows('orders')).toHaveLength(0);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('409 the other way too: the cart showed a live order but the switch is on', async () => {
+    const res = await POST(jsonRequest('/api/checkout', { ...twoHouses, sandbox: false }));
+    expect(res.status).toBe(409);
+    expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it('409 when a key that placed a live order is replayed with the switch on, and nothing is sent again', async () => {
+    signIn();
+    await POST(jsonRequest('/api/checkout', { ...twoHouses, idempotencyKey: 'live-then-sandbox' }));
+    await flushAfter();
+    const send = vi.spyOn(LogMailer.prototype, 'send');
+    send.mockClear();
+
+    signIn({ isAdmin: true, sandbox: true });
+    const res = await POST(jsonRequest('/api/checkout', { ...twoHouses, idempotencyKey: 'live-then-sandbox' }));
+    expect(res.status).toBe(409);
+    await flushAfter();
+    expect(send).not.toHaveBeenCalled();
+    expect(db.rows('order_bookings')).toHaveLength(0);
+    expect(db.rows('outbound_messages')).toHaveLength(2);
+  });
+
+  it('an order placed with the switch off has no bookings and is not a sandbox order', async () => {
+    signIn();
+    await POST(jsonRequest('/api/checkout', { ...twoHouses, idempotencyKey: 'live-1' }));
+    await flushAfter();
+    expect(db.rows('orders')[0]).not.toHaveProperty('sandbox');
+    expect(db.rows('order_bookings')).toHaveLength(0);
+    expect(db.rows('outbound_messages').map((m) => m.status)).toEqual(['sent', 'sent']);
   });
 });

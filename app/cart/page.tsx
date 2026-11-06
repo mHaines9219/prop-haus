@@ -23,7 +23,8 @@ import {
 import type { Draft } from '@/lib/outreach/compose';
 import type { ProjectSummary } from '@/lib/projects';
 import { EMPTY_PASSPORT, type Passport, type PassportDocument } from '@/lib/passport';
-import { askedByLine, cartDocuments, type CartDocument } from '@/lib/checkout-documents';
+import { askedByLine, cartDocuments, packetDocuments, type CartDocument } from '@/lib/checkout-documents';
+import { usePlanView } from '@/lib/plan-view';
 
 type CheckoutState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
@@ -89,6 +90,8 @@ const PREVIEW_DEBOUNCE_MS = 300;
 export default function CartPage() {
   const router = useRouter();
   const { lines, remove, clear } = useCart();
+  // The admin sandbox switch: the click places a sandbox order and sends nothing.
+  const { sandbox } = usePlanView();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -134,7 +137,7 @@ export default function CartPage() {
 
   // What the cart's vendors ask a new customer for, against the passport.
   // Computed, never configured: the vendors in the cart decide the rows.
-  const documents = cartDocuments(vendors, passport);
+  const documents = sandbox ? packetDocuments(vendors, passport) : cartDocuments(vendors, passport);
   const documentsKey = documents.map((d) => `${d.kind}:${d.status}`).join('|');
 
   // The profile was short when the cart loaded, so the form asks for the
@@ -165,7 +168,7 @@ export default function CartPage() {
     // and the passport so a re-render with the same cart, form and documents
     // does not refetch; a fresh upload does, so the draft shows the attachment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emailsOpen, readiness.kind, linesKey, requestKey, documentsKey]);
+  }, [emailsOpen, readiness.kind, linesKey, requestKey, documentsKey, sandbox]);
 
   const openDraft = drafts.list?.find((d) => d.vendorId === openVendor) ?? null;
   const openEdit = openDraft ? edits[openDraft.vendorId] : undefined;
@@ -208,6 +211,7 @@ export default function CartPage() {
         ...request,
         messages: Object.entries(edits).map(([vendorId, e]) => ({ vendorId, ...e })),
         projectId: projectId || undefined,
+        sandbox,
         idempotencyKey,
       });
 
@@ -216,7 +220,10 @@ export default function CartPage() {
     } catch (err) {
       const requestIncomplete = err instanceof ApiError && err.status === 422 && err.message === 'request is incomplete';
       const profileIncomplete = err instanceof ApiError && err.status === 422 && !requestIncomplete;
-      const message = requestIncomplete
+      const modeChanged = err instanceof ApiError && err.status === 409;
+      const message = modeChanged
+        ? err.message
+        : requestIncomplete
         ? gapsMessage(gaps, form)
         : profileIncomplete
           ? 'Your order profile is missing something. Fill it in below.'
@@ -492,7 +499,9 @@ export default function CartPage() {
                         <fieldset>
                           <legend className={EYEBROW}>Documents</legend>
                           <p className="mt-1 font-mono text-[11px] leading-[14px] text-text-tertiary">
-                            What these vendors ask a new customer for. Kept on your{' '}
+                            {sandbox
+                              ? 'What goes in each inquiry packet from you. Kept on your '
+                              : 'What these vendors ask a new customer for. Kept on your '}
                             <Link href="/account/passport" className="text-accent-text underline underline-offset-2">
                               passport
                             </Link>{' '}
@@ -596,7 +605,9 @@ export default function CartPage() {
                           </ul>
                         )}
                         <p className="mt-2 font-mono text-[11px] leading-relaxed text-text-tertiary">
-                          Sent as written with the click. Open one to read or change it.
+                          {sandbox
+                            ? 'Written with the click and kept on the order. Not sent. Open one to read or change it.'
+                            : 'Sent as written with the click. Open one to read or change it.'}
                         </p>
                       </div>
                     )}
@@ -608,6 +619,20 @@ export default function CartPage() {
                   <span className="font-mono text-[13px] font-medium text-foreground">—</span>
                 </div>
 
+                {sandbox && readiness.kind === 'loaded' && (
+                  <div className="border border-border bg-surface-raised p-4" role="group" aria-label="Payment">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={EYEBROW}>Payment</p>
+                      <span className="tag">Sandbox</span>
+                    </div>
+                    <p className="mt-2 font-mono text-[13px] text-foreground">Test card · Visa ···· 4242</p>
+                    <p className="mt-1 font-mono text-[11px] leading-[16px] text-text-tertiary">
+                      Saved with the click. No charge and no hold now. Each house gets its own hold once it
+                      confirms, and the holds are captured at pickup.
+                    </p>
+                  </div>
+                )}
+
                 {state.kind === 'error' && (
                   <p role="alert" className="font-mono text-[12px] text-accent-text">{state.message}</p>
                 )}
@@ -618,15 +643,20 @@ export default function CartPage() {
                     disabled={state.kind === 'submitting'}
                     className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {state.kind === 'submitting'
-                      ? 'Placing order and sending…'
-                      : `Place order and send to ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}`}
+                    {sandbox
+                      ? state.kind === 'submitting'
+                        ? 'Placing sandbox order…'
+                        : `Place sandbox order · ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}, nothing sent`
+                      : state.kind === 'submitting'
+                        ? 'Placing order and sending…'
+                        : `Place order and send to ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}`}
                   </button>
                 )}
 
                 <p className="font-mono text-[11px] text-text-tertiary leading-relaxed">
-                  Pricing is confirmed with each vendor after you place your order.
-                  Payment is not collected at checkout.
+                  {sandbox
+                    ? 'Sandbox. Each inquiry is written and kept on the order, never sent. You move each house forward by hand on the order page.'
+                    : 'Pricing is confirmed with each vendor after you place your order. Payment is not collected at checkout.'}
                 </p>
               </div>
             </div>
@@ -656,6 +686,7 @@ export default function CartPage() {
                 edited: Boolean(openEdit),
                 onChange: (patch) => editDraft(openDraft, patch),
                 onReset: () => resetDraft(openDraft.vendorId),
+                ...(sandbox ? { footnote: 'Kept on the order with the click. Not sent.' } : {}),
               }
             : undefined
         }

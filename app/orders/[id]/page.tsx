@@ -13,9 +13,12 @@ import { getSceneForOrder } from '@/lib/spacelab/handoff';
 import { listOrderMessages } from '@/lib/outreach/send';
 import type { OrderItem, VendorSummary } from '@/lib/orders';
 import { formatAddress } from '@/lib/order-profile';
-import { requireOrgId } from '@/lib/session';
+import { currentSession, requireOrgId } from '@/lib/session';
 import { getOrderProfile } from '@/lib/order-profile-store';
 import { listOrderDocuments } from '@/lib/forms/documents';
+import { listBookings } from '@/lib/booking/store';
+import { suggestedAmountCents } from '@/lib/booking/machine';
+import { BookingFlow } from '@/components/orders/booking-flow';
 import { PaperworkSection } from '@/components/orders/paperwork-section';
 import { PageShell } from '@/components/ap/page-shell';
 import { JobStatusSelect } from '@/components/ap/job-status-select';
@@ -52,6 +55,11 @@ export default async function OrderPage({ params }: Props) {
     getOrderProfile(orgId),
   ]);
 
+  // The booking flow: one booking per house. Only a sandbox order has any
+  // today. Never fatal to the page.
+  const bookings = await listBookings(id, orgId).catch(() => []);
+  const isAdmin = (await currentSession())?.isAdmin === true;
+
   const { order, vendorSummaries } = detail;
   const vendorNames = Object.fromEntries(order.items.map((i) => [i.source, i.vendor]));
 
@@ -68,6 +76,9 @@ export default async function OrderPage({ params }: Props) {
     byVendor.set(item.vendor, [...(byVendor.get(item.vendor) ?? []), item]);
   }
   const summaryByVendor = new Map(vendorSummaries.map((s) => [s.vendor, s]));
+  const suggestedCents = Object.fromEntries(
+    bookings.map((b) => [b.vendorId, suggestedAmountCents(order.items.filter((i) => i.source === b.vendorId))]),
+  );
 
   return (
     <PageShell>
@@ -83,6 +94,7 @@ export default async function OrderPage({ params }: Props) {
             </h1>
             <StatusToken {...orderStatusSpec(order.status)} />
             <JobStatusSelect orderId={order.id} value={order.jobStatus} label="Job status" />
+            {order.sandbox && <span className="tag">Sandbox · nothing sent</span>}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-text-secondary">
             <span>{placedDate}</span>
@@ -131,6 +143,18 @@ export default async function OrderPage({ params }: Props) {
             )}
           </div>
         )}
+
+        {/* The booking flow: per-house stages, and the sandbox's manual advance */}
+        <BookingFlow
+          orderId={order.id}
+          bookings={bookings}
+          card={order.paymentMethod}
+          sandbox={order.sandbox}
+          canAdvance={order.sandbox && isAdmin}
+          rentalStart={order.rentalStart}
+          today={todayInLosAngeles()}
+          suggestedCents={suggestedCents}
+        />
 
         {/* ── MVP-11 — Vendor requests (what went out, to whom, did it land) ── */}
         <VendorRequests initial={messages} />
@@ -187,6 +211,11 @@ export default async function OrderPage({ params }: Props) {
       </div>
     </PageShell>
   );
+}
+
+/** Today's date where the houses are, as YYYY-MM-DD: the hold plan counts days to a pickup in LA. */
+function todayInLosAngeles(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
 }
 
 function OrderItemRow({ item }: { item: OrderItem }) {

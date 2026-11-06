@@ -244,3 +244,62 @@ describe('formatRentalWindow', () => {
     expect(formatRentalWindow()).toBe('Dates to be confirmed');
   });
 });
+
+describe('the booking flow inquiry', () => {
+  const w9 = { name: 'W9.pdf', storagePath: 'org/passport/w9.pdf', mime: 'application/pdf', uploadedAt: '2026-10-01T00:00:00Z' };
+
+  it('prints the inquiry packet in place of the house\'s asks, naming the fallback insurer when nothing is on file', () => {
+    const [omega] = composeOutreach({ ...base, lines: [lines[0]!], profile: { ...withCoi, insurance: {} }, bookingFlow: true });
+    expect(omega!.bodyText).toContain(
+      [
+        'Paperwork',
+        'Production info sheet: the details in this email.',
+        'W-9 to follow.',
+        'Payment method on file. Nothing is charged until pickup.',
+        'Proof of insurability from ATHOS. A certificate naming Omega Cinema Props is issued when you confirm.',
+      ].join('\n'),
+    );
+    expect(omega!.bodyText).not.toContain('COI on file attached');
+    expect(omega!.attachments).toEqual([]);
+  });
+
+  it('attaches the W-9 when the passport has one, and raises no insurance gap on the fallback route', () => {
+    const [omega] = composeOutreach({
+      ...base,
+      lines: [lines[0]!],
+      profile: { ...withCoi, insurance: {} },
+      passport: { documents: { w9 } },
+      minimums: {
+        omega: { vendorId: 'omega', vendorName: 'Omega Cinema Props', glLimit: 5_000_000, aggregateLimit: 5_000_000, workersCompRequired: true, additionalInsuredRequired: true },
+      },
+      bookingFlow: true,
+    });
+    expect(omega!.bodyText).toContain('W-9 attached.');
+    expect(omega!.attachments).toEqual([{ name: 'W9.pdf', storagePath: 'org/passport/w9.pdf', contentType: 'application/pdf' }]);
+    expect(omega!.warnings).toEqual([]);
+  });
+
+  it("names the production's broker when they have their own policy, and offers the fallback for a gap", () => {
+    const [omega] = composeOutreach({
+      ...base,
+      lines: [lines[0]!],
+      profile: { ...withCoi, insurance: { carrier: 'Hiscox', glLimit: 1_000_000, aggregateLimit: 2_000_000, broker: { name: 'Acme Insurance' } } },
+      minimums: {
+        omega: { vendorId: 'omega', vendorName: 'Omega Cinema Props', glLimit: 5_000_000, aggregateLimit: 2_000_000, workersCompRequired: false, additionalInsuredRequired: false },
+      },
+      bookingFlow: true,
+    });
+    expect(omega!.bodyText).toContain('COI naming Omega Cinema Props follows from our broker, Acme Insurance, when you confirm.');
+    expect(omega!.bodyText).not.toContain('ATHOS');
+    expect(omega!.warnings).toEqual([
+      'GL limit too low: org has $1,000,000, vendor requires $5,000,000',
+      'ATHOS can issue this certificate instead.',
+    ]);
+  });
+
+  it('attaches the certificate on file and says so', () => {
+    const [omega] = composeOutreach({ ...base, lines: [lines[0]!], profile: withCoi, bookingFlow: true });
+    expect(omega!.bodyText).toContain('COI on file attached.');
+    expect(omega!.attachments).toEqual([{ name: 'Nocturne-COI.pdf', storagePath: 'org/coi/abc.pdf', contentType: 'application/pdf' }]);
+  });
+});

@@ -22,5 +22,5 @@ export default defineConfig([
     files: ['**/*.test.{ts,tsx}', 'test/**'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
-  globalIgnores(['.next/**', 'out/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'next-env.d.ts', '.context/**']),
+  globalIgnores(['.next/**', '.next-local/**', 'out/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'next-env.d.ts', '.context/**']),
 ]);

@@ -105,6 +105,7 @@ export function headline(messages: { status: string }[]): string {
   const sent = messages.filter((m) => m.status === 'sent').length;
   const failed = messages.filter((m) => m.status === 'failed').length;
   const noun = `vendor${total !== 1 ? 's' : ''}`;
+  if (messages.every((m) => m.status === 'sandbox')) return `Sandbox. Written for ${total} ${noun}, none sent.`;
   if (sent === total) return `Sent to ${total} ${noun}.`;
   if (failed === 0) return `Sending to ${total} ${noun}.`;
   return `Sent to ${sent} of ${total} ${noun}. ${failed} failed.`;

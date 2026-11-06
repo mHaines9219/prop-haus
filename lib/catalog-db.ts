@@ -40,6 +40,32 @@ const CARD_COLUMNS =
 
 let client: SupabaseClient | null = null;
 
+/** The catalog can be read: both public Supabase variables are set. */
+export function catalogConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+}
+
+let warnedUnconfigured = false;
+
+/**
+ * For pages that prerender at build time. A build without the Supabase
+ * variables (a Vercel project whose env is scoped to another environment, a
+ * fresh clone) renders those pages empty and says so once in the build log,
+ * instead of failing the whole build. Everything that runs per request keeps
+ * calling the reader directly and keeps failing loudly when it is unconfigured.
+ */
+export async function catalogOrEmpty<T>(empty: T, read: () => Promise<T>): Promise<T> {
+  if (catalogConfigured()) return read();
+  if (!warnedUnconfigured) {
+    warnedUnconfigured = true;
+    console.warn(
+      "[catalog-db] NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are unset: " +
+        "catalog pages render empty. Set both for this environment.",
+    );
+  }
+  return empty;
+}
+
 function db(): SupabaseClient {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -474,6 +500,8 @@ export type Facets = {
   vendors: Record<string, number>;
   total: number;
 };
+
+export const EMPTY_CATALOG_FACETS: Facets = { categories: {}, vendors: {}, total: 0 };
 
 /**
  * Category counts, vendor counts and the catalog total, precomputed. A live

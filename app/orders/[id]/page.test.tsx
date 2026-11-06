@@ -16,6 +16,7 @@ vi.mock('@/lib/jobs', async () => ({
 vi.mock('@/lib/spacelab/handoff', () => ({ getSceneForOrder: vi.fn() }));
 vi.mock('@/lib/outreach/send', () => ({ listOrderMessages: vi.fn(async () => []) }));
 vi.mock('@/lib/forms/documents', () => ({ listOrderDocuments: vi.fn(async () => []) }));
+vi.mock('@/lib/booking/store', () => ({ listBookings: vi.fn(async () => []) }));
 vi.mock('@/lib/order-profile-store', async () => ({
   getOrderProfile: vi.fn(async () => (await import('@/lib/order-profile')).EMPTY_ORDER_PROFILE),
 }));

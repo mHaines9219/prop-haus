@@ -15,13 +15,13 @@ describe('GET /api/me', () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('private, no-store');
-    expect(await readJson(res)).toEqual({ signedIn: false, plan: 'free', actualPlan: 'free', isAdmin: false });
+    expect(await readJson(res)).toEqual({ signedIn: false, plan: 'free', actualPlan: 'free', isAdmin: false, sandbox: false });
   });
 
   it('reports the effective plan beside the real one, and nothing identifying', async () => {
-    signIn({ plan: 'free', actualPlan: 'pro', isAdmin: true, email: 'mhaines9219@gmail.com' });
+    signIn({ plan: 'free', actualPlan: 'pro', isAdmin: true, sandbox: true, email: 'mhaines9219@gmail.com' });
     const body = await readJson<Record<string, unknown>>(await GET());
-    expect(body).toEqual({ signedIn: true, plan: 'free', actualPlan: 'pro', isAdmin: true });
+    expect(body).toEqual({ signedIn: true, plan: 'free', actualPlan: 'pro', isAdmin: true, sandbox: true });
     expect(body).not.toHaveProperty('email');
     expect(body).not.toHaveProperty('orgId');
   });
