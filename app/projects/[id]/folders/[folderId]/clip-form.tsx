@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { LightWell } from '@/components/ap/light-well';
 import { isSafeExternalUrl } from '@/lib/safe-url';
@@ -32,7 +32,7 @@ type Phase =
   | 'error';
 
 const inputClass =
-  'h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none';
+  'h-9 w-full border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none';
 
 function formatPrice(price?: { amount: number; currency: string }): string | null {
   if (!price) return null;
@@ -57,6 +57,7 @@ export function ClipForm({
   existingItemIds: string[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [url, setUrl] = useState('');
@@ -100,7 +101,7 @@ export function ClipForm({
       });
 
       if (res.status === 401) {
-        window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+        router.push(`/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
       if (res.status === 429) {
@@ -142,7 +143,7 @@ export function ClipForm({
         body: JSON.stringify({ items: [toSave] }),
       });
       if (res.status === 401) {
-        window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+        router.push(`/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
       if (!res.ok) {
@@ -194,7 +195,7 @@ export function ClipForm({
           setOpen((v) => !v);
         }}
         className={cn(
-          'h-9 rounded-md border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] transition-colors duration-150',
+          'h-9 border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] transition-colors duration-150',
           open
             ? 'border-border text-text-tertiary hover:text-foreground'
             : 'border-accent text-accent-text hover:bg-accent/15',
@@ -218,6 +219,7 @@ export function ClipForm({
               <form onSubmit={fetchPreview} className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="url"
+                  aria-label="Product link"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="Paste a product link (e.g. wayfair.com/…)"
@@ -227,7 +229,7 @@ export function ClipForm({
                 <button
                   type="submit"
                   disabled={phase === 'fetching' || !url.trim()}
-                  className="h-9 shrink-0 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
+                  className="h-9 shrink-0 border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-50"
                 >
                   {phase === 'fetching' ? 'Reading…' : 'Fetch'}
                 </button>
@@ -298,7 +300,7 @@ export function ClipForm({
                   <div className="flex items-center gap-3">
                     <button
                       type="submit"
-                      className="h-9 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15"
+                      className="h-9 border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15"
                     >
                       Save to folder
                     </button>
@@ -356,7 +358,7 @@ function PreviewRow({
         <button
           type="button"
           onClick={onSave}
-          className="h-9 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15"
+          className="h-9 border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text transition-colors hover:bg-accent/15"
         >
           {duplicate ? 'Save again' : 'Save to folder'}
         </button>

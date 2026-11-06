@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeCardItem } from '@/test/fixtures/catalog';
 import { EMPTY_FACETS } from '@/lib/category-filters';
-import CategoryPage from './page';
+import CategoryPage, { generateMetadata } from './page';
 
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
 vi.mock('@/lib/catalog-db', () => ({
@@ -32,6 +32,10 @@ beforeEach(() => {
 });
 
 describe('CategoryPage', () => {
+  it('titles the tab with the category name', async () => {
+    await expect(generateMetadata(props('lighting'))).resolves.toEqual({ title: 'Lighting · Prop Haus' });
+  });
+
   it('404s on an unknown slug without hitting the catalog', async () => {
     await expect(CategoryPage(props('not-a-category'))).rejects.toThrow('NEXT_NOT_FOUND');
     expect(catalog.categoryCards).not.toHaveBeenCalled();

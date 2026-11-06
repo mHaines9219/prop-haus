@@ -8,6 +8,7 @@ import { SafeFetchError, safeFetchHtml } from '@/lib/clip/safe-fetch';
 import { parseListing } from '@/lib/clip/parse';
 import { canonicalizeUrl, retailerNameFor } from '@/lib/clip/retailers';
 import { getImageStore } from '@/lib/clip/image-store';
+import { createRateLimiter } from '@/lib/rate-limit';
 
 /**
  * POST /api/clip — MVP-7 web clipper (v1: paste a link).
@@ -27,23 +28,8 @@ import { getImageStore } from '@/lib/clip/image-store';
  *   429 { error:'rate_limited' }
  */
 
-// This endpoint fetches arbitrary URLs on our dime, so cap it per org. In-memory
-// is fine for v1 (single region, low volume) and needs no secrets; move to the
-// usage-counter table if it ever runs multi-instance.
-const RATE_WINDOW_MS = 10 * 60 * 1000;
-const RATE_MAX = 30;
-const clipHits = new Map<string, number[]>();
-
-function rateLimited(orgId: string, now: number): boolean {
-  const recent = (clipHits.get(orgId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (recent.length >= RATE_MAX) {
-    clipHits.set(orgId, recent);
-    return true;
-  }
-  recent.push(now);
-  clipHits.set(orgId, recent);
-  return false;
-}
+// This endpoint fetches arbitrary URLs on our dime, so cap it per org.
+const rateLimited = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 30 });
 
 const sha1 = (s: string) => crypto.createHash('sha1').update(s).digest('hex');
 const clipItemId = (canonical: string) => `${CLIP_SOURCE}:${sha1(canonical)}`;

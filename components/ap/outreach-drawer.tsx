@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useAutoResizeTextarea } from '@/hooks/use-auto-resize-textarea';
+import { useDialogFocus } from '@/hooks/use-dialog-focus';
 import { StatusToken, messageStatusSpec } from '@/components/ap/status-token';
 
 /**
@@ -46,6 +47,10 @@ export function OutreachDrawer({
 }) {
   const reduce = useReducedMotion();
   const open = message !== null;
+  const subjectId = useId();
+  const bodyId = useId();
+  const drawerRef = useRef<HTMLElement>(null);
+  useDialogFocus(open, drawerRef);
 
   useEffect(() => {
     if (!open) return;
@@ -80,6 +85,7 @@ export function OutreachDrawer({
           />
           <motion.aside
             key="drawer"
+            ref={drawerRef}
             role="dialog"
             aria-modal
             aria-label={`Email to ${message.vendorName}`}
@@ -114,11 +120,14 @@ export function OutreachDrawer({
               </Row>
 
               <Row delay={1} reduce={reduce}>
-                <label className="mt-5 block font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                <label
+                  htmlFor={editing ? subjectId : undefined}
+                  className="mt-5 block font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                   Subject
                 </label>
                 {editing ? (
                   <input
+                    id={subjectId}
                     value={message.subject}
                     onChange={(e) => editing.onChange({ subject: e.target.value })}
                     className="mt-1.5 w-full border border-border bg-surface-inset px-3 py-2 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
@@ -130,7 +139,10 @@ export function OutreachDrawer({
 
               <Row delay={2} reduce={reduce}>
                 <div className="mt-5 flex items-baseline justify-between">
-                  <label className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                  <label
+                    htmlFor={editing ? bodyId : undefined}
+                    className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary"
+                  >
                     Message
                   </label>
                   {editing?.edited && (
@@ -144,7 +156,7 @@ export function OutreachDrawer({
                   )}
                 </div>
                 {editing ? (
-                  <BodyEditor value={message.bodyText} onChange={(bodyText) => editing.onChange({ bodyText })} />
+                  <BodyEditor id={bodyId} value={message.bodyText} onChange={(bodyText) => editing.onChange({ bodyText })} />
                 ) : (
                   <pre className="mt-1.5 whitespace-pre-wrap border border-border bg-surface-inset px-3 py-3 font-sans text-[14px] leading-relaxed text-foreground">
                     {message.bodyText}
@@ -231,12 +243,13 @@ function Envelope({ message }: { message: DrawerMessage }) {
   );
 }
 
-function BodyEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function BodyEditor({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight: 280 });
   useEffect(() => adjustHeight(), [value, adjustHeight]);
   return (
     <textarea
       ref={textareaRef}
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       spellCheck

@@ -70,7 +70,7 @@ export function PaperworkSection({
               type="button"
               disabled={busy !== null}
               onClick={() => post(`/api/orders/${orderId}/paperwork`, 'build')}
-              className="rounded-md border border-border px-3 py-2 font-mono text-[12px] text-foreground transition-colors hover:bg-surface-raised disabled:opacity-50"
+              className="border border-border px-3 py-2 font-mono text-[12px] text-foreground transition-colors hover:bg-surface-raised disabled:opacity-50"
             >
               {busy === 'build' ? 'Filling' : 'Fill paperwork'}
             </button>
@@ -131,7 +131,7 @@ function DocumentRow({
         {canSign && (
           <Link
             href={signPagePath(doc.orderId, doc.id)}
-            className="rounded-md bg-accent px-3 py-2 font-mono text-[12px] font-medium text-accent-foreground transition-colors hover:opacity-90"
+            className="bg-accent px-3 py-2 font-mono text-[12px] font-medium text-accent-foreground transition-colors hover:opacity-90"
           >
             Sign
           </Link>
@@ -139,7 +139,7 @@ function DocumentRow({
         {canDownload && (
           <a
             href={`/api/forms/${doc.id}/download`}
-            className="rounded-md border border-border px-3 py-2 font-mono text-[12px] text-foreground transition-colors hover:bg-surface-raised"
+            className="border border-border px-3 py-2 font-mono text-[12px] text-foreground transition-colors hover:bg-surface-raised"
           >
             Download
           </a>
@@ -149,7 +149,7 @@ function DocumentRow({
             type="button"
             disabled={busy}
             onClick={onRefill}
-            className="rounded-md border border-border px-3 py-2 font-mono text-[12px] text-text-secondary transition-colors hover:bg-surface-raised disabled:opacity-50"
+            className="border border-border px-3 py-2 font-mono text-[12px] text-text-secondary transition-colors hover:bg-surface-raised disabled:opacity-50"
           >
             {busy ? 'Refilling' : 'Refill'}
           </button>

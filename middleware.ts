@@ -102,5 +102,11 @@ export const config = {
     // MVP-12: forms routes read the session; the Anvil webhook does not.
     "/api/forms",
     "/api/forms/((?!webhook).*)",
+    // Preparing a room reads the session; the room file under /:id is
+    // token-gated and public, so only the exact path is matched.
+    "/api/spacelab/scenes",
+    // The click-out beacon attaches the org when there is a session. It is
+    // fired on the way out, so the round trip costs the visitor nothing.
+    "/api/events/outbound-click",
   ],
 };

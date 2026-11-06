@@ -65,7 +65,8 @@ describe('NewProjectForm', () => {
     await user.click(toggle());
     expect(toggle()).toHaveTextContent('Cancel');
     expect(toggle()).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveAttribute('maxlength', '200');
+    expect(screen.getByRole('textbox', { name: 'Production name' })).toHaveAttribute('maxlength', '200');
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveAttribute('placeholder', DESCRIPTION_PLACEHOLDER);
     expect(screen.getByRole('button', { name: 'Create project' })).toBeDisabled();
   });
 
@@ -136,7 +137,7 @@ describe('NewProjectForm', () => {
 
   it('hands a signed-out user to login without an error message', async () => {
     const user = userEvent.setup();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    nav.pathname = '/projects';
     const fetchMock = stubFetch(() => json({ error: 'not signed in' }, 401));
     render(<NewProjectForm />);
     await user.click(toggle());
@@ -145,7 +146,7 @@ describe('NewProjectForm', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/Couldn’t create/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Creating…' })).toBeDisabled();
-    expect(nav.router.push).not.toHaveBeenCalled();
+    expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects');
   });
 
   it('clears the error when cancelled and reopened', async () => {

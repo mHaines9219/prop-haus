@@ -40,7 +40,7 @@ function renderForm(profile: OrderProfile = EMPTY_ORDER_PROFILE, readiness = ord
 
 /** The Row wrapper for a labelled field group. */
 function row(label: string): HTMLElement {
-  return screen.getByText(label, { selector: 'span' }).parentElement!.parentElement!;
+  return screen.getByText(label, { selector: 'label, span' }).parentElement!.parentElement!;
 }
 
 function rowInput(label: string): HTMLInputElement {
@@ -67,7 +67,7 @@ describe('initial render', () => {
     for (const h of ['Company', 'Contacts', 'Delivery defaults', 'Insurance on file', 'Authorization']) {
       expect(screen.getByRole('heading', { name: h })).toBeInTheDocument();
     }
-    expect(screen.getByPlaceholderText('As it appears on your contracts')).toHaveValue('');
+    expect(screen.getByLabelText('Legal name')).toHaveValue('');
     expect(screen.getByRole('combobox')).toHaveValue('');
     expect(screen.getByText('No certificate on file')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload PDF' })).toBeInTheDocument();
@@ -117,28 +117,28 @@ describe('initial render', () => {
     };
     renderForm(profile);
 
-    expect(screen.getByPlaceholderText('As it appears on your contracts')).toHaveValue('Nocturne Pictures LLC');
-    expect(screen.getByPlaceholderText('Production or trade name, if different')).toHaveValue('Nocturne');
+    expect(screen.getByLabelText('Legal name')).toHaveValue('Nocturne Pictures LLC');
+    expect(screen.getByLabelText('DBA')).toHaveValue('Nocturne');
     expect(screen.getByRole('combobox')).toHaveValue('corp');
     const address = row('Address');
-    expect(within(address).getByPlaceholderText('Street')).toHaveValue('1 Main St');
-    expect(within(address).getByPlaceholderText('Suite, stage, building')).toHaveValue('Stage 4');
-    expect(within(address).getByPlaceholderText('City')).toHaveValue('Burbank');
-    expect(within(address).getByPlaceholderText('ST')).toHaveValue('CA');
-    expect(within(address).getByPlaceholderText('ZIP')).toHaveValue('91505');
-    expect(within(row('Billing address')).getByPlaceholderText('Street')).toHaveValue('2 Bill Rd');
+    expect(within(address).getByLabelText('Street')).toHaveValue('1 Main St');
+    expect(within(address).getByLabelText('Suite')).toHaveValue('Stage 4');
+    expect(within(address).getByLabelText('City')).toHaveValue('Burbank');
+    expect(within(address).getByLabelText('State')).toHaveValue('CA');
+    expect(within(address).getByLabelText('ZIP')).toHaveValue('91505');
+    expect(within(row('Billing address')).getByLabelText('Street')).toHaveValue('2 Bill Rd');
     expect(rowInput('Phone')).toHaveValue('818-555-0100');
     expect(rowInput('Website')).toHaveValue('https://nocturne.example');
 
     const ordering = row('Ordering contact');
-    expect(within(ordering).getByPlaceholderText('Name')).toHaveValue('Sam Reyes');
-    expect(within(ordering).getByPlaceholderText('Email')).toHaveValue('sam@nocturne.example');
-    expect(within(ordering).getByPlaceholderText('Phone')).toHaveValue('818-555-0101');
-    expect(within(row('Accounts payable')).getByPlaceholderText('Email')).toHaveValue('ap@nocturne.example');
+    expect(within(ordering).getByLabelText('Name')).toHaveValue('Sam Reyes');
+    expect(within(ordering).getByLabelText('Email')).toHaveValue('sam@nocturne.example');
+    expect(within(ordering).getByLabelText('Phone')).toHaveValue('818-555-0101');
+    expect(within(row('Accounts payable')).getByLabelText('Email')).toHaveValue('ap@nocturne.example');
 
     expect(within(row('Rental window')).getByRole('spinbutton')).toHaveValue(10);
-    expect(within(row('Delivery address')).getByPlaceholderText('ZIP')).toHaveValue('91505');
-    expect(screen.getByPlaceholderText('Dock, hours, who to ask for…')).toHaveValue('Dock B, ask for Sam');
+    expect(within(row('Delivery address')).getByLabelText('ZIP')).toHaveValue('91505');
+    expect(screen.getByLabelText('Delivery notes')).toHaveValue('Dock B, ask for Sam');
 
     expect(rowInput('Carrier')).toHaveValue('Hartford');
     expect(rowInput('Policy number')).toHaveValue('GL-123');
@@ -147,7 +147,7 @@ describe('initial render', () => {
     expect(within(row('Workers comp limit')).getByRole('spinbutton')).toHaveValue(500_000);
     expect(screen.getByRole('checkbox', { name: 'Endorsement available' })).toBeChecked();
     expect(rowInput('Policy expiry')).toHaveValue('2027-01-15');
-    expect(within(row('Broker')).getByPlaceholderText('Name')).toHaveValue('Broker Bob');
+    expect(within(row('Broker')).getByLabelText('Name')).toHaveValue('Broker Bob');
 
     expect(screen.getByRole('link', { name: 'coi-2026.pdf' })).toHaveAttribute('href', '/api/account/insurance/coi');
     expect(screen.getByText(/uploaded Sep 2, 2026/)).toBeInTheDocument();
@@ -165,10 +165,10 @@ describe('initial render', () => {
       contacts: { ordering: { email: 'x@y.z' } },
       insurance: { broker: { phone: '1' } },
     });
-    expect(within(row('Address')).getByPlaceholderText('City')).toHaveValue('Burbank');
-    expect(within(row('Address')).getByPlaceholderText('Street')).toHaveValue('');
-    expect(within(row('Ordering contact')).getByPlaceholderText('Email')).toHaveValue('x@y.z');
-    expect(within(row('Broker')).getByPlaceholderText('Phone')).toHaveValue('1');
+    expect(within(row('Address')).getByLabelText('City')).toHaveValue('Burbank');
+    expect(within(row('Address')).getByLabelText('Street')).toHaveValue('');
+    expect(within(row('Ordering contact')).getByLabelText('Email')).toHaveValue('x@y.z');
+    expect(within(row('Broker')).getByLabelText('Phone')).toHaveValue('1');
   });
 
   it('shows the authorization sentence verbatim inside the checkbox label', () => {
@@ -177,11 +177,28 @@ describe('initial render', () => {
     expect(box.closest('label')).toHaveTextContent(AUTHORIZATION_SENTENCE);
   });
 
-  // Every text field is identified only by a placeholder or a sibling span;
-  // no <label htmlFor> or aria-label, so screen readers get nothing.
-  it.fails('labels the legal name field accessibly', () => {
+  it('names every field for assistive tech', () => {
     renderForm();
-    expect(screen.getByRole('textbox', { name: /legal name/i })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Legal name' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Entity type' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Rental window' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'GL limit (per occurrence)' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Policy expiry')).toHaveAttribute('type', 'date');
+    const billing = screen.getByRole('group', { name: 'Billing address' });
+    for (const name of ['Street', 'Suite', 'City', 'State', 'ZIP']) {
+      expect(within(billing).getByRole('textbox', { name })).toBeInTheDocument();
+    }
+    const broker = screen.getByRole('group', { name: 'Broker' });
+    for (const name of ['Name', 'Email', 'Phone']) {
+      expect(within(broker).getByLabelText(name)).toBeInTheDocument();
+    }
+  });
+});
+
+describe('dates', () => {
+  it('prints an unparseable acceptance date as stored rather than "Invalid Date"', () => {
+    renderForm({ ...EMPTY_ORDER_PROFILE, authorization: { formsOnBehalf: true, acceptedAt: 'yesterday' } });
+    expect(screen.getByText('Accepted yesterday')).toBeInTheDocument();
   });
 });
 
@@ -218,7 +235,7 @@ describe('readiness summary', () => {
   it.fails('drops an item from the missing list as soon as the field is filled', async () => {
     const user = userEvent.setup();
     renderForm(EMPTY_ORDER_PROFILE, NOT_READY);
-    await user.type(screen.getByPlaceholderText('As it appears on your contracts'), 'Nocturne Pictures LLC');
+    await user.type(screen.getByLabelText('Legal name'), 'Nocturne Pictures LLC');
     expect(screen.getByText(/missing before one-click/)).not.toHaveTextContent('Company legal name');
   });
 });
@@ -244,19 +261,19 @@ describe('editing fields', () => {
   it('keeps address fields independent between company, billing and delivery', async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.type(within(row('Address')).getByPlaceholderText('Street'), '1 Main St');
-    await user.type(within(row('Billing address')).getByPlaceholderText('Street'), '2 Bill Rd');
-    await user.type(within(row('Delivery address')).getByPlaceholderText('Street'), '3 Dock Ln');
-    expect(within(row('Address')).getByPlaceholderText('Street')).toHaveValue('1 Main St');
-    expect(within(row('Billing address')).getByPlaceholderText('Street')).toHaveValue('2 Bill Rd');
-    expect(within(row('Delivery address')).getByPlaceholderText('Street')).toHaveValue('3 Dock Ln');
-    expect(within(row('Address')).getByPlaceholderText('City')).toHaveValue('');
+    await user.type(within(row('Address')).getByLabelText('Street'), '1 Main St');
+    await user.type(within(row('Billing address')).getByLabelText('Street'), '2 Bill Rd');
+    await user.type(within(row('Delivery address')).getByLabelText('Street'), '3 Dock Ln');
+    expect(within(row('Address')).getByLabelText('Street')).toHaveValue('1 Main St');
+    expect(within(row('Billing address')).getByLabelText('Street')).toHaveValue('2 Bill Rd');
+    expect(within(row('Delivery address')).getByLabelText('Street')).toHaveValue('3 Dock Ln');
+    expect(within(row('Address')).getByLabelText('City')).toHaveValue('');
   });
 
   it('caps the state field at two characters', async () => {
     const user = userEvent.setup();
     renderForm();
-    const st = within(row('Address')).getByPlaceholderText('ST');
+    const st = within(row('Address')).getByLabelText('State');
     expect(st).toHaveAttribute('maxlength', '2');
     await user.type(st, 'CAL');
     expect(st).toHaveValue('CA');
@@ -330,17 +347,17 @@ describe('saving', () => {
     const fetchMock = stubFetch(() => saveOk(READY_PROFILE));
     renderForm();
 
-    await user.type(screen.getByPlaceholderText('As it appears on your contracts'), 'Nocturne Pictures LLC');
+    await user.type(screen.getByLabelText('Legal name'), 'Nocturne Pictures LLC');
     await user.selectOptions(screen.getByRole('combobox'), 'llc');
     const ordering = row('Ordering contact');
-    await user.type(within(ordering).getByPlaceholderText('Name'), 'Sam Reyes');
-    await user.type(within(ordering).getByPlaceholderText('Email'), 'sam@nocturne.example');
+    await user.type(within(ordering).getByLabelText('Name'), 'Sam Reyes');
+    await user.type(within(ordering).getByLabelText('Email'), 'sam@nocturne.example');
     await user.type(within(row('Rental window')).getByRole('spinbutton'), '7');
     const delivery = row('Delivery address');
-    await user.type(within(delivery).getByPlaceholderText('Street'), '4100 W Alameda Ave');
-    await user.type(within(delivery).getByPlaceholderText('City'), 'Burbank');
-    await user.type(within(delivery).getByPlaceholderText('ST'), 'CA');
-    await user.type(within(delivery).getByPlaceholderText('ZIP'), '91505');
+    await user.type(within(delivery).getByLabelText('Street'), '4100 W Alameda Ave');
+    await user.type(within(delivery).getByLabelText('City'), 'Burbank');
+    await user.type(within(delivery).getByLabelText('State'), 'CA');
+    await user.type(within(delivery).getByLabelText('ZIP'), '91505');
     await user.type(rowInput('Carrier'), 'Hartford');
     await user.click(screen.getByRole('checkbox', { name: AUTHORIZATION_SENTENCE }));
 
@@ -390,7 +407,7 @@ describe('saving', () => {
     await user.click(screen.getByRole('checkbox', { name: AUTHORIZATION_SENTENCE }));
     await user.click(saveButton());
     expect(await screen.findByText('Accepted Sep 2, 2026')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('As it appears on your contracts')).toHaveValue('Nocturne Pictures LLC (server)');
+    expect(screen.getByLabelText('Legal name')).toHaveValue('Nocturne Pictures LLC (server)');
     expect(screen.getByRole('checkbox', { name: AUTHORIZATION_SENTENCE })).toBeChecked();
   });
 
@@ -412,7 +429,7 @@ describe('saving', () => {
     const user = userEvent.setup();
     stubFetch(() => response);
     renderForm();
-    const legal = screen.getByPlaceholderText('As it appears on your contracts');
+    const legal = screen.getByLabelText('Legal name');
     await user.type(legal, 'Nocturne');
     await user.click(saveButton());
     expect(await screen.findByText(message)).toBeInTheDocument();
@@ -425,7 +442,7 @@ describe('saving', () => {
     const user = userEvent.setup();
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))));
     renderForm();
-    const legal = screen.getByPlaceholderText('As it appears on your contracts');
+    const legal = screen.getByLabelText('Legal name');
     await user.type(legal, 'Nocturne');
     await user.click(saveButton());
     expect(await screen.findByText('Failed to fetch')).toBeInTheDocument();

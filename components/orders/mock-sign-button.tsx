@@ -34,7 +34,7 @@ export function MockSignButton({ orderId, documentId }: { orderId: string; docum
         type="button"
         disabled={busy}
         onClick={sign}
-        className="rounded-md bg-accent px-5 py-3 font-mono text-[13px] font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+        className="bg-accent px-5 py-3 font-mono text-[13px] font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
       >
         {busy ? 'Signing' : 'Sign as the ordering contact'}
       </button>

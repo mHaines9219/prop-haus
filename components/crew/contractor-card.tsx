@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Textarea } from '@/components/ui/textarea';
+import { useDialogFocus } from '@/hooks/use-dialog-focus';
 import { CREW_COPY, CREW_SKILL_LABELS, formatDayRate } from '@/lib/crew';
 import type { ProjectSummary } from '@/lib/projects';
 
@@ -33,6 +35,8 @@ export function ContractorCard({
   /** The project the picker starts on; falls back to the first project. */
   initialProjectId?: string | null;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [status, setStatus] = useState<Status>('idle');
   const [dates, setDates] = useState('');
   const [projectId, setProjectId] = useState(
@@ -75,8 +79,7 @@ export function ContractorCard({
       });
 
       if (res.status === 401) {
-        // Redirect to login, preserve current page
-        window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+        router.push(`/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
 
@@ -108,7 +111,7 @@ export function ContractorCard({
           {contractor.skills.map((s) => (
             <span
               key={s}
-              className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[11px] uppercase leading-none tracking-[0.06em] text-text-tertiary"
+              className="border border-border px-1.5 py-0.5 font-mono text-[11px] uppercase leading-none tracking-[0.06em] text-text-tertiary"
             >
               {CREW_SKILL_LABELS[s] ?? s}
             </span>
@@ -140,7 +143,7 @@ export function ContractorCard({
             <button
               type="button"
               onClick={() => setStatus('open')}
-              className="lift-sm h-9 rounded-md border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text hover:bg-accent/15"
+              className="lift-sm h-9 border border-accent px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-accent-text hover:bg-accent/15"
             >
               {CREW_COPY.ctaLabel}
             </button>
@@ -170,14 +173,14 @@ export function ContractorCard({
 }
 
 const FIELD =
-  'h-9 w-full rounded-md border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none';
+  'h-9 w-full border border-border bg-surface-inset px-3 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:outline-none';
 const FIELD_LABEL = 'font-mono text-[11px] uppercase tracking-[0.06em] text-text-tertiary';
 
 /**
  * The request form as a modal (DESIGN.md §9.6 shape): a cream sheet with an
- * ink rule and the hard overlay shadow, laid over a scrim that blurs the
- * directory behind it. Opening it never changes the card's size, so the grid
- * holds still. Escape and the scrim close it; a sent request closes it too.
+ * ink rule and the hard overlay shadow, laid over the scrim (no blur,
+ * DESIGN.md §8). Opening it never changes the card's size, so the grid holds
+ * still. Escape and the scrim close it; a sent request closes it too.
  */
 function RequestModal({
   open,
@@ -213,6 +216,8 @@ function RequestModal({
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const reduce = useReducedMotion();
+  const modalRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, modalRef);
 
   // Close on Escape.
   useEffect(() => {
@@ -245,13 +250,14 @@ function RequestModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             data-slot="backdrop"
-            className="fixed inset-0 z-50 bg-scrim/70 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-scrim/70"
             onClick={onClose}
             aria-hidden
           />
 
           <motion.div
             key="modal"
+            ref={modalRef}
             role="dialog"
             aria-modal
             aria-label={`Request ${contractor.name}`}
@@ -303,7 +309,7 @@ function RequestModal({
                     value={dates}
                     onChange={(e) => onDates(e.target.value)}
                     placeholder="e.g. Sep 12, Sep 15–17"
-                    autoFocus
+                    data-autofocus
                     className={FIELD}
                   />
                 </label>
@@ -326,7 +332,7 @@ function RequestModal({
                     onChange={(e) => onNotes(e.target.value)}
                     placeholder="Call time, scope, anything the contractor should know"
                     rows={3}
-                    className="resize-none rounded-md border-border bg-surface-inset font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:ring-border-strong"
+                    className="resize-none border-border bg-surface-inset font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:border-accent focus:ring-border-strong"
                   />
                 </label>
 
@@ -339,14 +345,14 @@ function RequestModal({
                     type="button"
                     onClick={onClose}
                     disabled={submitting}
-                    className="h-9 rounded-md border border-border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground disabled:opacity-50"
+                    className="h-9 border border-border px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-foreground disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="h-9 rounded-md bg-primary px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover disabled:opacity-50"
+                    className="h-9 bg-primary px-4 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover disabled:opacity-50"
                   >
                     {submitting ? 'Sending…' : 'Send request'}
                   </button>

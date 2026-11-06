@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, Download, ExternalLink, FileText } from 'lucide-react';
@@ -17,6 +18,8 @@ import { UploadForm } from './upload-form';
 function isClip(source: SavedSource): boolean {
   return source === CLIP_SOURCE;
 }
+
+export const metadata: Metadata = { title: 'Folder · Prop Haus' };
 
 /**
  * /projects/[id]/folders/[folderId] — one folder inside a production.

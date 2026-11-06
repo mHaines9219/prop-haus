@@ -35,7 +35,7 @@ vi.mock('motion/react', async () => {
   };
 });
 
-const createObjectURL = vi.fn(() => 'blob:preview');
+const createObjectURL = vi.fn<(f: Blob) => string>(() => 'blob:preview');
 const revokeObjectURL = vi.fn();
 
 beforeAll(() => {
@@ -49,7 +49,7 @@ const onMultipart = vi.fn();
 beforeEach(() => {
   onText.mockReset();
   onMultipart.mockReset();
-  createObjectURL.mockClear();
+  createObjectURL.mockReset().mockImplementation(() => 'blob:preview');
   revokeObjectURL.mockClear();
 });
 
@@ -260,6 +260,22 @@ describe('moodboard attachments', () => {
     expect(screen.queryByText('board.png')).not.toBeInTheDocument();
     expect(screen.getByText('two.png')).toBeInTheDocument();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:preview');
+  });
+
+  it('keeps earlier previews alive as more files are staged', async () => {
+    const user = userEvent.setup();
+    createObjectURL.mockImplementation((f) => `blob:${(f as File).name}`);
+    const { container, unmount } = renderControls();
+    await user.upload(fileInput(container), png('one.png'));
+    await user.upload(fileInput(container), png('two.png'));
+
+    expect(screen.getByRole('img', { name: 'one.png' })).toHaveAttribute('src', 'blob:one.png');
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+
+    unmount();
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:one.png');
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:two.png');
   });
 
   it('returns to the text bar when the last file is removed', async () => {

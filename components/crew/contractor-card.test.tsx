@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nav, resetNavigation } from '@/test/mocks/next-navigation';
 import { ContractorCard, type Contractor } from './contractor-card';
 
 // One crew card: rate / skills / bio rendering, and the inline
@@ -61,6 +62,7 @@ describe('ContractorCard', () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    resetNavigation();
   });
 
   it('renders the avatar, name, skill labels, rate and bio', () => {
@@ -143,12 +145,22 @@ describe('ContractorCard', () => {
     expect(screen.getByRole('button', { name: 'Request crew' })).toBeInTheDocument();
   });
 
-  it('opens the form as a modal over a blurred scrim and closes on Escape or the scrim', async () => {
+  it('moves focus into the modal and returns it to the opener on close', async () => {
+    render(<ContractorCard contractor={contractor()} />);
+    await openForm();
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Request crew' })).toHaveFocus();
+  });
+
+  it('opens the form as a modal over an unblurred scrim and closes on Escape or the scrim', async () => {
     render(<ContractorCard contractor={contractor()} />);
     await openForm();
     const dialog = screen.getByRole('dialog', { name: 'Request Dana Reyes' });
     expect(dialog).toHaveAttribute('aria-modal');
-    expect(document.querySelector('[data-slot="backdrop"]')).toHaveClass('backdrop-blur-sm');
+    const backdrop = document.querySelector('[data-slot="backdrop"]');
+    expect(backdrop).toHaveClass('bg-scrim/70');
+    expect(backdrop?.className).not.toMatch(/blur/);
     expect(document.body.style.overflow).toBe('hidden');
 
     await userEvent.keyboard('{Escape}');
@@ -239,12 +251,13 @@ describe('ContractorCard', () => {
     expect(await screen.findByText('offline')).toBeInTheDocument();
   });
 
-  it('leaves the form pending and shows no error while redirecting on 401', async () => {
+  it('sends the user to login and back on 401, leaving the form pending with no error', async () => {
+    nav.pathname = '/crew';
     fetchMock.mockResolvedValueOnce(json({ error: 'auth' }, 401));
     render(<ContractorCard contractor={contractor()} />);
     const f = await openForm();
     await userEvent.click(f.send);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fcrew'));
     expect(screen.getByRole('button', { name: 'Sending…' })).toBeDisabled();
     expect(screen.queryByText('auth')).toBeNull();
   });

@@ -53,6 +53,13 @@ describe('PATCH /api/projects/[id]/status', () => {
     expect(db.rows('projects')[0].status).toBe('active');
   });
 
+  it('400 for a JSON null body', async () => {
+    seedProject();
+    const res = await PATCH(rawRequest(`/api/projects/${PROJECT_ID}/status`, 'null', { method: 'PATCH' }), params({ id: PROJECT_ID }));
+    expect(res.status).toBe(400);
+    expect(db.rows('projects')[0].status).toBe('active');
+  });
+
   it.each([[{}], [{ status: 'shipped' }], [{ status: 1 }], [{ status: null }]])(
     '400 for anything outside the vocabulary (%j) and leaves the row alone',
     async (body) => {

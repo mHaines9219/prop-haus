@@ -25,6 +25,7 @@ import type { ProjectSummary } from '@/lib/projects';
 import { EMPTY_PASSPORT, type Passport, type PassportDocument } from '@/lib/passport';
 import { askedByLine, cartDocuments, packetDocuments, type CartDocument } from '@/lib/checkout-documents';
 import { usePlanView } from '@/lib/plan-view';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 type CheckoutState = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string };
 
@@ -82,7 +83,7 @@ const EYEBROW = 'font-mono text-[11px] font-medium uppercase tracking-[0.08em] t
 const LABEL = 'block font-mono text-[12px] text-text-secondary mb-1.5';
 
 const INPUT =
-  'w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground aria-[invalid=true]:border-destructive';
+  'w-full border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-foreground aria-[invalid=true]:border-destructive';
 
 /** How long the preview waits after a keystroke before redrafting the emails. */
 const PREVIEW_DEBOUNCE_MS = 300;
@@ -92,8 +93,7 @@ export default function CartPage() {
   const { lines, remove, clear } = useCart();
   // The admin sandbox switch: the click places a sandbox order and sends nothing.
   const { sandbox } = usePlanView();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
 
   const [form, setForm] = useState<RequestForm>(EMPTY_FORM);
   // Set on a click that found gaps; from then on the form marks what is missing as the user types.
@@ -270,7 +270,7 @@ export default function CartPage() {
               </p>
               <Link
                 href="/"
-                className="mt-6 inline-block rounded-md border border-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background"
+                className="mt-6 inline-block border border-foreground px-5 py-2.5 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background"
               >
                 Browse catalog
               </Link>
@@ -326,7 +326,7 @@ export default function CartPage() {
 
               {/* Request panel: the one form every vendor's email is written from */}
               <div className="space-y-5 lg:sticky lg:top-[72px] lg:max-h-[calc(100dvh-88px)] lg:overflow-y-auto">
-                <div className="rounded-md border border-border bg-surface-raised p-5">
+                <div className="border border-border bg-surface-raised p-5">
                   <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                     Your request
                   </p>
@@ -419,7 +419,7 @@ export default function CartPage() {
                         id="cart-project"
                         value={projectId ?? ''}
                         onChange={(e) => setProjectId(e.target.value)}
-                        className="h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+                        className="h-9 w-full border border-border bg-background px-3 font-mono text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                       >
                         {readiness.projects.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -641,7 +641,7 @@ export default function CartPage() {
                   <button
                     onClick={handlePlaceOrder}
                     disabled={state.kind === 'submitting'}
-                    className="w-full rounded-md border border-foreground py-3 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-foreground py-3 font-mono text-[13px] font-medium text-foreground lift-sm hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sandbox
                       ? state.kind === 'submitting'

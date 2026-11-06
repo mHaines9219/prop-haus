@@ -53,6 +53,13 @@ describe('PATCH /api/projects/[id]/summary', () => {
     expect(db.rows('projects')[0].summary).toBe('');
   });
 
+  it('400 for a JSON null body', async () => {
+    seedProject();
+    const res = await PATCH(rawRequest(`/api/projects/${PROJECT_ID}/summary`, 'null', { method: 'PATCH' }), params({ id: PROJECT_ID }));
+    expect(res.status).toBe(400);
+    expect(db.rows('projects')[0].summary).toBe('');
+  });
+
   it.each([[{}], [{ summary: 1 }], [{ summary: null }], [{ summary: ['x'] }], [{ summary: 'x'.repeat(4001) }]])(
     '400 when the summary is not a string within the limit (%j) and leaves the row alone',
     async (body) => {

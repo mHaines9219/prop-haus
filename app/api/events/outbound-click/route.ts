@@ -31,7 +31,7 @@ type Surface = (typeof SURFACES)[number];
 const MAX_ITEM_ID = 256;
 
 function isSource(v: unknown): v is Source {
-  return typeof v === 'string' && v in SOURCE_META;
+  return typeof v === 'string' && Object.hasOwn(SOURCE_META, v);
 }
 
 function isSurface(v: unknown): v is Surface {

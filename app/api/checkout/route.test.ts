@@ -114,10 +114,54 @@ describe('refusals', () => {
     expect(res.status).toBe(422);
   });
 
-  it('rejects a malformed JSON body rather than placing an order', async () => {
+  it('400 for a malformed JSON body, and places nothing', async () => {
     seedOrg();
-    await expect(POST(rawRequest('/api/checkout', '{not json'))).rejects.toThrow();
+    const res = await POST(rawRequest('/api/checkout', '{not json'));
+    expect(res.status).toBe(400);
+    expect(await readJson(res)).toEqual({ error: 'invalid JSON' });
     expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it.each([
+    ['a non-string key', 42],
+    ['an over-long key', 'k'.repeat(201)],
+  ])('400 for %s', async (_label, idempotencyKey) => {
+    seedOrg();
+    const res = await POST(jsonRequest('/api/checkout', { lines: body.lines, idempotencyKey }));
+    expect(res.status).toBe(400);
+    expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it.each([
+    ['a javascript: link', { sourceUrl: 'javascript:alert(1)' }],
+    ['a relative link', { sourceUrl: '/item/1' }],
+    ['a missing name', { name: '' }],
+    ['a non-numeric price', { priceCents: '120' }],
+    ['a negative price', { priceCents: -1 }],
+    ['a source that is not a slug', { source: 'Omega <b>' }],
+  ])('400 for a line with %s, and places nothing', async (_label, over) => {
+    seedOrg();
+    const res = await POST(jsonRequest('/api/checkout', { ...body, lines: [{ ...makeCartLine(), ...over }] }));
+    expect(res.status).toBe(400);
+    expect(await readJson(res)).toEqual({ error: 'a cart line is invalid' });
+    expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it('400 for more lines than one checkout takes', async () => {
+    seedOrg();
+    const lines = Array.from({ length: 201 }, (_, i) => makeCartLine({ itemId: `omega-${i}` }));
+    const res = await POST(jsonRequest('/api/checkout', { ...body, lines }));
+    expect(res.status).toBe(400);
+    expect(db.rows('orders')).toHaveLength(0);
+  });
+
+  it('drops an unusable photo rather than refusing the line', async () => {
+    seedOrg();
+    const res = await POST(
+      jsonRequest('/api/checkout', { ...body, lines: [{ ...makeCartLine(), image: 'javascript:alert(1)' }] }),
+    );
+    expect(res.status).toBe(201);
+    expect(db.rows('order_items')[0].image).toBeNull();
   });
 });
 
@@ -333,6 +377,18 @@ describe('idempotency', () => {
     seedOrg();
     db.failNext('orders', 'insert', { code: '57014', message: 'statement timeout' });
     await expect(POST(jsonRequest('/api/checkout', body))).rejects.toMatchObject({ message: 'statement timeout' });
+  });
+
+  it('removes the order when its lines fail to insert, so a retry with the same key places it whole', async () => {
+    seedOrg();
+    db.failNext('order_items', 'insert', { code: '57014', message: 'statement timeout' });
+    await expect(POST(jsonRequest('/api/checkout', body))).rejects.toMatchObject({ message: 'statement timeout' });
+    expect(db.rows('orders')).toHaveLength(0);
+
+    const retry = await POST(jsonRequest('/api/checkout', body));
+    expect(retry.status).toBe(201);
+    expect(db.rows('orders')).toHaveLength(1);
+    expect(db.rows('order_items')).toHaveLength(1);
   });
 });
 

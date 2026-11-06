@@ -50,7 +50,7 @@ fail() { printf '%s  XX%s  %s\n' "$R" "$N" "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # ---------------------------------------------------------------------------
-# Toolchain. CI runs Node 22 and the jsdom tests fail wholesale on 25, so the
+# Toolchain. CI and Vercel run Node 24 (LTS); the jsdom tests fail wholesale on 25, so the
 # script re-executes itself under fnm when the shell's node is wrong.
 # ---------------------------------------------------------------------------
 node_major() { node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }

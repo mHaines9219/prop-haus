@@ -155,10 +155,14 @@ export async function retryOutboundMessage(id: string, orgId: string): Promise<R
   const message = toMessage(data as MessageRow);
   if (message.status !== 'failed') return { ok: false, reason: 'not_failed' };
 
-  await db
+  // Claim the row only while it is still failed, so a double-click sends once.
+  const { data: claimed } = await db
     .from('outbound_messages')
     .update({ status: 'sending', error: null, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('status', 'failed')
+    .select('id');
+  if (!claimed?.length) return { ok: false, reason: 'not_failed' };
   const sent = await deliver({ ...message, status: 'sending', error: undefined }, orgId);
   return { ok: true, message: sent };
 }

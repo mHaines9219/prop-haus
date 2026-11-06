@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import { currentOrgId } from '@/lib/session';
+import { getOrderById } from '@/lib/orders';
 import { prepareSceneForOrder } from '@/lib/spacelab/handoff';
 
 export async function POST(req: Request) {
@@ -28,15 +29,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
   }
 
+  // getOrderById throws for an order that is missing OR belongs to someone
+  // else; both are "no such order" from here.
+  try {
+    await getOrderById(orderId, orgId);
+  } catch {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
+  }
+
   try {
     const scene = await prepareSceneForOrder(orderId, orgId);
     return NextResponse.json(scene);
   } catch (err) {
-    // getOrderById throws for an order that is missing OR belongs to someone
-    // else; both are "no such order" from here, and the generation path is
-    // already non-throwing per item.
-    const message = err instanceof Error ? err.message : 'could not prepare the room';
     console.error('[spacelab] prepare failed', err);
-    return NextResponse.json({ error: message }, { status: 404 });
+    return NextResponse.json({ error: 'could not prepare the room' }, { status: 500 });
   }
 }

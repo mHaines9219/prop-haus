@@ -162,13 +162,14 @@ describe('UploadForm', () => {
 
   it('hands a signed-out user to login and stops', async () => {
     const user = userEvent.setup();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    nav.pathname = '/projects/p1/folders/f1';
     const fetchMock = stubFetch(() => json({ error: 'not signed in' }, 401));
     renderForm();
     await user.upload(picker(), [pdf('a.pdf'), pdf('b.pdf')]);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
     expect(nav.router.refresh).not.toHaveBeenCalled();
+    expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%2Ffolders%2Ff1');
   });
 
   it('accepts dropped files', async () => {

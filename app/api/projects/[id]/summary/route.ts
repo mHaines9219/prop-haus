@@ -25,6 +25,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+  }
   if (typeof body.summary !== 'string') {
     return NextResponse.json({ error: 'summary must be a string' }, { status: 400 });
   }

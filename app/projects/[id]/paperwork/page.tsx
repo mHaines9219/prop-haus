@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -7,6 +8,8 @@ import { intakeProvider } from '@/lib/intake/extract';
 import { PageShell } from '@/components/ap/page-shell';
 import { ProfileForm } from './profile-form';
 import { ChecklistSection } from './checklist';
+
+export const metadata: Metadata = { title: 'Paperwork · Prop Haus' };
 
 /**
  * /projects/[id]/paperwork — the paperwork workspace for one production.
@@ -54,7 +57,7 @@ export default async function PaperworkPage({ params }: { params: Promise<{ id: 
           <div className="flex flex-col items-start gap-1 sm:items-end">
             <Link
               href={`/projects/${project.id}`}
-              className="inline-flex h-8 items-center rounded-[2px] bg-primary px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover"
+              className="inline-flex h-8 items-center bg-primary px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover"
             >
               Skip for now
             </Link>
