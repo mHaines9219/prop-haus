@@ -138,7 +138,7 @@ export function BrowseGrid({
             {filterActive && (
               <button
                 onClick={clearAll}
-                className="h-8 rounded-md border border-border px-3 text-[13px] text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
+                className="h-8 border border-border px-3 text-[13px] text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
               >
                 Clear filters
               </button>
@@ -152,7 +152,7 @@ export function BrowseGrid({
                 key={c.slug}
                 onClick={() => toggleCategory(c.slug)}
                 className={cn(
-                  'h-8 shrink-0 whitespace-nowrap rounded-md border px-3 font-mono text-[12px] transition-colors duration-150',
+                  'h-8 shrink-0 whitespace-nowrap border px-3 font-mono text-[12px] transition-colors duration-150',
                   category === c.slug
                     ? 'border-accent text-accent'
                     : 'border-border text-text-secondary hover:border-border/70 hover:text-foreground',
@@ -170,7 +170,7 @@ export function BrowseGrid({
               ))}
             </SeamGrid>
           ) : items.length === 0 ? (
-            <div className="rounded-md border border-border bg-card py-16 text-center">
+            <div className="border border-border bg-card py-16 text-center">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
                 No matches
               </p>
@@ -179,7 +179,7 @@ export function BrowseGrid({
               </p>
               <button
                 onClick={clearAll}
-                className="mt-5 h-9 rounded-md border border-border px-4 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
+                className="mt-5 h-9 border border-border px-4 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground"
               >
                 Clear filters
               </button>
@@ -198,7 +198,7 @@ export function BrowseGrid({
                   <button
                     onClick={() => query.fetchNextPage()}
                     disabled={query.isFetchingNextPage}
-                    className="h-10 rounded-md border border-border px-5 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground disabled:opacity-60"
+                    className="h-10 border border-border px-5 text-sm text-text-secondary transition-colors duration-150 hover:bg-card hover:text-foreground disabled:opacity-60"
                   >
                     {query.isFetchingNextPage ? 'Loading' : 'Load more'}
                   </button>
@@ -239,7 +239,7 @@ function FilterRow({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 text-left transition-colors duration-150',
+        'flex h-9 w-full items-center justify-between gap-2 border px-3 text-left transition-colors duration-150',
         selected
           ? 'border-accent bg-card text-foreground'
           : 'border-transparent text-text-secondary hover:border-border hover:bg-card hover:text-foreground',

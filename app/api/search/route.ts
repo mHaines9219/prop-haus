@@ -12,6 +12,8 @@ export const dynamic = 'force-dynamic';
 
 const MAX_QUERY = 400;
 
+const SEARCH_FAILED = 'AI search is unavailable right now. Try again, or use keyword search.';
+
 /** Copy for a spent allowance. Named per metric because they reset differently. */
 const EXHAUSTED: Record<MeteredMetric, (a: Allowance & { limit: number }) => string> = {
   aiSearches: (a) =>
@@ -153,7 +155,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ...result, usage });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg, mode }, { status: 502 });
+    // The provider's message can carry its request ids and our model config;
+    // it goes to the log, and the visitor gets a sentence they can act on.
+    console.error('[search] provider failed', e);
+    return NextResponse.json({ error: SEARCH_FAILED, mode }, { status: 502 });
   }
 }

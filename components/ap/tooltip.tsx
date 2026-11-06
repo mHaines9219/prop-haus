@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { cn } from '@/lib/utils';
 
 /**
@@ -39,8 +40,7 @@ export function Tooltip({
   const id = useId();
   const trigger = useRef<HTMLSpanElement>(null);
   const [anchor, setAnchor] = useState<CSSProperties | null>(null);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const hydrated = useHydrated();
 
   function show() {
     const r = trigger.current?.getBoundingClientRect();
@@ -66,12 +66,12 @@ export function Tooltip({
       onFocus={() => trigger.current?.matches(':focus-visible') && show()}
       onBlur={hide}
       className={cn(
-        'inline-flex items-center rounded-[2px] outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
+        'inline-flex items-center outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
         className,
       )}
     >
       {children}
-      {mounted &&
+      {hydrated &&
         createPortal(
           <span
             role="tooltip"

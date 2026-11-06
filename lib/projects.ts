@@ -623,7 +623,10 @@ export async function addDocument(
     contentType: check.mime,
     upsert: false,
   });
-  if (up.error) return { ok: false, status: 500, error: `upload failed: ${up.error.message}` };
+  if (up.error) {
+    console.error('[paperwork] upload failed', up.error);
+    return { ok: false, status: 500, error: 'upload failed' };
+  }
 
   const ins = await client
     .from('project_documents')

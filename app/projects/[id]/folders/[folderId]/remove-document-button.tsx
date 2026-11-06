@@ -25,17 +25,24 @@ export function RemoveDocumentButton({
   });
 
   return (
-    <button
-      type="button"
-      disabled={mutation.isPending}
-      onClick={() => {
-        if (window.confirm(`Remove “${name}” from paperwork? This deletes the file.`)) {
-          mutation.mutate();
-        }
-      }}
-      className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:text-accent-text disabled:opacity-40"
-    >
-      Remove
-    </button>
+    <span className="inline-flex flex-col items-end gap-1">
+      <button
+        type="button"
+        disabled={mutation.isPending}
+        onClick={() => {
+          if (window.confirm(`Remove “${name}” from paperwork? This deletes the file.`)) {
+            mutation.mutate();
+          }
+        }}
+        className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:text-accent-text disabled:opacity-40"
+      >
+        Remove
+      </button>
+      {mutation.isError && (
+        <span role="alert" className="font-mono text-[11px] text-destructive">
+          Couldn’t remove. Try again.
+        </span>
+      )}
+    </span>
   );
 }

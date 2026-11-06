@@ -12,14 +12,31 @@ import {
   type OrderProfile,
 } from './order-profile';
 
+/**
+ * The profile for display and composing: a failed read is the empty profile,
+ * so a page or a draft still renders. Never write back what this returns; use
+ * getOrderProfileForUpdate for a read-modify-write.
+ */
 export async function getOrderProfile(orgId: string): Promise<OrderProfile> {
-  const db = createAdminClient();
-  const { data, error } = await db
+  return getOrderProfileForUpdate(orgId).catch((err: unknown) => {
+    console.warn(`[order-profile] read failed for org ${orgId}; using the empty profile: ${(err as Error).message}`);
+    return EMPTY_ORDER_PROFILE;
+  });
+}
+
+/**
+ * The profile ahead of a write. A failed read throws rather than reading as
+ * empty, because the write that follows replaces the whole column and would
+ * erase the profile. An org with no profile yet is the empty one.
+ */
+export async function getOrderProfileForUpdate(orgId: string): Promise<OrderProfile> {
+  const { data, error } = await createAdminClient()
     .from('organizations')
     .select('order_profile')
     .eq('id', orgId)
-    .single();
-  if (error || !data) return EMPTY_ORDER_PROFILE;
+    .maybeSingle();
+  if (error) throw new Error(`getOrderProfileForUpdate: ${error.message}`);
+  if (!data) return EMPTY_ORDER_PROFILE;
   return normalizeOrderProfile((data as { order_profile: unknown }).order_profile);
 }
 
@@ -54,14 +71,20 @@ export async function storeCoiDocument(
     return { ok: false, status: 400, error: 'Upload the certificate as a PDF or an image.' };
   }
 
+  // Read before the upload: if it fails there is no orphaned object, and the
+  // pointer write below never replaces a profile it could not see.
+  const profile = await getOrderProfileForUpdate(orgId);
+
   const storagePath = `${orgId}/coi/${crypto.randomUUID()}.${check.ext}`;
   const up = await createAdminClient()
     .storage.from(paperworkBucket())
     .upload(storagePath, file.bytes, { contentType: check.mime, upsert: false });
-  if (up.error) return { ok: false, status: 500, error: `upload failed: ${up.error.message}` };
+  if (up.error) {
+    console.error('[coi] upload failed', up.error);
+    return { ok: false, status: 500, error: 'upload failed' };
+  }
 
   const document: CoiDocument = { storagePath, name: check.name, uploadedAt: new Date().toISOString() };
-  const profile = await getOrderProfile(orgId);
   await updateOrderProfile(orgId, {
     ...profile,
     insurance: { ...profile.insurance, coiDocument: document },

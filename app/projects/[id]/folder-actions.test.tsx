@@ -134,6 +134,19 @@ describe('rename', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
     expect(screen.getByRole('textbox', { name: 'Folder name' })).toHaveValue('Scene 1x');
     expect(nav.router.refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t rename. Try again.');
+  });
+
+  it('says so when the rename never reaches the server, and clears it on cancel', async () => {
+    const user = userEvent.setup();
+    stubFetch(() => Promise.reject(new TypeError('offline')));
+    renderActions();
+    await user.click(screen.getByRole('button', { name: 'Rename' }));
+    await user.type(screen.getByRole('textbox', { name: 'Folder name' }), 'x');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t rename. Try again.');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
 
@@ -169,6 +182,17 @@ describe('delete', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/projects/p1/folders/f1');
     expect(init?.method).toBe('DELETE');
+  });
+
+  it('reports a failed delete and re-enables the controls', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    stubFetch(() => json({ error: 'nope' }, 500));
+    renderActions();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t delete. Try again.');
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+    expect(nav.router.refresh).not.toHaveBeenCalled();
   });
 
   it('disables both controls while deleting', async () => {

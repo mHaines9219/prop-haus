@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, ScanSearch } from 'lucide-react';
@@ -42,6 +43,8 @@ const UNIT_ABBR: Record<PriceUnit, string> = {
   event: 'FLAT',
   purchase: 'BUY',
 };
+
+export const metadata: Metadata = { title: 'Item · Prop Haus' };
 
 export default async function ItemPage({
   params,
@@ -160,7 +163,7 @@ export default async function ItemPage({
                       {g.values.map((v) => (
                         <span
                           key={v}
-                          className="inline-flex h-7 items-center rounded-md border border-border bg-popover px-2.5 text-[12px] leading-[16px] text-text-secondary"
+                          className="inline-flex h-7 items-center border border-border bg-popover px-2.5 text-[12px] leading-[16px] text-text-secondary"
                         >
                           {v}
                         </span>
@@ -175,7 +178,7 @@ export default async function ItemPage({
               <AddToCart item={item} />
               <Link
                 href={similarHref}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border text-sm font-medium text-foreground transition-colors duration-150 hover:bg-foreground/7"
+                className="flex h-11 w-full items-center justify-center gap-2 border border-border text-sm font-medium text-foreground transition-colors duration-150 hover:bg-foreground/7"
               >
                 <ScanSearch size={16} strokeWidth={1.5} aria-hidden />
                 Find Similar
@@ -185,7 +188,7 @@ export default async function ItemPage({
                 href={item.sourceUrl}
                 itemId={item.id}
                 source={item.source}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border text-sm font-medium text-foreground transition-colors duration-150 hover:bg-foreground/7"
+                className="flex h-11 w-full items-center justify-center gap-2 border border-border text-sm font-medium text-foreground transition-colors duration-150 hover:bg-foreground/7"
               />
             </div>
           </div>

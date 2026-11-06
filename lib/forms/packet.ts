@@ -225,7 +225,7 @@ async function fillOne(id: string, ctx: FillContext, form: VendorForm): Promise<
       : null;
   const title = `${form.label} · ${vendor.name}`;
   const orderRef = ctx.order.id.slice(0, 8).toUpperCase();
-  const storagePath = documentStoragePath(ctx.orgId, ctx.order.id, form.vendorId, form.kind);
+  const storagePath = documentStoragePath(ctx.orgId, ctx.order.id, form.vendorId, form.kind, `.${id}`);
 
   let pdf: Buffer;
   try {

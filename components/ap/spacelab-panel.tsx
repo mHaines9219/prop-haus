@@ -86,7 +86,7 @@ export function SpacelabPanel({ orderId, initialScene }: Props) {
               type="button"
               onClick={prepare}
               disabled={busy}
-              className="rounded-md border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+              className="border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
             >
               {busy ? 'Building…' : 'Build your set in 3D'}
             </button>
@@ -97,7 +97,7 @@ export function SpacelabPanel({ orderId, initialScene }: Props) {
               href={scene.roomUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               Open in Spacelab
             </a>
@@ -106,7 +106,7 @@ export function SpacelabPanel({ orderId, initialScene }: Props) {
           {scene && (
             <a
               href={scene.roomFileUrl}
-              className="rounded-md border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
+              className="border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
             >
               Room file
             </a>

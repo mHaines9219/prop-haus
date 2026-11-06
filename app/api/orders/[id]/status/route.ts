@@ -7,7 +7,7 @@ import {
   type ItemStatus,
   type OrderStatus,
 } from '@/lib/orders';
-import { isJobStatus } from '@/lib/job-status';
+import { isJobStatus, type JobStatus } from '@/lib/job-status';
 import { recordEvents } from '@/lib/analytics';
 import type { LogEventInput } from '@/lib/events';
 
@@ -31,11 +31,28 @@ import type { LogEventInput } from '@/lib/events';
 const ORDER_STATUSES: OrderStatus[] = ['placed', 'processing', 'confirmed', 'cancelled'];
 const ITEM_STATUSES: ItemStatus[] = ['pending', 'quoted', 'confirmed', 'unavailable'];
 
-type Body = {
-  status?: string;
-  jobStatus?: string;
-  items?: Array<{ id: string; status: string; note?: string; quotedCents?: number }>;
-};
+const NOTE_MAX = 1000;
+
+type Body = { status?: unknown; jobStatus?: unknown; items?: unknown };
+
+type ItemUpdate = { id: string; status: ItemStatus; note: string | null; quotedCents: number | null };
+
+/** One `items[]` entry, or null when any field is unusable. */
+function parseItem(raw: unknown): ItemUpdate | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const { id, status, note, quotedCents } = raw as Record<string, unknown>;
+  if (typeof id !== 'string' || !id) return null;
+  if (!ITEM_STATUSES.includes(status as ItemStatus)) return null;
+  if (note !== undefined && note !== null && (typeof note !== 'string' || note.length > NOTE_MAX)) return null;
+  if (
+    quotedCents !== undefined &&
+    quotedCents !== null &&
+    !(typeof quotedCents === 'number' && Number.isInteger(quotedCents) && quotedCents >= 0)
+  ) {
+    return null;
+  }
+  return { id, status: status as ItemStatus, note: note ?? null, quotedCents: quotedCents ?? null };
+}
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -49,55 +66,82 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
-
-  if (!body.status && !body.jobStatus && (!body.items || body.items.length === 0)) {
+  if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
+  }
+
+  const hasItems = Array.isArray(body.items) ? body.items.length > 0 : Boolean(body.items);
+  if (!body.status && !body.jobStatus && !hasItems) {
+    return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
+  }
+
+  // Everything is validated before anything is written, so a bad entry late
+  // in the list cannot leave the earlier ones half-applied.
+  const items: ItemUpdate[] = [];
+  if (body.items !== undefined && body.items !== null) {
+    if (!Array.isArray(body.items)) {
+      return NextResponse.json({ error: 'items must be an array' }, { status: 400 });
+    }
+    for (const raw of body.items) {
+      const item = parseItem(raw);
+      if (!item) {
+        const status = raw && typeof raw === 'object' ? (raw as { status?: unknown }).status : undefined;
+        return NextResponse.json({ error: `invalid item status: ${String(status)}` }, { status: 400 });
+      }
+      items.push(item);
+    }
+  }
+  let status: OrderStatus | undefined;
+  if (body.status) {
+    if (!ORDER_STATUSES.includes(body.status as OrderStatus)) {
+      return NextResponse.json({ error: `invalid order status: ${String(body.status)}` }, { status: 400 });
+    }
+    status = body.status as OrderStatus;
+  }
+  let jobStatus: JobStatus | undefined;
+  if (body.jobStatus) {
+    if (!isJobStatus(body.jobStatus)) {
+      return NextResponse.json({ error: `invalid job status: ${String(body.jobStatus)}` }, { status: 400 });
+    }
+    jobStatus = body.jobStatus;
   }
 
   const events: LogEventInput[] = [];
 
   try {
-    if (body.items) {
-      for (const item of body.items) {
-        if (!item.id || !ITEM_STATUSES.includes(item.status as ItemStatus)) {
-          return NextResponse.json({ error: `invalid item status: ${item.status}` }, { status: 400 });
-        }
-        await setItemStatus(item.id, session.orgId, item.status as ItemStatus, {
-          note: item.note ?? null,
-          quotedCents: item.quotedCents ?? null,
-        });
-        events.push({
-          orgId: session.orgId,
-          userId: session.userId,
-          type: 'item_status_changed',
-          payload: { orderId: id, orderItemId: item.id, status: item.status },
-        });
-      }
+    for (const item of items) {
+      // Scoped to this order, not just the org: an item id from another of
+      // the org's orders reads as not found here.
+      await setItemStatus(item.id, session.orgId, item.status, {
+        note: item.note,
+        quotedCents: item.quotedCents,
+        orderId: id,
+      });
+      events.push({
+        orgId: session.orgId,
+        userId: session.userId,
+        type: 'item_status_changed',
+        payload: { orderId: id, orderItemId: item.id, status: item.status },
+      });
     }
 
-    if (body.status) {
-      if (!ORDER_STATUSES.includes(body.status as OrderStatus)) {
-        return NextResponse.json({ error: `invalid order status: ${body.status}` }, { status: 400 });
-      }
-      await setOrderStatus(id, session.orgId, body.status as OrderStatus);
+    if (status) {
+      await setOrderStatus(id, session.orgId, status);
       events.push({
         orgId: session.orgId,
         userId: session.userId,
         type: 'order_status_changed',
-        payload: { orderId: id, status: body.status },
+        payload: { orderId: id, status },
       });
     }
 
-    if (body.jobStatus) {
-      if (!isJobStatus(body.jobStatus)) {
-        return NextResponse.json({ error: `invalid job status: ${body.jobStatus}` }, { status: 400 });
-      }
-      await setJobStatus(id, session.orgId, body.jobStatus);
+    if (jobStatus) {
+      await setJobStatus(id, session.orgId, jobStatus);
       events.push({
         orgId: session.orgId,
         userId: session.userId,
         type: 'job_status_changed',
-        payload: { orderId: id, jobStatus: body.jobStatus },
+        payload: { orderId: id, jobStatus },
       });
     }
   } catch (err) {

@@ -106,6 +106,32 @@ describe('AIPromptModal', () => {
     expect(onSubmit).toHaveBeenCalledWith({ inspiration: 'set', budget: null });
   });
 
+  it('returns focus to the element that opened it on close', async () => {
+    const onSubmit = vi.fn();
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <>
+        <button type="button">Ask AI</button>
+        <AIPromptModal open={false} onSubmit={onSubmit} onClose={onClose} />
+      </>,
+    );
+    screen.getByRole('button', { name: 'Ask AI' }).focus();
+    rerender(
+      <>
+        <button type="button">Ask AI</button>
+        <AIPromptModal open onSubmit={onSubmit} onClose={onClose} />
+      </>,
+    );
+    await focused();
+    rerender(
+      <>
+        <button type="button">Ask AI</button>
+        <AIPromptModal open={false} onSubmit={onSubmit} onClose={onClose} />
+      </>,
+    );
+    expect(screen.getByRole('button', { name: 'Ask AI' })).toHaveFocus();
+  });
+
   it('closes on Escape, the close icon, Cancel, and the backdrop', async () => {
     const { onClose, container } = setup();
     await userEvent.keyboard('{Escape}');

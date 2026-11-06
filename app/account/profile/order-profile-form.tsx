@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { postForm } from '@/lib/api';
 import {
   AUTHORIZATION_SENTENCE,
@@ -22,7 +22,7 @@ const ENTITY_LABELS: Record<EntityType, string> = {
 };
 
 const INPUT =
-  'w-full rounded-[2px] border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:outline-none focus:ring-1 focus:ring-foreground';
+  'w-full border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:outline-none focus:ring-1 focus:ring-foreground';
 
 type Props = { initialProfile: OrderProfile; initialReadiness: OrderReadiness };
 
@@ -71,36 +71,45 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
     <form onSubmit={handleSubmit}>
       <Section label="Company" first>
         <Row label="Legal name">
-          <input
-            className={INPUT}
-            value={company.legalName ?? ''}
-            onChange={(e) => patch('company', { legalName: e.target.value })}
-            placeholder="As it appears on your contracts"
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              value={company.legalName ?? ''}
+              onChange={(e) => patch('company', { legalName: e.target.value })}
+              placeholder="As it appears on your contracts"
+            />
+          )}
         </Row>
         <Row label="DBA">
-          <input
-            className={INPUT}
-            value={company.dba ?? ''}
-            onChange={(e) => patch('company', { dba: e.target.value })}
-            placeholder="Production or trade name, if different"
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              value={company.dba ?? ''}
+              onChange={(e) => patch('company', { dba: e.target.value })}
+              placeholder="Production or trade name, if different"
+            />
+          )}
         </Row>
         <Row label="Entity type">
-          <select
-            className={INPUT}
-            value={company.entityType ?? ''}
-            onChange={(e) =>
-              patch('company', { entityType: (e.target.value || undefined) as EntityType | undefined })
-            }
-          >
-            <option value="">—</option>
-            {ENTITY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {ENTITY_LABELS[t]}
-              </option>
-            ))}
-          </select>
+          {(id) => (
+            <select
+              id={id}
+              className={INPUT}
+              value={company.entityType ?? ''}
+              onChange={(e) =>
+                patch('company', { entityType: (e.target.value || undefined) as EntityType | undefined })
+              }
+            >
+              <option value="">—</option>
+              {ENTITY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {ENTITY_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          )}
         </Row>
         <Row label="Address">
           <AddressFields value={company.address} onChange={(address) => patch('company', { address })} />
@@ -112,21 +121,27 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
           />
         </Row>
         <Row label="Phone">
-          <input
-            className={INPUT}
-            type="tel"
-            value={company.phone ?? ''}
-            onChange={(e) => patch('company', { phone: e.target.value })}
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              type="tel"
+              value={company.phone ?? ''}
+              onChange={(e) => patch('company', { phone: e.target.value })}
+            />
+          )}
         </Row>
         <Row label="Website" last>
-          <input
-            className={INPUT}
-            type="url"
-            value={company.website ?? ''}
-            onChange={(e) => patch('company', { website: e.target.value })}
-            placeholder="https://"
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              type="url"
+              value={company.website ?? ''}
+              onChange={(e) => patch('company', { website: e.target.value })}
+              placeholder="https://"
+            />
+          )}
         </Row>
       </Section>
 
@@ -147,18 +162,21 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
 
       <Section label="Delivery defaults" note="Prefills the request form in your cart. Dates and location are set per order there.">
         <Row label="Rental window" hint="Starts the next business day">
-          <div className="flex items-center gap-2">
-            <input
-              className={`${INPUT} w-24`}
-              type="number"
-              min={1}
-              value={defaults.rentalWindowDays ?? ''}
-              onChange={(e) =>
-                patch('defaults', { rentalWindowDays: e.target.value ? Number(e.target.value) : undefined })
-              }
-            />
-            <span className="font-mono text-[13px] text-text-tertiary">days</span>
-          </div>
+          {(id) => (
+            <div className="flex items-center gap-2">
+              <input
+                id={id}
+                className={`${INPUT} w-24`}
+                type="number"
+                min={1}
+                value={defaults.rentalWindowDays ?? ''}
+                onChange={(e) =>
+                  patch('defaults', { rentalWindowDays: e.target.value ? Number(e.target.value) : undefined })
+                }
+              />
+              <span className="font-mono text-[13px] text-text-tertiary">days</span>
+            </div>
+          )}
         </Row>
         <Row label="Delivery address">
           <AddressFields
@@ -167,13 +185,16 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
           />
         </Row>
         <Row label="Delivery notes" last>
-          <textarea
-            className={`${INPUT} resize-none`}
-            rows={2}
-            value={defaults.deliveryNotes ?? ''}
-            onChange={(e) => patch('defaults', { deliveryNotes: e.target.value })}
-            placeholder="Dock, hours, who to ask for…"
-          />
+          {(id) => (
+            <textarea
+              id={id}
+              className={`${INPUT} resize-none`}
+              rows={2}
+              value={defaults.deliveryNotes ?? ''}
+              onChange={(e) => patch('defaults', { deliveryNotes: e.target.value })}
+              placeholder="Dock, hours, who to ask for…"
+            />
+          )}
         </Row>
       </Section>
 
@@ -185,37 +206,52 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
           />
         </Row>
         <Row label="Carrier">
-          <input
-            className={INPUT}
-            value={insurance.carrier ?? ''}
-            onChange={(e) => patch('insurance', { carrier: e.target.value })}
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              value={insurance.carrier ?? ''}
+              onChange={(e) => patch('insurance', { carrier: e.target.value })}
+            />
+          )}
         </Row>
         <Row label="Policy number">
-          <input
-            className={INPUT}
-            value={insurance.policyNumber ?? ''}
-            onChange={(e) => patch('insurance', { policyNumber: e.target.value })}
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              value={insurance.policyNumber ?? ''}
+              onChange={(e) => patch('insurance', { policyNumber: e.target.value })}
+            />
+          )}
         </Row>
         <Row label="GL limit (per occurrence)">
-          <DollarInput
-            value={insurance.glLimit}
-            onChange={(glLimit) => patch('insurance', { glLimit })}
-          />
+          {(id) => (
+            <DollarInput
+              id={id}
+              value={insurance.glLimit}
+              onChange={(glLimit) => patch('insurance', { glLimit })}
+            />
+          )}
         </Row>
         <Row label="Aggregate limit">
-          <DollarInput
-            value={insurance.aggregateLimit}
-            onChange={(aggregateLimit) => patch('insurance', { aggregateLimit })}
-          />
+          {(id) => (
+            <DollarInput
+              id={id}
+              value={insurance.aggregateLimit}
+              onChange={(aggregateLimit) => patch('insurance', { aggregateLimit })}
+            />
+          )}
         </Row>
         <Row label="Workers comp limit">
-          <DollarInput
-            value={insurance.workersCompLimit}
-            onChange={(workersCompLimit) => patch('insurance', { workersCompLimit })}
-            placeholder="Blank if not applicable"
-          />
+          {(id) => (
+            <DollarInput
+              id={id}
+              value={insurance.workersCompLimit}
+              onChange={(workersCompLimit) => patch('insurance', { workersCompLimit })}
+              placeholder="Blank if not applicable"
+            />
+          )}
         </Row>
         <Row label="Additional insured">
           <label className="flex cursor-pointer items-center gap-2">
@@ -229,12 +265,15 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
           </label>
         </Row>
         <Row label="Policy expiry">
-          <input
-            className={INPUT}
-            type="date"
-            value={insurance.expiresAt?.slice(0, 10) ?? ''}
-            onChange={(e) => patch('insurance', { expiresAt: e.target.value })}
-          />
+          {(id) => (
+            <input
+              id={id}
+              className={INPUT}
+              type="date"
+              value={insurance.expiresAt?.slice(0, 10) ?? ''}
+              onChange={(e) => patch('insurance', { expiresAt: e.target.value })}
+            />
+          )}
         </Row>
         <Row label="Broker" hint="COI requests are forwarded here" last>
           <ContactFields value={insurance.broker} onChange={(broker) => patch('insurance', { broker })} />
@@ -264,7 +303,7 @@ export function OrderProfileForm({ initialProfile, initialReadiness }: Props) {
         <button
           type="submit"
           disabled={saving}
-          className="h-11 min-w-[140px] rounded-[2px] border border-foreground px-5 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
+          className="h-11 min-w-[140px] border border-foreground px-5 font-mono text-[13px] font-medium text-foreground transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save profile'}
         </button>
@@ -319,15 +358,32 @@ function Row({
   label: string;
   hint?: string;
   last?: boolean;
-  children: React.ReactNode;
+  /** A function receives the id of its single control; anything else is a labelled group. */
+  children: React.ReactNode | ((id: string) => React.ReactNode);
 }) {
+  const id = useId();
+  const labelId = `${id}-label`;
   return (
     <div className={`flex flex-col gap-2 border-t border-border py-3 sm:flex-row sm:items-start ${last ? 'border-b' : ''}`}>
       <div className="w-[200px] shrink-0 pt-2">
-        <span className="text-[13px] text-text-tertiary">{label}</span>
+        {typeof children === 'function' ? (
+          <label htmlFor={id} className="text-[13px] text-text-tertiary">
+            {label}
+          </label>
+        ) : (
+          <span id={labelId} className="text-[13px] text-text-tertiary">
+            {label}
+          </span>
+        )}
         {hint && <p className="mt-0.5 font-mono text-[11px] text-text-disabled">{hint}</p>}
       </div>
-      <div className="min-w-0 flex-1">{children}</div>
+      {typeof children === 'function' ? (
+        <div className="min-w-0 flex-1">{children(id)}</div>
+      ) : (
+        <div role="group" aria-labelledby={labelId} className="min-w-0 flex-1">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -344,12 +400,25 @@ function AddressFields({
     onChange({ ...a, [k]: e.target.value });
   return (
     <div className="space-y-2">
-      <input className={INPUT} value={a.line1 ?? ''} onChange={set('line1')} placeholder="Street" />
-      <input className={INPUT} value={a.line2 ?? ''} onChange={set('line2')} placeholder="Suite, stage, building" />
+      <input aria-label="Street" className={INPUT} value={a.line1 ?? ''} onChange={set('line1')} placeholder="Street" />
+      <input
+        aria-label="Suite"
+        className={INPUT}
+        value={a.line2 ?? ''}
+        onChange={set('line2')}
+        placeholder="Suite, stage, building"
+      />
       <div className="grid grid-cols-[1fr_72px_100px] gap-2">
-        <input className={INPUT} value={a.city ?? ''} onChange={set('city')} placeholder="City" />
-        <input className={INPUT} value={a.state ?? ''} onChange={set('state')} placeholder="ST" maxLength={2} />
-        <input className={INPUT} value={a.zip ?? ''} onChange={set('zip')} placeholder="ZIP" />
+        <input aria-label="City" className={INPUT} value={a.city ?? ''} onChange={set('city')} placeholder="City" />
+        <input
+          aria-label="State"
+          className={INPUT}
+          value={a.state ?? ''}
+          onChange={set('state')}
+          placeholder="ST"
+          maxLength={2}
+        />
+        <input aria-label="ZIP" className={INPUT} value={a.zip ?? ''} onChange={set('zip')} placeholder="ZIP" />
       </div>
     </div>
   );
@@ -367,18 +436,34 @@ function ContactFields({
     onChange({ ...c, [k]: e.target.value });
   return (
     <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-      <input className={INPUT} value={c.name ?? ''} onChange={set('name')} placeholder="Name" />
-      <input className={INPUT} type="email" value={c.email ?? ''} onChange={set('email')} placeholder="Email" />
-      <input className={INPUT} type="tel" value={c.phone ?? ''} onChange={set('phone')} placeholder="Phone" />
+      <input aria-label="Name" className={INPUT} value={c.name ?? ''} onChange={set('name')} placeholder="Name" />
+      <input
+        aria-label="Email"
+        className={INPUT}
+        type="email"
+        value={c.email ?? ''}
+        onChange={set('email')}
+        placeholder="Email"
+      />
+      <input
+        aria-label="Phone"
+        className={INPUT}
+        type="tel"
+        value={c.phone ?? ''}
+        onChange={set('phone')}
+        placeholder="Phone"
+      />
     </div>
   );
 }
 
 function DollarInput({
+  id,
   value,
   onChange,
   placeholder,
 }: {
+  id: string;
   value: number | undefined;
   onChange: (v: number | undefined) => void;
   placeholder?: string;
@@ -387,6 +472,7 @@ function DollarInput({
     <div className="flex items-center gap-2">
       <span className="font-mono text-[13px] text-text-tertiary">$</span>
       <input
+        id={id}
         className={INPUT}
         type="number"
         min={0}
@@ -461,9 +547,7 @@ function CoiUpload({
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return iso;
-  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }

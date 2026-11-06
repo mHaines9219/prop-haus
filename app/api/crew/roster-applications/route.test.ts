@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CREW_JOIN_EMAIL, ROSTER_MAX_FILE_BYTES } from '@/lib/crew';
 import type { MailMessage } from '@/lib/mail/provider';
 
-const send = vi.fn(async (_m: MailMessage) => ({ providerMessageId: 'test-1' }));
+const send = vi.fn<(m: MailMessage) => Promise<{ providerMessageId: string }>>(async () => ({
+  providerMessageId: 'test-1',
+}));
 vi.mock('@/lib/mail/provider', () => ({ mailer: () => ({ send }) }));
 
 import { POST } from './route';
@@ -13,14 +15,20 @@ function image(name: string, bytes = 100, type = 'image/jpeg') {
   return new File([new Uint8Array(bytes)], name, { type });
 }
 
-function request(fields: Record<string, string | File | File[]>) {
+function request(fields: Record<string, string | File | File[]>, ip = '203.0.113.7') {
   const fd = new FormData();
   for (const [key, value] of Object.entries(fields)) {
     if (Array.isArray(value)) value.forEach((v) => fd.append(key, v));
     else fd.set(key, value);
   }
-  return new Request('http://test/api/crew/roster-applications', { method: 'POST', body: fd });
+  return new Request('http://test/api/crew/roster-applications', {
+    method: 'POST',
+    body: fd,
+    headers: { 'x-forwarded-for': `${ip}, 10.0.0.1` },
+  });
 }
+
+let clock = Date.parse('2026-11-01T00:00:00Z');
 
 const valid = () => ({
   name: 'Dana Reyes',
@@ -34,6 +42,9 @@ const valid = () => ({
 describe('POST /api/crew/roster-applications', () => {
   beforeEach(() => {
     send.mockClear();
+    // Every test gets its own rate-limit window.
+    clock += 61 * 60 * 1000;
+    vi.spyOn(Date, 'now').mockReturnValue(clock);
   });
 
   it('emails the crew inbox with the headshot and work photos attached', async () => {
@@ -85,6 +96,19 @@ describe('POST /api/crew/roster-applications', () => {
     const res = await POST(request({ ...valid(), company: 'Spam Inc' }));
     expect(res.status).toBe(201);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it('429 on the sixth application in an hour from one IP, while another IP is unaffected', async () => {
+    for (let i = 0; i < 5; i++) expect((await POST(request(valid()))).status).toBe(201);
+
+    const res = await POST(request(valid()));
+    expect(res.status).toBe(429);
+    expect(send).toHaveBeenCalledTimes(5);
+
+    expect((await POST(request(valid(), '198.51.100.2'))).status).toBe(201);
+
+    vi.spyOn(Date, 'now').mockReturnValue(clock + 60 * 60 * 1000);
+    expect((await POST(request(valid()))).status).toBe(201);
   });
 
   it('returns 502 when the mailer fails', async () => {

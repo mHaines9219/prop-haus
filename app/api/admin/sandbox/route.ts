@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * The admin's sandbox switch. POST `{ on: true }` and every order this admin
- * places is a sandbox order (nothing sent, advanced by hand); POST
+ * places is a sandbox order (mail to the test inbox, advanced by hand); POST
  * `{ on: false }` to go back. The choice lives in an httpOnly cookie that
  * lib/session.ts honours for admins only.
  */

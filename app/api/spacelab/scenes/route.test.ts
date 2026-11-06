@@ -95,7 +95,7 @@ describe('refusals', () => {
     db.seed('order_items', [orderItemRow({ id: 'oi-2', order_id: 'order-2' })]);
     const res = await post({ orderId: 'order-2' });
     expect(res.status).toBe(404);
-    expect(await readJson(res)).toEqual({ error: 'could not prepare the room' });
+    expect(await readJson(res)).toEqual({ error: 'not found' });
     expect(provider.generate).not.toHaveBeenCalled();
     expect(db.rows('spacelab_scenes')).toHaveLength(0);
     expect(db.rows('spacelab_models')).toHaveLength(0);
@@ -106,11 +106,11 @@ describe('refusals', () => {
     expect(provider.generate).not.toHaveBeenCalled();
   });
 
-  it('404 with the message when the model write fails', async () => {
+  it('500 with no storage detail when the model write fails', async () => {
     db.failNext('spacelab_models', 'upsert', 'disk full');
     const res = await post({ orderId: 'order-1' });
-    expect(res.status).toBe(404);
-    expect(await readJson(res)).toEqual({ error: '[spacelab] model write failed: disk full' });
+    expect(res.status).toBe(500);
+    expect(await readJson(res)).toEqual({ error: 'could not prepare the room' });
     expect(db.rows('spacelab_scenes')).toHaveLength(0);
   });
 });

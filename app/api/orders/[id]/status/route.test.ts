@@ -94,9 +94,7 @@ describe('refusals', () => {
     expect(db.rows('events')).toEqual([]);
   });
 
-  // Observed: the loop validates and writes one item at a time, so oi-1 is
-  // already 'quoted' by the time oi-2's bad status answers 400.
-  it.fails('validates every item before writing any', async () => {
+  it('validates every item before writing any', async () => {
     const res = await patch('order-1', {
       items: [
         { id: 'oi-1', status: 'quoted' },
@@ -110,6 +108,23 @@ describe('refusals', () => {
   it('400 when items is not an array', async () => {
     const res = await patch('order-1', { items: 'oi-1' });
     expect(res.status).toBe(400);
+  });
+
+  it('400 for a JSON null body', async () => {
+    const res = await patch('order-1', 'null');
+    expect(res.status).toBe(400);
+  });
+
+  it.each([
+    [{ id: 'oi-1', status: 'quoted', quotedCents: '9900' }],
+    [{ id: 'oi-1', status: 'quoted', quotedCents: -1 }],
+    [{ id: 'oi-1', status: 'quoted', quotedCents: 1.5 }],
+    [{ id: 'oi-1', status: 'quoted', note: 42 }],
+    [{ id: 'oi-1', status: 'quoted', note: 'x'.repeat(1001) }],
+  ])('400 for item fields of the wrong shape %j, writing nothing', async (entry) => {
+    const res = await patch('order-1', { items: [entry] });
+    expect(res.status).toBe(400);
+    expect(item('oi-1').status).toBe('pending');
   });
 });
 
@@ -126,6 +141,14 @@ describe('cross-org', () => {
     const res = await patch('theirs', { items: [{ id: 'oi-theirs', status: 'confirmed' }] });
     expect(res.status).toBe(404);
     expect(item('oi-theirs').status).toBe('pending');
+    expect(db.rows('events')).toEqual([]);
+  });
+
+  it('404 for an item on another of the org’s own orders, leaving it untouched', async () => {
+    db.seed('order_items', [orderItemRow({ id: 'oi-other', order_id: 'order-2', item_id: 'omega-9' })]);
+    const res = await patch('order-1', { items: [{ id: 'oi-other', status: 'confirmed' }] });
+    expect(res.status).toBe(404);
+    expect(item('oi-other').status).toBe('pending');
     expect(db.rows('events')).toEqual([]);
   });
 

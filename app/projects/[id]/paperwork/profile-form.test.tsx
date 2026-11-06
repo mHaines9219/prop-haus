@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nav, resetNavigation } from '@/test/mocks/next-navigation';
@@ -186,6 +186,198 @@ describe('ProfileForm', () => {
     await user.keyboard('{Enter}');
     expect(await screen.findByText('That did not go through. Try again.')).toBeInTheDocument();
     expect(screen.getByLabelText('Describe the production')).toHaveValue('A film');
+  });
+});
+
+describe('ProfileForm, row by row', () => {
+  async function saveAndRead(fetchMock: ReturnType<typeof vi.fn>, user: ReturnType<typeof userEvent.setup>) {
+    await user.click(saveButton());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    return sent(fetchMock).body;
+  }
+
+  it('text rows commit on Enter or blur, trimmed, and an emptied row is forgotten', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => patched());
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ProfileForm projectId="p1" initialProfile={{ locations: { country: 'US' } }} provider="mock" />);
+
+    await user.type(screen.getByLabelText('City'), '  Brooklyn {Enter}');
+    await user.type(screen.getByLabelText('State or region'), 'NY');
+    await user.tab();
+    await user.clear(screen.getByLabelText('Country'));
+    await user.tab();
+    expect(screen.getByLabelText('City')).toHaveValue('Brooklyn');
+
+    expect(await saveAndRead(fetchMock, user)).toEqual({ locations: { city: 'Brooklyn', region: 'NY' }, unset: ['locations.country'] });
+  });
+
+  it('a blur with nothing changed commits nothing', async () => {
+    const user = userEvent.setup();
+    render(<ProfileForm projectId="p1" initialProfile={{ locations: { city: 'Brooklyn', count: 2 } }} provider="mock" />);
+    await user.click(screen.getByLabelText('City'));
+    await user.click(screen.getByLabelText('Number of locations'));
+    await user.tab();
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText('Everything is saved.')).toBeInTheDocument();
+  });
+
+  it('number rows round, hold to their minimum, and forget when emptied', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => patched());
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ProfileForm projectId="p1" initialProfile={{ cast: { count: 4 } }} provider="mock" />);
+
+    await user.type(screen.getByLabelText('Shoot days'), '0{Enter}');
+    await user.type(screen.getByLabelText('Number of locations'), '2.6');
+    await user.tab();
+    await user.type(screen.getByLabelText('Vendor count'), '3');
+    await user.tab();
+    await user.clear(screen.getByLabelText('Cast count'));
+    await user.tab();
+
+    expect(screen.getByLabelText('Shoot days')).toHaveValue(1);
+    expect(screen.getByLabelText('Number of locations')).toHaveValue(3);
+    expect(await saveAndRead(fetchMock, user)).toEqual({
+      schedule: { shootDays: 1 },
+      locations: { count: 3 },
+      rentals: { vendorCount: 3 },
+      unset: ['cast.count'],
+    });
+  });
+
+  it('date rows commit as they change, and a cleared date is forgotten', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => patched());
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ProfileForm projectId="p1" initialProfile={{ schedule: { start: '2026-12-01' } }} provider="mock" />);
+
+    fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-12-09' } });
+    fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '' } });
+    expect(screen.getByLabelText('End date')).toHaveValue('2026-12-09');
+
+    expect(await saveAndRead(fetchMock, user)).toEqual({ schedule: { end: '2026-12-09' }, unset: ['schedule.start'] });
+  });
+
+  it('yes and no are both definite answers, distinct from unknown', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => patched());
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ProfileForm projectId="p1" initialProfile={{}} provider="mock" />);
+
+    const answer = (group: string, choice: 'Yes' | 'No') => user.click(within(screen.getByRole('radiogroup', { name: group })).getByRole('radio', { name: choice }));
+    await answer('Public property', 'No');
+    await answer('Contractors', 'Yes');
+    await answer('Union', 'No');
+    await answer('Rented trucks', 'Yes');
+    await answer('Picture vehicles', 'No');
+    expect(within(screen.getByRole('radiogroup', { name: 'Union' })).getByRole('radio', { name: 'No' })).toHaveAttribute('aria-checked', 'true');
+
+    expect(await saveAndRead(fetchMock, user)).toEqual({
+      locations: { publicProperty: false },
+      crew: { contractors: true, union: false },
+      vehicles: { rentedTrucks: true, pictureVehicles: false },
+    });
+  });
+
+  it('venue and client rows open with the facts that make them relevant and save like the rest', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => patched());
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ProfileForm projectId="p1" initialProfile={{ productionType: 'commercial', locations: { kinds: ['venue'] } }} provider="mock" />);
+
+    await user.type(screen.getByLabelText('Venue name'), 'The Ambassador{Enter}');
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Venue needs a COI' })).getByRole('radio', { name: 'Yes' }));
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Install and strike' })).getByRole('radio', { name: 'No' }));
+    await user.type(screen.getByLabelText('Client name'), 'Acme{Enter}');
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Billing a client' })).getByRole('radio', { name: 'Yes' }));
+
+    expect(await saveAndRead(fetchMock, user)).toEqual({
+      productionType: 'commercial',
+      locations: { kinds: ['venue'] },
+      venue: { name: 'The Ambassador', requiresCoi: true, installStrike: false },
+      client: { name: 'Acme', billable: true },
+    });
+  });
+
+  it('"nothing rented" is a no-op once every rental is already no', async () => {
+    const user = userEvent.setup();
+    render(<ProfileForm projectId="p1" initialProfile={{ rentals: { props: false, furniture: false, equipment: false } }} provider="mock" />);
+    const renting = screen.getByRole('group', { name: 'Renting' });
+    const none = within(renting).getByRole('checkbox', { name: 'Nothing rented' });
+    expect(none).toHaveAttribute('aria-checked', 'true');
+    await user.click(none);
+    expect(none).toHaveAttribute('aria-checked', 'true');
+    expect(saveButton()).toBeDisabled();
+
+    await user.click(within(renting).getByRole('checkbox', { name: 'Props' }));
+    expect(within(renting).getByRole('checkbox', { name: 'Props' })).toHaveAttribute('aria-checked', 'true');
+    expect(none).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('Shift+Enter in the description adds a line instead of sending it', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => patched());
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ProfileForm projectId="p1" initialProfile={{}} provider="mock" />);
+    const description = screen.getByLabelText('Describe the production');
+    await user.type(description, 'A film{Shift>}{Enter}{/Shift}in Brooklyn');
+    expect(description).toHaveValue('A film\nin Brooklyn');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reports nothing left to ask once every gap is answered', () => {
+    render(
+      <ProfileForm
+        projectId="p1"
+        initialProfile={{
+          productionType: 'film',
+          schedule: { start: '2026-12-01', end: '2026-12-05' },
+          locations: { city: 'Brooklyn', publicProperty: false },
+          crew: { count: 10 },
+          cast: { minors: false },
+          rentals: { props: true },
+          vehicles: { rentedTrucks: false },
+          risks: { stunts: false, specialEffects: false, pyrotechnics: false, weapons: false, animals: false, drones: false },
+        }}
+        provider="mock"
+      />,
+    );
+    expect(screen.getByText('Nothing left to ask')).toBeInTheDocument();
+    expect(screen.queryByLabelText('still open')).not.toBeInTheDocument();
+  });
+
+  it('keeps radius 0 on every control', () => {
+    const { container } = render(<ProfileForm projectId="p1" initialProfile={{ locations: { kinds: ['venue'] }, productionType: 'commercial' }} provider="mock" />);
+    for (const el of container.querySelectorAll('*')) {
+      expect(el.getAttribute('class') ?? '').not.toMatch(/\brounded-(?!full)/);
+    }
+  });
+});
+
+describe('ProfileForm, signed out mid-edit', () => {
+  beforeEach(() => {
+    nav.pathname = '/projects/p1/paperwork';
+  });
+
+  it('a save that comes back 401 sends the user to sign in and back here, without refreshing', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn(async () => json({ error: 'unauthorized' }, 401)));
+    render(<ProfileForm projectId="p1" initialProfile={{}} provider="mock" />);
+    await user.click(screen.getByRole('radio', { name: 'Film' }));
+    await user.click(generateButton());
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%2Fpaperwork'));
+    expect(nav.router.refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText('That did not save. Try again.')).not.toBeInTheDocument();
+  });
+
+  it('a description read that comes back 401 does the same', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn(async () => json({ error: 'unauthorized' }, 401)));
+    render(<ProfileForm projectId="p1" initialProfile={{}} provider="mock" />);
+    await user.type(screen.getByLabelText('Describe the production'), 'A film{Enter}');
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%2Fpaperwork'));
+    expect(screen.queryByText('That did not go through. Try again.')).not.toBeInTheDocument();
   });
 });
 

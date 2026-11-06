@@ -14,10 +14,17 @@ import { vendorAsksFor, type Vendor } from '../vendors';
 import { INSURER_NAME } from '../insurance/issuer';
 import { inquiryPacket } from '../booking/packet';
 import { insuranceRouteFor } from '../insurance/route';
+import { ACTION_LABEL, VENDOR_ACTIONS, type ReplyLinks } from '../vendor-links';
 
 export type DraftAttachment = { name: string; storagePath: string; contentType: string };
 
-export type DraftItem = { name: string; sourceUrl: string; image?: string };
+export type DraftItem = {
+  name: string;
+  sourceUrl: string;
+  image?: string;
+  /** The vendor's two answers for this line, when the draft is for a placed order. */
+  replyLinks?: ReplyLinks;
+};
 
 export type Draft = {
   vendorId: string;
@@ -66,6 +73,12 @@ export type ComposeInput = {
    * certificate per house on confirmation, so neither is the production's to send.
    */
   bookingFlow?: boolean;
+  /**
+   * Signed "Item available" / "Item unavailable" links per line
+   * (lib/vendor-links.ts). Only a placed order has the order_items ids to sign,
+   * so the cart preview has none and the sent email has two per item.
+   */
+  replyLinks?: (line: { orderItemId: string; source: string }) => ReplyLinks;
 };
 
 /**
@@ -93,6 +106,18 @@ export function textToHtml(text: string): string {
     .filter(Boolean)
     .map((p) => `<p>${linkify(escapeHtml(p)).replace(/\n/g, '<br>')}</p>`);
   return wrapHtml(paragraphs.join('\n'));
+}
+
+/**
+ * The reply links as a closing block on a body the user wrote themselves. The
+ * cart preview has no order item ids, so an edited draft carries no links in
+ * its text; they are added here after the click, under the user's words.
+ */
+export function appendReplyLinks(bodyText: string, items: DraftItem[]): string {
+  const linked = items.filter((it) => it.replyLinks);
+  if (linked.length === 0) return bodyText;
+  const block = ['Mark each item', ...linked.map((it) => `${it.name}${itemLinksText(it)}`)].join('\n');
+  return `${bodyText.trimEnd()}\n\n${block}`;
 }
 
 /** "Sep 7 – Sep 14, 2026" from ISO dates; tolerates one or both missing. */
@@ -125,6 +150,9 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
     name: l.name,
     sourceUrl: l.sourceUrl,
     ...(l.image ? { image: l.image } : {}),
+    ...(input.replyLinks && l.orderItemId
+      ? { replyLinks: input.replyLinks({ orderItemId: l.orderItemId, source: l.source }) }
+      : {}),
   }));
 
   const attachments: DraftAttachment[] = [];
@@ -172,12 +200,15 @@ function composeOne(vendorId: string, lines: CartLineInput[], input: ComposeInpu
   ].filter(Boolean) as string[];
 
   const intro = `${who} would like to hold the following items.${contact.name ? ` ${contact.name} is the ordering contact.` : ''}`;
-  const ask = 'Please confirm availability and send a quote. Reply to this email.';
+  const hasLinks = items.some((it) => it.replyLinks);
+  const ask = hasLinks
+    ? 'Please confirm availability and send a quote. The links under each item mark it available or unavailable on our order. Reply to this email for anything else.'
+    : 'Please confirm availability and send a quote. Reply to this email.';
 
   const bodyText = [
     `Hello ${vendorName},`,
     intro,
-    ['Items', ...items.map((it, i) => `${i + 1}. ${it.name}\n   ${it.sourceUrl}`)].join('\n'),
+    ['Items', ...items.map((it, i) => `${i + 1}. ${it.name}\n   ${it.sourceUrl}${itemLinksText(it)}`)].join('\n'),
     `Rental window\n${window}`,
     where.length ? `Deliver to\n${where.join('\n')}` : `Pickup\n${PICKUP_LINE}`,
     ...(shoot ? [`Shoot details\n${shoot}`] : []),
@@ -239,7 +270,27 @@ function itemHtml(it: DraftItem): string {
   const img = it.image
     ? `<img src="${escapeAttr(it.image)}" alt="" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:4px;margin-right:12px;vertical-align:middle">`
     : '';
-  return `<p>${img}<a href="${escapeAttr(it.sourceUrl)}">${escapeHtml(it.name)}</a></p>`;
+  return `<p>${img}<a href="${escapeAttr(it.sourceUrl)}">${escapeHtml(it.name)}</a></p>${itemLinksHtml(it)}`;
+}
+
+/** "   Item available: <url>" lines under the item in the text part. */
+function itemLinksText(it: DraftItem): string {
+  if (!it.replyLinks) return '';
+  return VENDOR_ACTIONS.map((a) => `\n   ${ACTION_LABEL[a]}: ${it.replyLinks![a]}`).join('');
+}
+
+/**
+ * The two answers as Party Line buttons that survive email clients: inline
+ * styles only, an ink rule on cream, condensed bold caps, radius 0.
+ */
+function itemLinksHtml(it: DraftItem): string {
+  if (!it.replyLinks) return '';
+  const button =
+    'display:inline-block;margin:2px 8px 10px 0;padding:6px 10px;border:1.5px solid #111;background:#faf6ea;color:#111;' +
+    'font-family:Archivo,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;text-decoration:none';
+  return `\n<p style="margin:0 0 8px 84px">${VENDOR_ACTIONS.map(
+    (a) => `<a href="${escapeAttr(it.replyLinks![a])}" style="${button}">${escapeHtml(ACTION_LABEL[a])}</a>`,
+  ).join('')}</p>`;
 }
 
 function section(label: string, body: string): string {

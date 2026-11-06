@@ -89,7 +89,6 @@ export function checkPaperworkFile(input: {
  */
 export function cleanFileName(raw: string): string {
   const base = raw.split(/[\\/]/).pop() ?? '';
-  // eslint-disable-next-line no-control-regex
   const stripped = base.replace(/[\u0000-\u001f\u007f"]/g, '').trim();
   return stripped.slice(0, 200);
 }

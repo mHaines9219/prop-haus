@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { currentSession } from '@/lib/session';
 import { normalizeOrderProfile, orderReadiness } from '@/lib/order-profile';
-import { getOrderProfile, updateOrderProfile } from '@/lib/order-profile-store';
+import { getOrderProfile, getOrderProfileForUpdate, updateOrderProfile } from '@/lib/order-profile-store';
 
 export async function GET() {
   const session = await currentSession();
@@ -25,7 +25,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'a profile is required' }, { status: 400 });
   }
 
-  const existing = await getOrderProfile(session.orgId);
+  // The strict read: the COI pointer and the consent stamp are carried over
+  // from it, and a failed read must not drop them.
+  const existing = await getOrderProfileForUpdate(session.orgId);
   const next = normalizeOrderProfile(body);
 
   next.insurance = { ...next.insurance };

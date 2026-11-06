@@ -93,7 +93,7 @@ const columns = col.columns([
     cell: ({ row }) => (
       <div className="flex items-center justify-end gap-3">
         {row.original.archivedAt && (
-          <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">
+          <span className="border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">
             Archived
           </span>
         )}

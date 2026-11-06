@@ -12,7 +12,13 @@ vi.mock('@/lib/supabase/admin', async () => (await import('@/test/mocks/supabase
 import { ORG_ID, OTHER_ORG_ID } from '@/test/mocks/session';
 import { db } from '@/test/mocks/supabase-admin';
 import { EMPTY_ORDER_PROFILE, type OrderProfile } from './order-profile';
-import { coiDownloadUrl, getOrderProfile, storeCoiDocument, updateOrderProfile } from './order-profile-store';
+import {
+  coiDownloadUrl,
+  getOrderProfile,
+  getOrderProfileForUpdate,
+  storeCoiDocument,
+  updateOrderProfile,
+} from './order-profile-store';
 
 const PROFILE: OrderProfile = { ...READY_PROFILE, insurance: { carrier: 'Hiscox', glLimit: 1_000_000 } };
 const PDF = { name: 'coi.pdf', mime: 'application/pdf', bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46]) };
@@ -50,9 +56,20 @@ describe('getOrderProfile', () => {
   });
 
   it('falls back to the empty profile on a read failure', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
     seedOrg();
     db.failNext('organizations', 'select', 'timeout');
     await expect(getOrderProfile(ORG_ID)).resolves.toEqual(EMPTY_ORDER_PROFILE);
+  });
+
+  it('for an update, throws on a read failure rather than reading as empty', async () => {
+    seedOrg();
+    db.failNext('organizations', 'select', 'timeout');
+    await expect(getOrderProfileForUpdate(ORG_ID)).rejects.toThrow('timeout');
+  });
+
+  it('for an update, is the empty profile when the org has no row', async () => {
+    await expect(getOrderProfileForUpdate(ORG_ID)).resolves.toEqual(EMPTY_ORDER_PROFILE);
   });
 
   it('never reads another org’s profile', async () => {
@@ -165,9 +182,10 @@ describe('storeCoiDocument', () => {
     expect(db.buckets.has('paperwork')).toBe(false);
   });
 
-  it('is a 500 when storage refuses, and the profile is untouched', async () => {
+  it('is a 500 when storage refuses, with no storage detail for the client, and the profile is untouched', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     db.failNextStorage('upload', 'bucket full');
-    await expect(storeCoiDocument(ORG_ID, PDF)).resolves.toEqual({ ok: false, status: 500, error: 'upload failed: bucket full' });
+    await expect(storeCoiDocument(ORG_ID, PDF)).resolves.toEqual({ ok: false, status: 500, error: 'upload failed' });
     expect(orgProfile().insurance.coiDocument).toBeUndefined();
     expect(db.log.some((l) => l.table === 'organizations' && l.op === 'update')).toBe(false);
   });
@@ -177,12 +195,11 @@ describe('storeCoiDocument', () => {
     await expect(storeCoiDocument(ORG_ID, PDF)).rejects.toMatchObject({ message: 'boom' });
   });
 
-  // Observed: getOrderProfile swallows the read error and returns EMPTY, so the
-  // pointer write replaces the whole profile with an empty one plus the COI.
-  it.fails('does not wipe the profile when the read before the pointer write fails', async () => {
+  it('does not wipe the profile when the read before the pointer write fails', async () => {
     db.failNext('organizations', 'select', 'timeout');
-    await storeCoiDocument(ORG_ID, PDF).catch(() => undefined);
+    await expect(storeCoiDocument(ORG_ID, PDF)).rejects.toThrow('timeout');
     expect(orgProfile().company.legalName).toBe('Nocturne Pictures LLC');
+    expect(db.bucket('paperwork').size).toBe(0);
   });
 });
 

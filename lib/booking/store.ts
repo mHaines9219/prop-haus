@@ -10,7 +10,7 @@
 
 import { createAdminClient } from '../supabase/admin';
 import { recordEvents } from '../analytics';
-import { getOrderById, setItemStatus, setOrderStatus, type Order } from '../orders';
+import { getOrderById, setOrderStatus, type ItemStatus, type Order } from '../orders';
 import { getPassport } from '../passport-store';
 import { getOrderProfile } from '../order-profile-store';
 import { insuranceRouteFor } from '../insurance/route';
@@ -39,6 +39,7 @@ import { inquiryPacket } from './packet';
  * Safe to call twice; the second call returns what the first one opened.
  */
 export async function openBookings(order: Order): Promise<Booking[]> {
+  if (!order.sandbox) throw new Error('not a sandbox order');
   const existing = await listBookings(order.id, order.orgId);
   if (existing.length > 0) return existing;
 
@@ -281,13 +282,20 @@ const EFFECTS: Record<BookingEventType, (ctx: EffectContext) => Promise<Effect>>
  * lands on that house's lines, and the order's status is read off every house.
  */
 async function projectOntoOrder(order: Order, booking: Booking, input: BookingEventInput, after: Booking[]) {
-  const lines = order.items.filter((i) => i.source === booking.vendorId);
-  if (input.event === 'confirm') {
-    for (const line of lines) await setItemStatus(line.id, order.orgId, 'confirmed', { note: null });
-  }
-  if (input.event === 'decline') {
-    const note = input.note?.trim() || 'Declined by the house.';
-    for (const line of lines) await setItemStatus(line.id, order.orgId, 'unavailable', { note });
+  const answer: { status: ItemStatus; status_note: string | null } | null =
+    input.event === 'confirm'
+      ? { status: 'confirmed', status_note: null }
+      : input.event === 'decline'
+        ? { status: 'unavailable', status_note: input.note?.trim() || 'Declined by the house.' }
+        : null;
+  if (answer) {
+    // `order` was loaded scoped to its org, so its id alone scopes the lines.
+    const { error } = await createAdminClient()
+      .from('order_items')
+      .update(answer)
+      .eq('order_id', order.id)
+      .eq('source', booking.vendorId);
+    if (error) throw error;
   }
   const status = orderStatusFor(after.map((b) => b.stage));
   if (status !== order.status) await setOrderStatus(order.id, order.orgId, status);

@@ -6,6 +6,7 @@
  * Prop Haus fills data fields only; the signature is always the user's.
  */
 
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireOrgId } from '@/lib/session';
@@ -17,6 +18,8 @@ import { MockSignButton } from '@/components/orders/mock-sign-button';
 
 type Props = { params: Promise<{ id: string; docId: string }> };
 
+export const metadata: Metadata = { title: 'Sign · Prop Haus' };
+
 export default async function SignPage({ params }: Props) {
   const { id, docId } = await params;
   const orgId = await requireOrgId(`/orders/${id}/sign/${docId}`);
@@ -24,7 +27,10 @@ export default async function SignPage({ params }: Props) {
   const doc = await getOrderDocument(docId, orgId);
   if (!doc || doc.orderId !== id) notFound();
 
-  const mock = formsProvider() === 'mock' || doc.signUrl?.includes('mock=1');
+  // The mock-sign route only answers under the mock provider, so a mock-filled
+  // document under Anvil has nothing to sign until it is refilled.
+  const mock = formsProvider() === 'mock';
+  const mockFilled = doc.signUrl?.includes('mock=1');
 
   return (
     <PageShell>
@@ -48,17 +54,21 @@ export default async function SignPage({ params }: Props) {
         ) : doc.status !== 'awaiting_signature' || !doc.signUrl ? (
           <p className="font-mono text-[13px] text-text-secondary">This document is not waiting for a signature.</p>
         ) : mock ? (
-          <div className="rounded-md border border-border bg-surface-raised p-6">
+          <div className="border border-border bg-surface-raised p-6">
             <p className="mb-5 font-mono text-[12px] text-text-tertiary">
               Mock signing. With FORMS_PROVIDER=anvil this is the Anvil signing frame.
             </p>
             <MockSignButton orderId={id} documentId={doc.id} />
           </div>
+        ) : mockFilled ? (
+          <p className="font-mono text-[13px] text-text-secondary">
+            This copy was filled without Anvil. Refill it from the order to sign it.
+          </p>
         ) : (
           <iframe
             src={doc.signUrl}
             title={`Sign ${doc.label}`}
-            className="h-[80vh] w-full rounded-md border border-border bg-surface-raised"
+            className="h-[80vh] w-full border border-border bg-surface-raised"
             allow="camera; clipboard-write"
           />
         )}
@@ -66,14 +76,14 @@ export default async function SignPage({ params }: Props) {
         <div className="mt-10 flex gap-3">
           <Link
             href={`/orders/${id}`}
-            className="rounded-md border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
+            className="border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
           >
             Back to order
           </Link>
           {doc.storagePath && (
             <a
               href={`/api/forms/${doc.id}/download`}
-              className="rounded-md border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
+              className="border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
             >
               Download
             </a>

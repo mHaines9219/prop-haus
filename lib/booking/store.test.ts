@@ -57,6 +57,13 @@ describe('openBookings', () => {
     );
   });
 
+  it('refuses a live order and writes nothing', async () => {
+    seed({ sandbox: false });
+    await expect(open()).rejects.toThrow('not a sandbox order');
+    expect(db.rows('order_bookings')).toHaveLength(0);
+    expect(db.rows('orders')[0].payment_method).toBeFalsy();
+  });
+
   it('is safe to call twice', async () => {
     seed();
     await open();
@@ -130,6 +137,7 @@ describe('advanceBooking', () => {
       status: 'unavailable',
       status_note: 'Out on another show.',
     });
+    expect(db.rows('order_items').find((i) => i.id === 'oi-1')!.status).toBe('pending');
     expect(db.rows('orders')[0].status).toBe('processing');
 
     await step('omega', { event: 'confirm', amountCents: 12_000 });

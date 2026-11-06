@@ -119,7 +119,7 @@ describe('POST refusals', () => {
     db.failNextStorage('upload', 'bucket offline');
     const res = await upload(fileOf('coi.pdf', 'application/pdf', 16));
     expect(res.status).toBe(500);
-    expect(await readJson(res)).toEqual({ error: 'upload failed: bucket offline' });
+    expect(await readJson(res)).toEqual({ error: 'upload failed' });
     expect(db.bucket('paperwork').size).toBe(0);
     expect(db.rows('organizations')[0].order_profile).toEqual(READY_PROFILE);
   });

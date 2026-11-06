@@ -36,7 +36,6 @@ let fetchMock: ReturnType<typeof vi.fn>;
 async function openModal() {
   render(<JoinRoster />);
   await userEvent.click(screen.getByRole('button', { name: CREW_COPY.joinCta }));
-  // The modal autofocuses the name field after 50ms; typing before that loses focus mid-word.
   await waitFor(() => expect(screen.getByPlaceholderText('Your name')).toHaveFocus());
   return screen.getByRole('dialog');
 }
@@ -67,6 +66,12 @@ describe('JoinRoster', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('returns focus to the join button on close', async () => {
+    await openModal();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('button', { name: CREW_COPY.joinCta })).toHaveFocus();
   });
 
   it('keeps submit disabled until every field is filled', async () => {

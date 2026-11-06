@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { currentSession } from '@/lib/session';
-import { createOrder, type CartLineInput } from '@/lib/orders';
+import { createOrder, parseCartLines } from '@/lib/orders';
 import { getProject } from '@/lib/projects';
 import {
   applyProductionPatch,
@@ -10,7 +10,7 @@ import {
   orderReadiness,
   orderRequestReadiness,
 } from '@/lib/order-profile';
-import { getOrderProfile, updateOrderProfile } from '@/lib/order-profile-store';
+import { getOrderProfileForUpdate, updateOrderProfile } from '@/lib/order-profile-store';
 import { recordEvents } from '@/lib/analytics';
 import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
 import { formsEnabled, formsProvider } from '@/lib/forms/filler';
@@ -19,11 +19,11 @@ import { listOrderMessages, normalizeOverrides, sendOrderOutreach } from '@/lib/
 import { openBookings } from '@/lib/booking/store';
 
 type CheckoutBody = {
-  lines: CartLineInput[];
-  rentalStart?: string;
-  rentalEnd?: string;
+  lines?: unknown;
+  rentalStart?: unknown;
+  rentalEnd?: unknown;
   deliveryAddress?: unknown;
-  deliveryNotes?: string;
+  deliveryNotes?: unknown;
   /** From the cart's request form: what is being shot and how the pieces are used. */
   shootDetails?: unknown;
   /**
@@ -42,24 +42,35 @@ type CheckoutBody = {
    * one thing while the session says another.
    */
   sandbox?: unknown;
-  idempotencyKey: string;
+  idempotencyKey?: unknown;
 };
 
 export async function POST(req: Request) {
   const session = await currentSession();
   if (!session) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
 
-  const body = (await req.json()) as CheckoutBody;
+  const body = (await req.json().catch(() => null)) as CheckoutBody | null;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+  }
 
-  if (!body.idempotencyKey) {
+  const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
+  if (!idempotencyKey) {
     return NextResponse.json({ error: 'idempotencyKey is required' }, { status: 400 });
+  }
+  if (idempotencyKey.length > IDEMPOTENCY_KEY_MAX) {
+    return NextResponse.json({ error: 'idempotencyKey is too long' }, { status: 400 });
   }
   if (!Array.isArray(body.lines) || body.lines.length === 0) {
     return NextResponse.json({ error: 'cart is empty' }, { status: 400 });
   }
+  const lines = parseCartLines(body.lines);
+  if (!lines) {
+    return NextResponse.json({ error: 'a cart line is invalid' }, { status: 400 });
+  }
   // A cart left open while the sandbox switch was flipped elsewhere still
   // shows the old mode. Placing a live order from a page that promised
-  // "nothing sent" is the one way a sandbox test could email a vendor, so a
+  // "mail to the test inbox" is the one way a sandbox test could email a vendor, so a
   // mismatch in either direction is refused before anything is written.
   if (typeof body.sandbox === 'boolean' && body.sandbox !== session.sandbox) {
     return NextResponse.json({ error: MODE_CHANGED, reason: 'mode_changed' }, { status: 409 });
@@ -69,7 +80,9 @@ export async function POST(req: Request) {
   // leaves out, and an incomplete profile refuses rather than placing a half
   // order. The cart's production fields land on the profile before that
   // check, so filling them in the cart is the same as filling the profile.
-  let profile = await getOrderProfile(session.orgId);
+  // The strict read: the production patch below writes the profile back, and
+  // an outage read as "empty" would erase it.
+  let profile = await getOrderProfileForUpdate(session.orgId);
   const production = normalizeProductionPatch(body.production);
   if (production) {
     profile = applyProductionPatch(profile, production, { userId: session.userId });
@@ -121,10 +134,10 @@ export async function POST(req: Request) {
   const order = await createOrder({
     orgId: session.orgId,
     projectId,
-    lines: body.lines,
+    lines,
     ...request,
     sandbox: session.sandbox,
-    idempotencyKey: body.idempotencyKey,
+    idempotencyKey,
   });
   // A replayed key returns the order as it was first placed. If that was in
   // the other mode, running this mode's steps on it would be wrong either way.
@@ -196,6 +209,8 @@ export async function POST(req: Request) {
 }
 
 const SHOOT_DETAILS_MAX = 4000;
+
+const IDEMPOTENCY_KEY_MAX = 200;
 
 const MODE_CHANGED = 'Sandbox mode changed since this cart loaded. Reload the cart and place the order again.';
 

@@ -205,7 +205,7 @@ export default async function AccountPage() {
           </div>
           <Link
             href="/projects"
-            className="inline-flex h-9 items-center rounded-[2px] bg-primary px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover"
+            className="inline-flex h-9 items-center bg-primary px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary-foreground transition-colors duration-150 hover:bg-primary-hover"
           >
             Open Dashboard
           </Link>

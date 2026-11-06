@@ -42,10 +42,18 @@ describe('POST /api/projects/[id]/archive', () => {
     expect(db.rows('projects')[0].archived_at).toBeNull();
   });
 
-  it('rejects a malformed JSON body rather than archiving', async () => {
+  it('400 for a malformed JSON body rather than archiving', async () => {
     seedProject();
-    await expect(POST(rawRequest(`/api/projects/${PROJECT_ID}/archive`, '{nope'), params({ id: PROJECT_ID }))).rejects.toThrow();
+    const res = await POST(rawRequest(`/api/projects/${PROJECT_ID}/archive`, '{nope'), params({ id: PROJECT_ID }));
+    expect(res.status).toBe(400);
+    expect(await readJson(res)).toEqual({ error: 'invalid JSON' });
     expect(db.rows('projects')[0].archived_at).toBeNull();
+  });
+
+  it('401 for a signed-out caller even with a malformed body', async () => {
+    signOut();
+    const res = await POST(rawRequest(`/api/projects/${PROJECT_ID}/archive`, '{nope'), params({ id: PROJECT_ID }));
+    expect(res.status).toBe(401);
   });
 
   it('archives the project and answers with the timestamp', async () => {

@@ -6,6 +6,7 @@
  * project's Jobs rows link here; there is no separate job detail route.
  */
 
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getJobDetail } from '@/lib/jobs';
@@ -32,6 +33,11 @@ import {
 } from '@/components/ap/status-token';
 
 type Props = { params: Promise<{ id: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  return { title: `Order #${id.slice(0, 8).toUpperCase()} · Prop Haus` };
+}
 
 export default async function OrderPage({ params }: Props) {
   const { id } = await params;
@@ -94,7 +100,7 @@ export default async function OrderPage({ params }: Props) {
             </h1>
             <StatusToken {...orderStatusSpec(order.status)} />
             <JobStatusSelect orderId={order.id} value={order.jobStatus} label="Job status" />
-            {order.sandbox && <span className="tag">Sandbox · nothing sent</span>}
+            {order.sandbox && <span className="tag">Sandbox · mail to the test inbox</span>}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-text-secondary">
             <span>{placedDate}</span>
@@ -108,7 +114,7 @@ export default async function OrderPage({ params }: Props) {
 
         {/* The request: what the cart form asked for, as every vendor got it */}
         {(order.rentalStart || order.rentalEnd || order.deliveryAddress || order.shootDetails) && (
-          <div className="mb-8 rounded-md border border-border bg-surface-raised p-5">
+          <div className="mb-8 border border-border bg-surface-raised p-5">
             <p className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
               Request
             </p>
@@ -157,7 +163,7 @@ export default async function OrderPage({ params }: Props) {
         />
 
         {/* ── MVP-11 — Vendor requests (what went out, to whom, did it land) ── */}
-        <VendorRequests initial={messages} />
+        <VendorRequests initial={messages} sandbox={order.sandbox} />
         {/* ── end MVP-11 ── */}
 
         {/* Items grouped by vendor */}
@@ -197,13 +203,13 @@ export default async function OrderPage({ params }: Props) {
         <div className="mt-10 flex gap-3">
           <Link
             href={order.projectId ? `/projects/${order.projectId}` : '/projects'}
-            className="rounded-md border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
+            className="border border-border px-4 py-2.5 font-mono text-[13px] text-foreground transition-colors hover:bg-surface-raised"
           >
             {order.projectId ? 'Back to project' : 'Dashboard'}
           </Link>
           <Link
             href="/search"
-            className="rounded-md border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             Browse catalog
           </Link>
@@ -221,7 +227,7 @@ function todayInLosAngeles(): string {
 function OrderItemRow({ item }: { item: OrderItem }) {
   return (
     <div className="flex items-center gap-4 py-4">
-      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md">
+      <div className="h-16 w-16 shrink-0 overflow-hidden">
         <LightWell src={item.image} alt={item.name} mode="photo" fill name={item.name} />
       </div>
       <div className="min-w-0 flex-1">

@@ -26,10 +26,12 @@ export function FolderActions({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   function cancel() {
     setEditing(false);
     setDraft(name);
+    setError('');
   }
 
   async function rename() {
@@ -39,16 +41,18 @@ export function FolderActions({
       return;
     }
     setBusy(true);
+    setError('');
     try {
       const res = await fetch(`/api/projects/${projectId}/folders/${folderId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
       });
-      if (res.ok) {
-        setEditing(false);
-        router.refresh();
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setEditing(false);
+      router.refresh();
+    } catch {
+      setError('Couldn’t rename. Try again.');
     } finally {
       setBusy(false);
     }
@@ -61,9 +65,12 @@ export function FolderActions({
         : `Delete “${name}”?`;
     if (!window.confirm(what)) return;
     setBusy(true);
+    setError('');
     try {
       await deleteJson(`/api/projects/${projectId}/folders/${folderId}`);
       router.refresh();
+    } catch {
+      setError('Couldn’t delete. Try again.');
     } finally {
       setBusy(false);
     }
@@ -89,12 +96,12 @@ export function FolderActions({
           autoFocus
           disabled={busy}
           aria-label="Folder name"
-          className="h-8 w-full min-w-0 rounded-md border border-border bg-surface-inset px-2 font-mono text-[12px] text-foreground focus:border-accent focus:outline-none sm:w-48"
+          className="h-8 w-full min-w-0 border border-border bg-surface-inset px-2 font-mono text-[12px] text-foreground focus:border-accent focus:outline-none sm:w-48"
         />
         <button
           type="submit"
           disabled={busy}
-          className="h-8 rounded-md border border-accent px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-40"
+          className="h-8 border border-accent px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-40"
         >
           Save
         </button>
@@ -105,6 +112,11 @@ export function FolderActions({
         >
           Cancel
         </button>
+        {error && (
+          <span role="alert" className="font-mono text-[11px] text-destructive">
+            {error}
+          </span>
+        )}
       </form>
     );
   }
@@ -116,6 +128,7 @@ export function FolderActions({
         disabled={busy}
         onClick={() => {
           setDraft(name);
+          setError('');
           setEditing(true);
         }}
         className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:text-foreground disabled:opacity-40"
@@ -131,6 +144,11 @@ export function FolderActions({
         >
           Delete
         </button>
+      )}
+      {error && (
+        <span role="alert" className="font-mono text-[11px] text-destructive">
+          {error}
+        </span>
       )}
     </span>
   );

@@ -6,6 +6,10 @@ import {
   ROSTER_MAX_TOTAL_BYTES,
   ROSTER_MAX_WORK_PHOTOS,
 } from '@/lib/crew';
+import { clientIp, createRateLimiter } from '@/lib/rate-limit';
+
+// Public and unauthenticated, and every accepted request sends an email.
+const rateLimited = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -23,9 +27,14 @@ const noStorage = async (path: string): Promise<Buffer> => {
  * Public: a contractor applies to join the crew roster. The application is
  * emailed to the crew inbox with the headshot and work photos attached —
  * nothing is stored. The `company` field is a honeypot: bots fill it, people
- * never see it, and a tripped honeypot gets a fake success.
+ * never see it, and a tripped honeypot gets a fake success. Each IP gets five
+ * attempts an hour.
  */
 export async function POST(req: Request) {
+  if (rateLimited(clientIp(req), Date.now())) {
+    return NextResponse.json({ error: 'Too many applications. Try again later.' }, { status: 429 });
+  }
+
   let form: FormData;
   try {
     form = await req.formData();

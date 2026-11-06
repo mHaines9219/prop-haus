@@ -16,11 +16,15 @@ import { EMPTY_PASSPORT } from '../passport';
 import { recordEvents } from '../analytics';
 import { mailer, type MailAttachment } from '../mail/provider';
 import { VENDORS } from '../vendors';
+import { refreshVendorLinks, replyLinksFor } from '../vendor-links';
+import { SANDBOX_INBOX } from './constants';
 import type { Order } from '../orders';
-import { composeOutreach, textToHtml, type Draft, type DraftAttachment, type VendorDocument } from './compose';
+import { appendReplyLinks, composeOutreach, textToHtml, type Draft, type DraftAttachment, type VendorDocument } from './compose';
 
-/** `sandbox`: written for a sandbox order and never handed to a mailer. */
+/** `sandbox`: written for a sandbox order before Nov 6 2026, when sandbox orders sent nothing. */
 export type MessageStatus = 'sending' | 'sent' | 'failed' | 'sandbox';
+
+export { SANDBOX_INBOX } from './constants';
 
 export type OutboundMessage = {
   id: string;
@@ -78,6 +82,7 @@ export async function sendOrderOutreach(
     const drafts = composeOutreach({
       lines: order.items.map((i) => ({
         itemId: i.itemId,
+        orderItemId: i.id,
         source: i.source,
         sourceId: i.sourceId,
         name: i.name,
@@ -97,18 +102,15 @@ export async function sendOrderOutreach(
       passport,
       fallbackTo: process.env.OUTREACH_FALLBACK_TO,
       bookingFlow: order.sandbox,
+      replyLinks: replyLinksFor(order),
     });
 
     const overrides = new Map((opts.overrides ?? []).map((o) => [o.vendorId, o]));
     for (const draft of drafts) {
       const override = overrides.get(draft.vendorId);
-      const message = applyOverride(draft, override);
-      // A sandbox order's inquiries are a record of what would go out. The
-      // mailer is never reached, whatever MAIL_PROVIDER says.
-      if (order.sandbox) {
-        await insertMessage(order, message, Boolean(override), 'sandbox');
-        continue;
-      }
+      // A sandbox order's inquiries go to the test inbox, never to the house,
+      // so the reply links can be tried from a real mail client.
+      const message = order.sandbox ? toSandboxInbox(applyOverride(draft, override)) : applyOverride(draft, override);
       const row = await insertMessage(order, message, Boolean(override), 'sending');
       await deliver(row, order.orgId);
     }
@@ -147,7 +149,10 @@ export type RetryResult =
   | { ok: true; message: OutboundMessage }
   | { ok: false; reason: 'not_found' | 'not_failed' };
 
-/** Re-send a failed message exactly as stored. Org-scoped. */
+/**
+ * Re-send a failed message as stored, with its vendor reply links re-signed so
+ * the retry never carries a token minted at the first attempt. Org-scoped.
+ */
 export async function retryOutboundMessage(id: string, orgId: string): Promise<RetryResult> {
   const db = createAdminClient();
   const { data } = await db.from('outbound_messages').select('*').eq('id', id).eq('org_id', orgId).maybeSingle();
@@ -155,19 +160,35 @@ export async function retryOutboundMessage(id: string, orgId: string): Promise<R
   const message = toMessage(data as MessageRow);
   if (message.status !== 'failed') return { ok: false, reason: 'not_failed' };
 
-  await db
+  const bodyText = refreshVendorLinks(message.bodyText);
+  const bodyHtml = refreshVendorLinks(message.bodyHtml);
+  // Claim the row only while it is still failed, so a double-click sends once.
+  const { data: claimed } = await db
     .from('outbound_messages')
-    .update({ status: 'sending', error: null, updated_at: new Date().toISOString() })
-    .eq('id', id);
-  const sent = await deliver({ ...message, status: 'sending', error: undefined }, orgId);
+    .update({ status: 'sending', error: null, body_text: bodyText, body_html: bodyHtml, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', 'failed')
+    .select('id');
+  if (!claimed?.length) return { ok: false, reason: 'not_failed' };
+  const sent = await deliver({ ...message, bodyText, bodyHtml, status: 'sending', error: undefined }, orgId);
   return { ok: true, message: sent };
 }
 
 // ---- internal ----
 
+function toSandboxInbox(draft: Draft): Draft {
+  return {
+    ...draft,
+    to: SANDBOX_INBOX,
+    needsVendorAddress: false,
+    cc: [],
+    subject: `[Sandbox · to ${draft.vendorName}] ${draft.subject.replace(/^\[needs vendor address\] /, '')}`,
+  };
+}
+
 function applyOverride(draft: Draft, override: MessageOverride | undefined): Draft {
   if (!override) return draft;
-  const bodyText = override.bodyText ?? draft.bodyText;
+  const bodyText = override.bodyText ? appendReplyLinks(override.bodyText, draft.items) : draft.bodyText;
   return {
     ...draft,
     subject: override.subject ?? draft.subject,
@@ -180,7 +201,7 @@ async function insertMessage(
   order: Order,
   draft: Draft,
   edited: boolean,
-  status: 'sending' | 'sandbox',
+  status: 'sending',
 ): Promise<OutboundMessage> {
   const { data, error } = await createAdminClient()
     .from('outbound_messages')

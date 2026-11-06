@@ -1,8 +1,11 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { listOrders } from '@/lib/orders';
 import { requireOrgId } from '@/lib/session';
 import { PageShell } from '@/components/ap/page-shell';
 import { StatusToken, orderStatusSpec } from '@/components/ap/status-token';
+
+export const metadata: Metadata = { title: 'Orders · Prop Haus' };
 
 export default async function OrdersPage() {
   const orgId = await requireOrgId('/orders');
@@ -29,7 +32,7 @@ export default async function OrdersPage() {
             </p>
             <Link
               href="/"
-              className="mt-6 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text lift-sm hover:bg-accent hover:text-accent-foreground"
+              className="mt-6 inline-block border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text lift-sm hover:bg-accent hover:text-accent-foreground"
             >
               Browse catalog
             </Link>

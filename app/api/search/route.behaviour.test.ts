@@ -250,11 +250,15 @@ describe('vision', () => {
 });
 
 describe('provider failure', () => {
-  it('502 with the message and mode, charging and recording nothing', async () => {
+  it('502 with a generic message and the mode, never the provider detail, charging and recording nothing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(runSearch).mockRejectedValue(new Error('upstream 529'));
     const res = await search({ query: 'walnut', mode: 'sonnet' });
     expect(res.status).toBe(502);
-    expect(await readJson(res)).toEqual({ error: 'upstream 529', mode: 'sonnet' });
+    expect(await readJson(res)).toEqual({
+      error: 'AI search is unavailable right now. Try again, or use keyword search.',
+      mode: 'sonnet',
+    });
     expect(recordUsage).not.toHaveBeenCalled();
     expect(db.rows('events')).toEqual([]);
   });

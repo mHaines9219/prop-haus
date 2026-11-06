@@ -475,7 +475,7 @@ describe('addDocument', () => {
 
   it('is a 500 with no row when storage refuses', async () => {
     db.failNextStorage('upload', 'bucket full');
-    await expect(addDocument(ORG_ID, 'p1', 'p1-paper', PDF)).resolves.toEqual({ ok: false, status: 500, error: 'upload failed: bucket full' });
+    await expect(addDocument(ORG_ID, 'p1', 'p1-paper', PDF)).resolves.toEqual({ ok: false, status: 500, error: 'upload failed' });
     expect(db.rows('project_documents')).toEqual([]);
     expect(projectRow('p1').updated_at).toBe(T0);
   });

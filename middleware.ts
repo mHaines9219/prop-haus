@@ -20,7 +20,8 @@ import { createServerClient } from "@supabase/ssr";
  */
 
 // Routes that only make sense with an owner. Everything else (browse, search,
-// item pages, cart) stays public.
+// item pages, cart, and /vendor/respond, where a vendor's signed reply link
+// lands with no account) stays public.
 const PROTECTED_PREFIXES = ['/projects'];
 
 function isProtected(pathname: string): boolean {
@@ -105,5 +106,11 @@ export const config = {
     // The studio chat answers anyone through the mock but asks who is
     // asking, so a real OpenRouter key can be limited to signed-in orgs.
     "/api/spacelab/chat",
+    // Preparing a room reads the session; the room file under /:id is
+    // token-gated and public, so only the exact path is matched.
+    "/api/spacelab/scenes",
+    // The click-out beacon attaches the org when there is a session. It is
+    // fired on the way out, so the round trip costs the visitor nothing.
+    "/api/events/outbound-click",
   ],
 };
