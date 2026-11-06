@@ -11,6 +11,7 @@ vi.mock('@/lib/catalog-db', () => ({
   categoryCards: vi.fn(),
   filterCategoryCards: vi.fn(),
   categoryAttributeFacets: vi.fn(),
+  catalogOrEmpty: (_empty: unknown, read: () => unknown) => read(),
 }));
 
 const catalog = vi.mocked(await import('@/lib/catalog-db'));

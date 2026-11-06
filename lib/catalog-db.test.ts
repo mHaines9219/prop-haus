@@ -515,3 +515,19 @@ describe('catalogFacets', () => {
     await expect(catalogFacets()).rejects.toThrow('[catalog-db] facets failed: no such function');
   });
 });
+
+describe('catalogOrEmpty', () => {
+  it('reads when configured, and answers the empty value with one warning when not', async () => {
+    const { catalogOrEmpty } = await import('./catalog-db');
+    await expect(catalogOrEmpty('empty', async () => 'read')).resolves.toBe('read');
+
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const read = vi.fn(async () => 'read');
+    await expect(catalogOrEmpty('empty', read)).resolves.toBe('empty');
+    await expect(catalogOrEmpty('empty', read)).resolves.toBe('empty');
+    expect(read).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toMatch(/catalog pages render empty/);
+  });
+});

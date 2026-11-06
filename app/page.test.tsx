@@ -5,7 +5,11 @@ import type { Facets } from '@/lib/catalog-db';
 import HomePage from './page';
 
 vi.mock('@/components/ap/site-nav', () => ({ SiteNav: () => <header data-testid="site-nav" /> }));
-vi.mock('@/lib/catalog-db', () => ({ catalogFacets: vi.fn() }));
+vi.mock('@/lib/catalog-db', () => ({
+  catalogFacets: vi.fn(),
+  catalogOrEmpty: (_empty: unknown, read: () => unknown) => read(),
+  EMPTY_CATALOG_FACETS: { categories: {}, vendors: {}, total: 0 },
+}));
 
 const catalog = vi.mocked(await import('@/lib/catalog-db'));
 
