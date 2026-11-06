@@ -1,34 +1,20 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState, type FormEvent } from 'react';
+import { applyCommands, placeholderScene, type Scene, type SceneCommand } from '@/lib/spacelab/studio/scene';
+import type { ChatTurn } from '@/lib/spacelab/studio/chat';
+import { FloorPlan } from './floor-plan';
 
-/** A thing in the scene: one line in the items rail. */
-export type SceneItem = {
-  id: string;
-  name: string;
-  vendor: string;
-  /** Placed in the room, or still waiting in the rail. */
-  placed: boolean;
-};
+/** three.js needs a window, so the render view never renders on the server. */
+const RenderView = dynamic(() => import('./render-view').then((m) => m.RenderView), {
+  ssr: false,
+  loading: () => <p className="p-5 text-[13px] text-text-tertiary">Loading the room…</p>,
+});
 
-/** One turn of the conversation that drives the scene. */
-export type ChatMessage = {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
-};
+type Message = ChatTurn & { id: string };
 
-/** Placeholder scene until an order feeds the studio. */
-const PLACEHOLDER_ITEMS: SceneItem[] = [
-  { id: 'i1', name: 'Tufted velvet sofa', vendor: 'Newel', placed: true },
-  { id: 'i2', name: 'Brass floor lamp', vendor: 'Prop N Spoon', placed: true },
-  { id: 'i3', name: 'Walnut coffee table', vendor: 'Eclectic', placed: true },
-  { id: 'i4', name: 'Rattan armchair', vendor: 'Newel', placed: false },
-  { id: 'i5', name: 'Ficus, 6 ft', vendor: 'Eclectic', placed: false },
-  { id: 'i6', name: 'Shag rug, 8×10', vendor: 'Prop N Spoon', placed: false },
-];
-
-const OPENING_MESSAGE: ChatMessage = {
+const OPENING: Message = {
   id: 'm0',
   role: 'model',
   text: 'Describe the room or move something. "Put the sofa against the back wall, lamp to its left."',
@@ -39,25 +25,51 @@ const EYEBROW =
 
 /**
  * The studio: header, items rail with the floor plan under it, render window
- * on the right two-thirds, chat under the render. Everything is local state
- * and placeholder data; the render window and the model are not wired.
+ * on the right two-thirds, chat under the render. The scene document is the
+ * only state the panels share; chat turns become SceneCommands through
+ * /api/spacelab/chat and are applied here with the same reducer the server
+ * validates against.
  */
-export function SpacelabStudio() {
-  const [items] = useState<SceneItem[]>(PLACEHOLDER_ITEMS);
-  const [messages, setMessages] = useState<ChatMessage[]>([OPENING_MESSAGE]);
+export function SpacelabStudio({ initialScene }: { initialScene?: Scene } = {}) {
+  const [scene, setScene] = useState<Scene>(() => initialScene ?? placeholderScene());
+  const [messages, setMessages] = useState<Message[]>([OPENING]);
   const [draft, setDraft] = useState('');
-  const placed = items.filter((i) => i.placed).length;
+  const [busy, setBusy] = useState(false);
+  const placedCount = Object.keys(scene.placements).length;
 
-  function send(e: FormEvent) {
+  async function send(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
-    if (!text) return;
-    setMessages((m) => [
-      ...m,
-      { id: `u${m.length}`, role: 'user', text },
-      { id: `r${m.length}`, role: 'model', text: 'The model is not connected yet. This is the scaffold.' },
-    ]);
+    if (!text || busy) return;
+    const history = messages.map(({ role, text }) => ({ role, text }));
+    setMessages((m) => [...m, { id: `u${m.length}`, role: 'user', text }]);
     setDraft('');
+    setBusy(true);
+    try {
+      const res = await fetch('/api/spacelab/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scene, history, message: text }),
+      });
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({ error: 'failed' }))) as { error?: string };
+        throw new Error(error ?? 'failed');
+      }
+      const { reply, commands } = (await res.json()) as { reply: string; commands: SceneCommand[] };
+      setScene((s) => applyCommands(s, commands).scene);
+      setMessages((m) => [...m, { id: `r${m.length}`, role: 'model', text: reply }]);
+    } catch (err) {
+      const why = err instanceof Error ? err.message : 'failed';
+      const text =
+        why === 'not signed in'
+          ? 'Sign in to talk to the model.'
+          : why === 'rate_limited'
+            ? 'Too many messages in a minute. Give it a moment.'
+            : 'The model did not answer. Try again.';
+      setMessages((m) => [...m, { id: `e${m.length}`, role: 'model', text }]);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -82,30 +94,29 @@ export function SpacelabStudio() {
             Items
           </h2>
           <span className="tag">
-            {placed}/{items.length} placed
+            {placedCount}/{scene.items.length} placed
           </span>
         </div>
         <ol className="min-h-0 flex-1 overflow-y-auto">
-          {items.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-center gap-3 border-b border-border px-5 py-3 text-[13px] leading-[18px]"
-            >
-              <span
-                aria-hidden
-                className={
-                  item.placed
-                    ? 'size-2.5 shrink-0 bg-accent ring-1 ring-ink'
-                    : 'size-2.5 shrink-0 border border-ink'
-                }
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{item.name}</span>
-                <span className="block truncate text-text-tertiary">{item.vendor}</span>
-              </span>
-              <span className={EYEBROW}>{item.placed ? 'In room' : 'Waiting'}</span>
-            </li>
-          ))}
+          {scene.items.map((item) => {
+            const placed = Boolean(scene.placements[item.id]);
+            return (
+              <li
+                key={item.id}
+                className="flex items-center gap-3 border-b border-border px-5 py-3 text-[13px] leading-[18px]"
+              >
+                <span
+                  aria-hidden
+                  className={placed ? 'size-2.5 shrink-0 bg-accent ring-1 ring-ink' : 'size-2.5 shrink-0 border border-ink'}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{item.name}</span>
+                  <span className="block truncate text-text-tertiary">{item.vendor}</span>
+                </span>
+                <span className={EYEBROW}>{placed ? 'In room' : 'Waiting'}</span>
+              </li>
+            );
+          })}
         </ol>
       </section>
 
@@ -113,11 +124,11 @@ export function SpacelabStudio() {
         aria-labelledby="render-heading"
         className="relative flex min-h-[320px] flex-col border-b-[1.5px] border-ink md:min-h-0"
       >
-        <h2 id="render-heading" className={`${EYEBROW} absolute left-5 top-3`}>
+        <h2 id="render-heading" className={`${EYEBROW} absolute left-5 top-3 z-10`}>
           Render
         </h2>
-        <div className="flex min-h-0 flex-1 items-center justify-center p-5 pt-10">
-          <RenderPlaceholder />
+        <div className="min-h-0 flex-1">
+          <RenderView scene={scene} />
         </div>
       </section>
 
@@ -129,7 +140,7 @@ export function SpacelabStudio() {
           Floor plan
         </h2>
         <div className="flex items-center justify-center px-5 pb-4 pt-2">
-          <FloorPlanSkeleton />
+          <FloorPlan scene={scene} />
         </div>
       </section>
 
@@ -144,6 +155,11 @@ export function SpacelabStudio() {
               <span className={m.role === 'user' ? 'font-medium' : 'text-text-secondary'}>{m.text}</span>
             </li>
           ))}
+          {busy && (
+            <li className={`${EYEBROW} animate-pulse`} aria-label="Thinking">
+              Thinking…
+            </li>
+          )}
         </ol>
         <form onSubmit={send} className="flex items-stretch border-t-[1.5px] border-ink bg-input">
           <label htmlFor="chat-draft" className="sr-only">
@@ -155,70 +171,14 @@ export function SpacelabStudio() {
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Move the sofa to the back wall…"
             autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent px-5 py-3 text-[14px] leading-[20px] outline-none placeholder:text-text-tertiary"
+            disabled={busy}
+            className="min-w-0 flex-1 bg-transparent px-5 py-3 text-[14px] leading-[20px] outline-none placeholder:text-text-tertiary disabled:opacity-60"
           />
-          <button type="submit" className="tag lift-sm m-2">
+          <button type="submit" disabled={busy} className="tag lift-sm m-2 disabled:opacity-60">
             Send
           </button>
         </form>
       </section>
     </div>
-  );
-}
-
-/** An empty room drawn in ink: floor grid in one-point perspective, two walls. */
-function RenderPlaceholder() {
-  return (
-    <svg
-      viewBox="0 0 640 360"
-      role="img"
-      aria-label="Empty room. The scene renders here."
-      className="h-full max-h-[520px] w-full max-w-[920px] border-[1.5px] border-ink bg-card"
-    >
-      <g stroke="var(--ink)" strokeWidth="1.5" fill="none">
-        <path d="M0 240 L640 240" />
-        <path d="M0 240 L220 120 L420 120 L640 240" />
-        <path d="M220 0 L220 120" />
-        <path d="M420 0 L420 120" />
-      </g>
-      <g stroke="var(--border)" strokeWidth="1" fill="none">
-        {[80, 160, 240, 320, 400, 480, 560].map((x) => (
-          <path key={x} d={`M${x} 360 L${220 + ((420 - 220) * x) / 640} 120`} />
-        ))}
-        {[150, 190, 260, 300].map((y) => (
-          <path key={y} d={`M0 ${y} L640 ${y}`} />
-        ))}
-      </g>
-      <text
-        x="320"
-        y="330"
-        textAnchor="middle"
-        fill="var(--text-tertiary)"
-        fontSize="12"
-        fontFamily="var(--font-body)"
-        letterSpacing="1"
-      >
-        SCENE RENDERS HERE
-      </text>
-    </svg>
-  );
-}
-
-/** The room's outline, top-down, with a door swing: the skeleton the scene stands on. */
-function FloorPlanSkeleton() {
-  return (
-    <svg
-      viewBox="0 0 200 120"
-      role="img"
-      aria-label="Floor plan: a rectangular room with one door"
-      className="h-[120px] w-full max-w-[200px]"
-    >
-      <rect x="10" y="10" width="180" height="100" fill="var(--card)" stroke="var(--ink)" strokeWidth="2" />
-      <path d="M70 110 L100 110" stroke="var(--background)" strokeWidth="3" />
-      <path d="M70 110 A30 30 0 0 1 100 80" fill="none" stroke="var(--ink)" strokeWidth="1" strokeDasharray="3 2" />
-      <text x="100" y="64" textAnchor="middle" fill="var(--text-tertiary)" fontSize="9" fontFamily="var(--font-body)">
-        18′ × 12′
-      </text>
-    </svg>
   );
 }

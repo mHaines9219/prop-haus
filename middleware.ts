@@ -102,5 +102,8 @@ export const config = {
     // MVP-12: forms routes read the session; the Anvil webhook does not.
     "/api/forms",
     "/api/forms/((?!webhook).*)",
+    // The studio chat answers anyone through the mock but asks who is
+    // asking, so a real OpenRouter key can be limited to signed-in orgs.
+    "/api/spacelab/chat",
   ],
 };
