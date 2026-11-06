@@ -850,7 +850,7 @@ describe('sandbox', () => {
     expect(within(payment).getByText(/No charge and no hold now/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Place order and send/ })).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Place sandbox order · 2 vendors, nothing sent' }));
+    await user.click(screen.getByRole('button', { name: 'Place sandbox order · 2 vendors, mail to the test inbox' }));
     await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/orders/order-1'));
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/checkout')).toHaveLength(1);
   });

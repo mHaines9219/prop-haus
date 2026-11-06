@@ -12,6 +12,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { ItemStatus, Order } from './orders';
+import { RESPOND_PATH } from './outreach/constants';
 
 export const VENDOR_ACTIONS = ['available', 'unavailable'] as const;
 export type VendorAction = (typeof VENDOR_ACTIONS)[number];
@@ -43,7 +44,7 @@ export type VerifyResult =
 
 export const LINK_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-export const RESPOND_PATH = '/vendor/respond';
+export { RESPOND_PATH } from './outreach/constants';
 
 const DEV_SECRET = 'dev-only-vendor-link-secret';
 let warned = false;
@@ -51,6 +52,11 @@ let warned = false;
 function secret(): string {
   const configured = process.env.VENDOR_LINK_SECRET;
   if (configured) return configured;
+  // The dev secret is in the repo, so a production deploy must not sign with
+  // it. VERCEL_ENV, not NODE_ENV: `next start` on a laptop is production too.
+  if (process.env.VERCEL_ENV === 'production') {
+    throw new Error('VENDOR_LINK_SECRET must be set in production');
+  }
   if (!warned) {
     warned = true;
     console.warn('[vendor-links] VENDOR_LINK_SECRET is unset; signing with the dev secret. Set it before sending real email.');

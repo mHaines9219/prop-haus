@@ -94,7 +94,7 @@ export default async function OrderPage({ params }: Props) {
             </h1>
             <StatusToken {...orderStatusSpec(order.status)} />
             <JobStatusSelect orderId={order.id} value={order.jobStatus} label="Job status" />
-            {order.sandbox && <span className="tag">Sandbox · nothing sent</span>}
+            {order.sandbox && <span className="tag">Sandbox · mail to the test inbox</span>}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[13px] text-text-secondary">
             <span>{placedDate}</span>
@@ -157,7 +157,7 @@ export default async function OrderPage({ params }: Props) {
         />
 
         {/* ── MVP-11 — Vendor requests (what went out, to whom, did it land) ── */}
-        <VendorRequests initial={messages} />
+        <VendorRequests initial={messages} sandbox={order.sandbox} />
         {/* ── end MVP-11 ── */}
 
         {/* Items grouped by vendor */}

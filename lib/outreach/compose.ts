@@ -108,6 +108,18 @@ export function textToHtml(text: string): string {
   return wrapHtml(paragraphs.join('\n'));
 }
 
+/**
+ * The reply links as a closing block on a body the user wrote themselves. The
+ * cart preview has no order item ids, so an edited draft carries no links in
+ * its text; they are added here after the click, under the user's words.
+ */
+export function appendReplyLinks(bodyText: string, items: DraftItem[]): string {
+  const linked = items.filter((it) => it.replyLinks);
+  if (linked.length === 0) return bodyText;
+  const block = ['Mark each item', ...linked.map((it) => `${it.name}${itemLinksText(it)}`)].join('\n');
+  return `${bodyText.trimEnd()}\n\n${block}`;
+}
+
 /** "Sep 7 – Sep 14, 2026" from ISO dates; tolerates one or both missing. */
 export function formatRentalWindow(start?: string, end?: string): string {
   if (start && end) return `${fmtDate(start)} – ${fmtDate(end, true)}`;

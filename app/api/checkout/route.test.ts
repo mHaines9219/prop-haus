@@ -15,6 +15,7 @@ import { queueSpacelabHandoff } from '@/lib/spacelab/handoff';
 import { buildOrderPaperwork } from '@/lib/forms/packet';
 import { LogMailer } from '@/lib/mail/provider';
 import { retryOutboundMessage } from '@/lib/outreach/send';
+import { SANDBOX_INBOX } from '@/lib/outreach/constants';
 import { POST } from './route';
 
 /**
@@ -374,16 +375,22 @@ describe('sandbox', () => {
     }
   });
 
-  it('writes every inquiry before answering and hands none to the mailer', async () => {
+  it('writes every inquiry before answering and sends each to the test inbox, never to a house', async () => {
     const send = vi.spyOn(LogMailer.prototype, 'send');
     send.mockClear();
     await POST(jsonRequest('/api/checkout', twoHouses));
 
     // Written inline, not in an after() hook: the order page is complete on arrival.
     const messages = db.rows('outbound_messages');
-    expect(messages.map((m) => m.status)).toEqual(['sandbox', 'sandbox']);
-    expect(messages.every((m) => m.sent_at === undefined && m.provider_message_id === undefined)).toBe(true);
-    expect(send).not.toHaveBeenCalled();
+    expect(messages.map((m) => m.status)).toEqual(['sent', 'sent']);
+    expect(messages.map((m) => m.to_email)).toEqual([SANDBOX_INBOX, SANDBOX_INBOX]);
+    expect(messages.map((m) => m.cc_emails)).toEqual([[], []]);
+    expect(send).toHaveBeenCalledTimes(2);
+    for (const [message] of send.mock.calls) expect(message.to).toBe(SANDBOX_INBOX);
+    expect(send.mock.calls.map(([m]) => m.subject).sort()).toEqual([
+      expect.stringMatching(/^\[Sandbox · to Hand Prop Room\] /),
+      expect.stringMatching(/^\[Sandbox · to Omega Cinema Props\] /),
+    ]);
     expect(buildOrderPaperwork).toHaveBeenCalledTimes(1);
 
     const omega = messages.find((m) => m.vendor_id === 'omega')!;
@@ -414,7 +421,7 @@ describe('sandbox', () => {
     db.rows('outbound_messages').length = 0;
     await POST(jsonRequest('/api/checkout', twoHouses));
     expect(db.rows('order_bookings')).toHaveLength(2);
-    expect(db.rows('outbound_messages').map((m) => m.status)).toEqual(['sandbox', 'sandbox']);
+    expect(db.rows('outbound_messages').map((m) => m.status)).toEqual(['sent', 'sent']);
   });
 
   it('never calls a real forms provider: paperwork is skipped unless the filler is the mock', async () => {

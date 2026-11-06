@@ -33,7 +33,8 @@ function message(over: Partial<DrawerMessage> = {}): DrawerMessage {
     subject: 'Hold request',
     bodyText: BODY,
     attachments: [],
-    status: 'sandbox',
+    status: 'sent',
+    sandbox: true,
     ...over,
   };
 }
@@ -52,18 +53,22 @@ describe('OutreachDrawer read-only body', () => {
     expect(screen.getByText(/Reply to this email\./)).toBeInTheDocument();
   });
 
-  it('tells an admin the reply links work on a sandbox draft, and says nothing on a sent one', () => {
-    const { unmount } = render(<OutreachDrawer message={message()} onClose={() => {}} />);
-    expect(screen.getByText(/open one to answer as the vendor/)).toBeInTheDocument();
-    unmount();
-    render(<OutreachDrawer message={message({ status: 'sent' })} onClose={() => {}} />);
+  it('on a live order, links the item pages but keeps the vendor reply links as plain text', () => {
+    render(<OutreachDrawer message={message({ sandbox: false })} onClose={() => {}} />);
+    expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['https://omegacinemaprops.com/item/1']);
+    expect(screen.getByText(/vendor\/respond\?t=abc\.def/)).toBeInTheDocument();
     expect(screen.queryByText(/open one to answer as the vendor/)).toBeNull();
+  });
+
+  it('tells an admin the reply links work on a sandbox draft', () => {
+    render(<OutreachDrawer message={message()} onClose={() => {}} />);
+    expect(screen.getByText(/open one to answer as the vendor/)).toBeInTheDocument();
   });
 
   it('keeps the editable body a plain textarea', () => {
     render(
       <OutreachDrawer
-        message={message({ status: undefined })}
+        message={message({ status: undefined, sandbox: undefined })}
         onClose={() => {}}
         editing={{ edited: false, onChange: () => {}, onReset: () => {} }}
       />,

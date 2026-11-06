@@ -646,7 +646,7 @@ export default function CartPage() {
                     {sandbox
                       ? state.kind === 'submitting'
                         ? 'Placing sandbox order…'
-                        : `Place sandbox order · ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}, nothing sent`
+                        : `Place sandbox order · ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}, mail to the test inbox`
                       : state.kind === 'submitting'
                         ? 'Placing order and sending…'
                         : `Place order and send to ${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}`}

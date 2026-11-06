@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useAutoResizeTextarea } from '@/hooks/use-auto-resize-textarea';
 import { StatusToken, messageStatusSpec } from '@/components/ap/status-token';
+import { RESPOND_PATH } from '@/lib/outreach/constants';
 
 /**
  * The vendor email, in a §9.6 right drawer: 440px, surface-raised, radius 0,
@@ -25,6 +26,8 @@ export type DrawerMessage = {
   status?: string;
   sentAt?: string;
   error?: string;
+  /** A sandbox order's message: its vendor reply links are the admin's to press. */
+  sandbox?: boolean;
 };
 
 type Editing = {
@@ -147,10 +150,10 @@ export function OutreachDrawer({
                   <BodyEditor value={message.bodyText} onChange={(bodyText) => editing.onChange({ bodyText })} />
                 ) : (
                   <pre className="mt-1.5 whitespace-pre-wrap border border-border bg-surface-inset px-3 py-3 font-sans text-[14px] leading-relaxed text-foreground">
-                    <Linkified text={message.bodyText} />
+                    <Linkified text={message.bodyText} replyLinks={message.sandbox === true} />
                   </pre>
                 )}
-                {!editing && message.status === 'sandbox' && message.bodyText.includes('/vendor/respond?t=') && (
+                {!editing && message.sandbox && message.bodyText.includes(RESPOND_PATH) && (
                   <p className="mt-2 font-mono text-[12px] text-text-tertiary">
                     Sandbox. The reply links work: open one to answer as the vendor.
                   </p>
@@ -239,19 +242,24 @@ function Envelope({ message }: { message: DrawerMessage }) {
 const URL_RE = /https?:\/\/[^\s<>"]+/g;
 
 /**
- * The sent body with its URLs as links. Item links open the vendor's page;
- * on a sandbox order the vendor reply links let an admin answer as the house.
+ * The sent body with its URLs as links. Item links open the vendor's page.
+ * The vendor's reply links are the vendor's to press, so they stay plain text
+ * on a live order; on a sandbox order they let an admin answer as the house.
  */
-function Linkified({ text }: { text: string }) {
+function Linkified({ text, replyLinks }: { text: string; replyLinks: boolean }) {
   const parts: React.ReactNode[] = [];
   let last = 0;
   for (const m of text.matchAll(URL_RE)) {
     const at = m.index ?? 0;
     if (at > last) parts.push(text.slice(last, at));
     parts.push(
-      <a key={at} href={m[0]} target="_blank" rel="noopener noreferrer" className="break-all underline underline-offset-2 hover:text-accent-text">
-        {m[0]}
-      </a>,
+      !replyLinks && m[0].includes(RESPOND_PATH) ? (
+        m[0]
+      ) : (
+        <a key={at} href={m[0]} target="_blank" rel="noopener noreferrer" className="break-all underline underline-offset-2 hover:text-accent-text">
+          {m[0]}
+        </a>
+      ),
     );
     last = at + m[0].length;
   }

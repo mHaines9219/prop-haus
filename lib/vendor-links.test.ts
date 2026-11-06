@@ -117,3 +117,15 @@ describe('refreshVendorLinks', () => {
     expect(refreshVendorLinks(body)).toBe(body);
   });
 });
+
+describe('the production guard', () => {
+  it('refuses to sign with the dev secret on a production deploy', () => {
+    vi.stubEnv('VENDOR_LINK_SECRET', '');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    expect(() => signVendorAction(claims)).toThrow('VENDOR_LINK_SECRET must be set in production');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(signVendorAction(claims)).toMatch(/\./);
+    warn.mockRestore();
+  });
+});

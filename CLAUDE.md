@@ -317,9 +317,12 @@ captured and paid out at pickup.
 
 It runs ONLY for an order placed with the admin SANDBOX switch on (the tab
 in the bottom-right corner of every page, admins only). A sandbox order
-sends nothing: each inquiry is written to the order and never handed to a
-mailer, the card is a test card, and each house is moved through its stages
-by hand on the order page. A live checkout is exactly sections 3 to 5.
+never addresses a house: while the flow is in testing (Nov 6 2026) every
+inquiry it writes is sent to Matthew's own inbox instead (`SANDBOX_INBOX`
+in `lib/outreach/send.ts`, hardcoded on purpose) so the vendor reply links
+can be pressed from a real mail client. The card is a test card, and each
+house is moved through its stages by hand on the order page. A live
+checkout is exactly sections 3 to 5.
 
 Rules while it is sandbox only:
 - The certificate step has three routes, read off the order profile

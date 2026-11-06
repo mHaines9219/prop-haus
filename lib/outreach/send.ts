@@ -17,11 +17,14 @@ import { recordEvents } from '../analytics';
 import { mailer, type MailAttachment } from '../mail/provider';
 import { VENDORS } from '../vendors';
 import { refreshVendorLinks, replyLinksFor } from '../vendor-links';
+import { SANDBOX_INBOX } from './constants';
 import type { Order } from '../orders';
-import { composeOutreach, textToHtml, type Draft, type DraftAttachment, type VendorDocument } from './compose';
+import { appendReplyLinks, composeOutreach, textToHtml, type Draft, type DraftAttachment, type VendorDocument } from './compose';
 
-/** `sandbox`: written for a sandbox order and never handed to a mailer. */
+/** `sandbox`: written for a sandbox order before Nov 6 2026, when sandbox orders sent nothing. */
 export type MessageStatus = 'sending' | 'sent' | 'failed' | 'sandbox';
+
+export { SANDBOX_INBOX } from './constants';
 
 export type OutboundMessage = {
   id: string;
@@ -105,13 +108,9 @@ export async function sendOrderOutreach(
     const overrides = new Map((opts.overrides ?? []).map((o) => [o.vendorId, o]));
     for (const draft of drafts) {
       const override = overrides.get(draft.vendorId);
-      const message = applyOverride(draft, override);
-      // A sandbox order's inquiries are a record of what would go out. The
-      // mailer is never reached, whatever MAIL_PROVIDER says.
-      if (order.sandbox) {
-        await insertMessage(order, message, Boolean(override), 'sandbox');
-        continue;
-      }
+      // A sandbox order's inquiries go to the test inbox, never to the house,
+      // so the reply links can be tried from a real mail client.
+      const message = order.sandbox ? toSandboxInbox(applyOverride(draft, override)) : applyOverride(draft, override);
       const row = await insertMessage(order, message, Boolean(override), 'sending');
       await deliver(row, order.orgId);
     }
@@ -173,9 +172,19 @@ export async function retryOutboundMessage(id: string, orgId: string): Promise<R
 
 // ---- internal ----
 
+function toSandboxInbox(draft: Draft): Draft {
+  return {
+    ...draft,
+    to: SANDBOX_INBOX,
+    needsVendorAddress: false,
+    cc: [],
+    subject: `[Sandbox · to ${draft.vendorName}] ${draft.subject.replace(/^\[needs vendor address\] /, '')}`,
+  };
+}
+
 function applyOverride(draft: Draft, override: MessageOverride | undefined): Draft {
   if (!override) return draft;
-  const bodyText = override.bodyText ?? draft.bodyText;
+  const bodyText = override.bodyText ? appendReplyLinks(override.bodyText, draft.items) : draft.bodyText;
   return {
     ...draft,
     subject: override.subject ?? draft.subject,
@@ -188,7 +197,7 @@ async function insertMessage(
   order: Order,
   draft: Draft,
   edited: boolean,
-  status: 'sending' | 'sandbox',
+  status: 'sending',
 ): Promise<OutboundMessage> {
   const { data, error } = await createAdminClient()
     .from('outbound_messages')

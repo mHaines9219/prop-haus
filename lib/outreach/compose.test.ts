@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PICKUP_LINE, composeOutreach, formatRentalWindow, textToHtml } from './compose';
+import { PICKUP_LINE, appendReplyLinks, composeOutreach, formatRentalWindow, textToHtml } from './compose';
 import type { Vendor } from '../vendors';
 import type { OrderProfile } from '../order-profile';
 import { makeCartLine, READY_PROFILE } from '@/test/fixtures/orders';
@@ -334,5 +334,24 @@ describe('vendor reply links', () => {
     expect(omega!.bodyHtml).not.toContain('vendor/respond');
     expect(omega!.items[0]!.replyLinks).toBeUndefined();
     expect(omega!.bodyText).toContain('Please confirm availability and send a quote. Reply to this email.');
+  });
+});
+
+describe('appendReplyLinks', () => {
+  const items = [
+    { name: 'Walnut credenza', sourceUrl: 'https://omega.example/1', replyLinks: { available: 'https://p.example/vendor/respond?t=a1', unavailable: 'https://p.example/vendor/respond?t=a0' } },
+    { name: 'Brass floor lamp', sourceUrl: 'https://omega.example/2' },
+  ];
+
+  it('adds a closing block with two links per linked item under the user\'s own words', () => {
+    const out = appendReplyLinks('Hi Omega,\n\nholding these two.\n\nSam\n', items);
+    expect(out).toBe(
+      'Hi Omega,\n\nholding these two.\n\nSam\n\nMark each item\nWalnut credenza\n   Item available: https://p.example/vendor/respond?t=a1\n   Item unavailable: https://p.example/vendor/respond?t=a0',
+    );
+    expect(textToHtml(out).match(/href="https:\/\/p\.example\/vendor\/respond\?t=/g)).toHaveLength(2);
+  });
+
+  it('leaves a body alone when no item carries links', () => {
+    expect(appendReplyLinks('Hi Omega.', [items[1]!])).toBe('Hi Omega.');
   });
 });
