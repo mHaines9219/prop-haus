@@ -132,7 +132,11 @@ export async function advanceBooking(
   const effect = await EFFECTS[input.event]({ order, booking, input });
   if ('error' in effect) return fail('invalid_input', effect.error);
 
-  const at = new Date().toISOString();
+  // updated_at is the booking's version: the guarded write below matches on
+  // it, so it must move on every event. Two events inside one millisecond
+  // would otherwise both pass the guard; the later one is pushed 1ms past the
+  // version it read.
+  const at = new Date(Math.max(Date.now(), Date.parse(booking.updatedAt) + 1)).toISOString();
   const state: BookingState = {
     ...stateOf(booking),
     ...effect.patch,
