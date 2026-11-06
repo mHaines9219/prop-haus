@@ -140,7 +140,7 @@ export async function queueSpacelabHandoff(order: Order, orgId: string): Promise
  * (de-listed on a re-scrape) falls back to its checkout snapshot rather than
  * dropping out of the room.
  */
-async function seedsForOrder(order: Order): Promise<ModelSeed[]> {
+export async function seedsForOrder(order: Order): Promise<ModelSeed[]> {
   const items = await itemsByIds(order.items.map((i) => i.itemId));
   const byAssetId = new Map(items.map((item) => [assetIdFor(item.source, item.sourceId), item]));
 

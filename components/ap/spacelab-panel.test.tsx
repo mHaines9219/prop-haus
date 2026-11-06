@@ -37,7 +37,8 @@ describe('SpacelabPanel', () => {
     expect(screen.getByText(/Arrange this order in a 3D room/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Build your set in 3D' })).toBeEnabled();
     expect(screen.queryByText(/items modeled/)).toBeNull();
-    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Arrange in Space Lab']);
+    expect(screen.getByRole('link', { name: 'Arrange in Space Lab' })).toHaveAttribute('href', '/spacelab?order=o1');
   });
 
   it('posts the order id, shows the busy label, then the prepared scene', async () => {

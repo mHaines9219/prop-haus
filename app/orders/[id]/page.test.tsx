@@ -167,6 +167,7 @@ describe('OrderPage', () => {
     render(await OrderPage(props()));
     expect(handoff.getSceneForOrder).toHaveBeenCalledWith('order-1', ORG_ID);
     expect(screen.getByRole('button', { name: 'Build your set in 3D' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Arrange in Space Lab' })).toHaveAttribute('href', '/spacelab?order=order-1');
     expect(screen.queryByText('Open in Spacelab')).not.toBeInTheDocument();
   });
 
