@@ -109,7 +109,11 @@ export const mockSceneChat: SceneChatProvider = {
     }
 
     const other = relative ? findItem(scene.items, relative[2], item) : undefined;
-    const fp = footprint(item, placed?.rotation ?? 0);
+    const anchors = other ? [] : ANCHOR_WORDS.filter(([re]) => re.test(text)).map(([, a]) => a);
+    // A wide piece asked to go against a side wall lies along it.
+    const alongSideWall = (anchors[0] === 'left' || anchors[0] === 'right') && item.size.w > item.size.d;
+    const rotation = alongSideWall ? 90 : (placed?.rotation ?? 0);
+    const fp = footprint(item, rotation);
     let target: { x: number; z: number } | undefined;
     let where = '';
     if (other && scene.placements[other.id]) {
@@ -129,7 +133,6 @@ export const mockSceneChat: SceneChatProvider = {
                 : { x: o.x + ofp.w / 2 + fp.w / 2 + gap, z: o.z };
       where = `${rel} the ${other.name.toLowerCase()}`;
     } else {
-      const anchors = ANCHOR_WORDS.filter(([re]) => re.test(text)).map(([, a]) => a);
       if (anchors.length) {
         const first = anchorPosition(scene.room, fp, anchors[0]);
         const second = anchors[1] ? anchorPosition(scene.room, fp, anchors[1]) : undefined;
@@ -149,11 +152,14 @@ export const mockSceneChat: SceneChatProvider = {
       where = 'in the middle';
     }
 
-    const command: SceneCommand = placed
-      ? { type: 'move', itemId: item.id, ...target }
-      : { type: 'place', itemId: item.id, ...target };
+    const commands: SceneCommand[] = placed
+      ? [
+          ...(rotation !== placed.rotation ? [{ type: 'rotate' as const, itemId: item.id, rotation }] : []),
+          { type: 'move', itemId: item.id, ...target },
+        ]
+      : [{ type: 'place', itemId: item.id, ...target, rotation }];
     const verb = placed ? 'Moved' : 'Placed';
-    return { reply: `${verb} the ${item.name.toLowerCase()} ${where}.`, commands: [command] };
+    return { reply: `${verb} the ${item.name.toLowerCase()} ${where}.`, commands };
   },
 };
 

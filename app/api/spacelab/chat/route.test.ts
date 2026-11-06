@@ -20,8 +20,16 @@ describe('POST /api/spacelab/chat', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.provider).toBe('mock');
-    expect(body.commands).toEqual([{ type: 'place', itemId: 'armchair', x: 9, z: 1.4 }]);
+    expect(body.commands).toEqual([{ type: 'place', itemId: 'armchair', x: 9, z: 1.4, rotation: 0 }]);
     expect(body.reply).toMatch(/Placed/);
+  });
+
+  it('rate limits a chatty caller', async () => {
+    let status = 200;
+    for (let i = 0; i < 31 && status === 200; i++) {
+      status = (await post({ scene: placeholderScene(), history: [], message: 'hi' })).status;
+    }
+    expect(status).toBe(429);
   });
 
   it('rejects a malformed scene', async () => {

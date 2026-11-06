@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { applyCommands, placeholderScene, type Scene, type SceneCommand } from '@/lib/spacelab/studio/scene';
 import type { ChatTurn } from '@/lib/spacelab/studio/chat';
@@ -30,7 +31,14 @@ const EYEBROW =
  * /api/spacelab/chat and are applied here with the same reducer the server
  * validates against.
  */
-export function SpacelabStudio({ initialScene }: { initialScene?: Scene } = {}) {
+export function SpacelabStudio({
+  initialScene,
+  order,
+}: {
+  initialScene?: Scene;
+  /** The order this scene came from, for the header and the way back. */
+  order?: { id: string };
+} = {}) {
   const [scene, setScene] = useState<Scene>(() => initialScene ?? placeholderScene());
   const [messages, setMessages] = useState<Message[]>([OPENING]);
   const [draft, setDraft] = useState('');
@@ -76,7 +84,18 @@ export function SpacelabStudio({ initialScene }: { initialScene?: Scene } = {}) 
     <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_auto_auto_auto_auto] md:grid-cols-[minmax(240px,1fr)_2fr] md:grid-rows-[auto_minmax(0,1fr)_auto]">
       <header className="flex items-end justify-between gap-4 border-b-[1.5px] border-ink px-5 py-4 md:col-span-2">
         <div>
-          <p className={EYEBROW}>Prop Haus · 3D</p>
+          <p className={EYEBROW}>
+            {order ? (
+              <>
+                <Link href={`/orders/${order.id}`} className="ink-underline hover:text-foreground">
+                  Order #{order.id.slice(0, 8).toUpperCase()}
+                </Link>
+                {' · 3D'}
+              </>
+            ) : (
+              'Prop Haus · 3D'
+            )}
+          </p>
           <h1 className="ad-headline mt-1 text-[40px] md:text-[56px]">Space Lab</h1>
         </div>
         <p className="hidden max-w-[320px] text-[13px] leading-[18px] text-text-secondary md:block">
@@ -98,6 +117,9 @@ export function SpacelabStudio({ initialScene }: { initialScene?: Scene } = {}) 
           </span>
         </div>
         <ol className="min-h-0 flex-1 overflow-y-auto">
+          {scene.items.length === 0 && (
+            <li className="px-5 py-4 text-[13px] leading-[18px] text-text-tertiary">Nothing on this order yet.</li>
+          )}
           {scene.items.map((item) => {
             const placed = Boolean(scene.placements[item.id]);
             return (

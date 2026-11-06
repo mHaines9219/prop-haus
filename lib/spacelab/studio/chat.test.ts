@@ -7,13 +7,24 @@ const ask = (message: string, scene = placeholderScene()) => mockSceneChat.respo
 describe('mockSceneChat', () => {
   it('places an unplaced item against a named wall', async () => {
     const res = await ask('put the armchair against the right wall');
-    expect(res.commands).toEqual([{ type: 'place', itemId: 'armchair', x: 18 - 1.4, z: 6 }]);
+    expect(res.commands).toEqual([{ type: 'place', itemId: 'armchair', x: 18 - 1.4, z: 6, rotation: 0 }]);
     expect(res.reply).toMatch(/Placed the rattan armchair against the right wall/);
   });
 
   it('moves a placed item into a corner', async () => {
     const res = await ask('move the sofa to the back left corner');
     expect(res.commands).toEqual([{ type: 'move', itemId: 'sofa', x: 3.5, z: 1.5 }]);
+  });
+
+  it('turns a wide piece to lie along a side wall', async () => {
+    const res = await ask('sofa against the left wall');
+    expect(res.commands).toEqual([
+      { type: 'rotate', itemId: 'sofa', rotation: 90 },
+      { type: 'move', itemId: 'sofa', x: 1.5, z: 6 },
+    ]);
+    const { scene, rejected } = applyCommands(placeholderScene(), res.commands);
+    expect(rejected).toEqual([]);
+    expect(scene.placements.sofa).toEqual({ x: 1.5, z: 6, rotation: 90 });
   });
 
   it('puts one item next to another', async () => {

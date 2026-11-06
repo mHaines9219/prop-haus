@@ -14,6 +14,7 @@
  *                          button reads this exact file
  */
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 export type PreparedSceneView = {
@@ -73,6 +74,13 @@ export function SpacelabPanel({ orderId, initialScene }: Props) {
         </p>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href={`/spacelab?order=${orderId}`}
+            className="border border-accent px-4 py-2.5 font-mono text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            Arrange in Space Lab
+          </Link>
+
           {!scene && (
             <button
               type="button"

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { currentOrgId } from '@/lib/session';
-import { clientIp, createRateLimiter } from '@/lib/rate-limit';
 import { ChatTurnSchema, getSceneChatProvider } from '@/lib/spacelab/studio/chat';
 import { SceneSchema } from '@/lib/spacelab/studio/scene';
 
@@ -26,7 +25,22 @@ const BodySchema = z.object({
   message: z.string().trim().min(1).max(1000),
 });
 
-const rateLimited = createRateLimiter({ windowMs: 60 * 1000, max: 30 });
+// A model call costs money, so cap turns per caller: 30 a minute, per org
+// or, signed out on the mock, per address. In-memory, per server instance.
+const WINDOW_MS = 60 * 1000;
+const MAX_TURNS = 30;
+const turns = new Map<string, number[]>();
+
+function rateLimited(key: string, now: number): boolean {
+  const recent = (turns.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  recent.push(now);
+  turns.set(key, recent);
+  return recent.length > MAX_TURNS;
+}
+
+function clientIp(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'anonymous';
+}
 
 export async function POST(req: Request) {
   let parsed;
