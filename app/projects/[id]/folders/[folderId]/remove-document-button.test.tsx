@@ -78,5 +78,6 @@ describe('RemoveDocumentButton', () => {
     await user.click(button);
     await waitFor(() => expect(button).toBeEnabled());
     expect(nav.router.refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t remove. Try again.');
   });
 });

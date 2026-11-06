@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { AIPromptModal } from '@/components/ap/ai-prompt-modal';
 
 type Engine = 'keyword' | 'ai';
-type StagedFile = { file: File; previewUrl?: string };
+type StagedFile = { id: number; file: File; previewUrl?: string };
 
 // Shared with the hero and legacy bars so the preference survives migration.
 const ENGINE_STORAGE_KEY = 'prophaus.searchEngine';
@@ -65,6 +65,8 @@ export function SearchControls({
   const [dragOver, setDragOver] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nextFileId = useRef(0);
+  const filesRef = useRef(files);
 
   useEffect(() => {
     const savedMode = window.localStorage.getItem(MODE_STORAGE_KEY);
@@ -80,31 +82,30 @@ export function SearchControls({
     window.localStorage.setItem(MODE_STORAGE_KEY, mode);
   }, [mode]);
 
-  // Object URLs for image previews are revoked on unmount to avoid leaks.
+  // A preview URL is revoked when its file is removed, and the rest on unmount.
+  // Revoking on every change would kill thumbnails that are still on screen.
   useEffect(() => {
-    return () => files.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+    filesRef.current = files;
   }, [files]);
+  useEffect(() => {
+    const staged = filesRef;
+    return () => staged.current.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+  }, []);
 
   function addFiles(list: FileList | File[]) {
     const arr = Array.from(list);
-    setFiles((prev) => {
-      const next = [...prev];
-      for (const file of arr) {
-        if (next.length >= 6) break;
-        const isImage = file.type.startsWith('image/');
-        next.push({ file, previewUrl: isImage ? URL.createObjectURL(file) : undefined });
-      }
-      return next;
-    });
+    const added = arr.slice(0, Math.max(0, 6 - files.length)).map((file) => ({
+      id: nextFileId.current++,
+      file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+    }));
+    if (added.length > 0) setFiles((prev) => [...prev, ...added]);
     if (mode === 'text' && arr.length > 0) setMode('haiku');
   }
 
-  function removeFile(i: number) {
-    setFiles((prev) => {
-      const f = prev[i];
-      if (f?.previewUrl) URL.revokeObjectURL(f.previewUrl);
-      return prev.filter((_, idx) => idx !== i);
-    });
+  function removeFile(staged: StagedFile) {
+    if (staged.previewUrl) URL.revokeObjectURL(staged.previewUrl);
+    setFiles((prev) => prev.filter((f) => f.id !== staged.id));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -157,7 +158,7 @@ export function SearchControls({
         animate={reduce ? undefined : { scale: focused ? 1.005 : 1 }}
         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
         className={cn(
-          'flex h-14 items-center gap-2 rounded-md border bg-surface-inset pl-4 pr-2 transition-colors duration-150',
+          'flex h-14 items-center gap-2 border bg-surface-inset pl-4 pr-2 transition-colors duration-150',
           focused || dragOver ? 'border-border-strong' : 'border-border',
         )}
       >
@@ -190,7 +191,7 @@ export function SearchControls({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           aria-label="Attach a moodboard"
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:border-border-strong hover:text-text-secondary sm:px-3"
+          className="flex h-9 shrink-0 items-center gap-1.5 border border-border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary transition-colors duration-150 hover:border-border-strong hover:text-text-secondary sm:px-3"
         >
           <ImagePlus size={16} strokeWidth={1.5} aria-hidden />
           <span className="hidden sm:inline">Moodboard</span>
@@ -212,7 +213,7 @@ export function SearchControls({
             }}
             aria-label="Ask AI"
             className={cn(
-              'flex h-9 shrink-0 items-center rounded-md border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:px-3',
+              'flex h-9 shrink-0 items-center border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150 sm:px-3',
               aiExhausted
                 ? 'cursor-not-allowed border-border text-text-disabled line-through'
                 : engine === 'ai'
@@ -227,7 +228,7 @@ export function SearchControls({
 
         <button
           type="submit"
-          className="h-10 shrink-0 rounded-md border border-border px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:border-border-strong hover:text-foreground active:scale-[0.98]"
+          className="h-10 shrink-0 border border-border px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground transition-colors duration-150 hover:border-border-strong hover:text-foreground active:scale-[0.98]"
         >
           {hasFiles || (engine === 'ai' && !aiExhausted) ? 'Ask AI' : 'Search'}
         </button>
@@ -243,7 +244,7 @@ export function SearchControls({
                 aria-pressed={mode === m}
                 onClick={() => setMode(m)}
                 className={cn(
-                  'h-8 rounded-md border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
+                  'h-8 border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
                   mode === m
                     ? 'border-accent text-accent-text'
                     : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary',
@@ -257,10 +258,10 @@ export function SearchControls({
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {files.map((f, i) => (
+            {files.map((f) => (
               <span
-                key={i}
-                className="flex items-center gap-2 rounded-md border border-border bg-surface-inset py-1 pl-1 pr-2"
+                key={f.id}
+                className="flex items-center gap-2 border border-border bg-surface-inset py-1 pl-1 pr-2"
               >
                 {f.previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -275,7 +276,7 @@ export function SearchControls({
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeFile(i)}
+                  onClick={() => removeFile(f)}
                   aria-label={`Remove ${f.file.name}`}
                   className="text-text-tertiary transition-colors duration-150 hover:text-foreground"
                 >

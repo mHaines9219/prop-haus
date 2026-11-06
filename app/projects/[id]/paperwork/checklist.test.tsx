@@ -104,6 +104,18 @@ describe('ChecklistSection', () => {
     expect(JSON.parse(init.body as string)).toEqual({ action: 'not_applicable' });
   });
 
+  it('sends a signed-out user to login and back without an error', async () => {
+    const user = userEvent.setup();
+    nav.pathname = '/projects/p1/paperwork';
+    vi.stubGlobal('fetch', vi.fn(async () => json({ error: 'unauthorized' }, 401)));
+    render(<ChecklistSection projectId="p1" checklist={checklist} />);
+
+    await user.click(within(row('Change order')).getByRole('button', { name: 'Use template' }));
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%2Fpaperwork'));
+    expect(nav.router.refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText('That did not go through. Try again.')).not.toBeInTheDocument();
+  });
+
   it('names the blanks after a template fill', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('fetch', vi.fn(async () => json({ ok: true, checklist, missing: ['shoot_start_date', 'client_company'] })));

@@ -99,7 +99,7 @@ export async function respondToVendorLink(token: string, now = Date.now()): Prom
   const status = STATUS_FOR_ACTION[claims.action];
   const changed = line.status !== status;
   if (changed) {
-    await setItemStatus(claims.itemId, orgId, status);
+    await setItemStatus(claims.itemId, orgId, status, { orderId: claims.orderId });
     await recordEvents({
       orgId,
       type: 'vendor_replied',

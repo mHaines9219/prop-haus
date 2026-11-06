@@ -15,7 +15,13 @@ import {
   type PassportDocumentPatch,
   type PassportKind,
 } from './passport';
-import { coiDownloadUrl, getOrderProfile, storeCoiDocument, updateOrderProfile } from './order-profile-store';
+import {
+  coiDownloadUrl,
+  getOrderProfile,
+  getOrderProfileForUpdate,
+  storeCoiDocument,
+  updateOrderProfile,
+} from './order-profile-store';
 
 /** The passport as the wallet shows it: stored slots plus the COI from the order profile. */
 export async function getPassport(orgId: string): Promise<Passport> {
@@ -24,12 +30,21 @@ export async function getPassport(orgId: string): Promise<Passport> {
 }
 
 async function getStoredPassport(orgId: string): Promise<Passport> {
+  return getStoredPassportForUpdate(orgId).catch(() => EMPTY_PASSPORT);
+}
+
+/**
+ * The passport ahead of a write. A failed read throws rather than reading as
+ * empty, because the write that follows replaces the whole column.
+ */
+async function getStoredPassportForUpdate(orgId: string): Promise<Passport> {
   const { data, error } = await createAdminClient()
     .from('organizations')
     .select('passport')
     .eq('id', orgId)
-    .single();
-  if (error || !data) return EMPTY_PASSPORT;
+    .maybeSingle();
+  if (error) throw new Error(`getStoredPassportForUpdate: ${error.message}`);
+  if (!data) return EMPTY_PASSPORT;
   return normalizePassport((data as { passport: unknown }).passport);
 }
 
@@ -73,13 +88,17 @@ export async function storePassportDocument(
     return { ok: false, status: 400, error: 'Upload this document as a PDF or an image.' };
   }
 
+  const stored = await getStoredPassportForUpdate(orgId);
+
   const storagePath = `${orgId}/passport/${crypto.randomUUID()}.${check.ext}`;
   const up = await createAdminClient()
     .storage.from(paperworkBucket())
     .upload(storagePath, file.bytes, { contentType: check.mime, upsert: false });
-  if (up.error) return { ok: false, status: 500, error: `upload failed: ${up.error.message}` };
+  if (up.error) {
+    console.error('[passport] upload failed', up.error);
+    return { ok: false, status: 500, error: 'upload failed' };
+  }
 
-  const stored = await getStoredPassport(orgId);
   const previous = stored.documents[kind];
   const document: PassportDocument = {
     storagePath,
@@ -101,7 +120,7 @@ export async function patchPassportDocument(
   patch: PassportDocumentPatch,
 ): Promise<PassportDocument | null> {
   if (kind === 'coi') {
-    const profile = await getOrderProfile(orgId);
+    const profile = await getOrderProfileForUpdate(orgId);
     if (!profile.insurance.coiDocument) return null;
     const insurance = { ...profile.insurance, expiresAt: patch.expiresAt, policyNumber: patch.reference };
     if (!patch.expiresAt) delete insurance.expiresAt;
@@ -110,7 +129,7 @@ export async function patchPassportDocument(
     return (await getPassport(orgId)).documents.coi ?? null;
   }
 
-  const stored = await getStoredPassport(orgId);
+  const stored = await getStoredPassportForUpdate(orgId);
   const existing = stored.documents[kind];
   if (!existing) return null;
   const document: PassportDocument = { ...existing };
@@ -125,13 +144,13 @@ export async function patchPassportDocument(
 /** Drop the pointer for a slot. The object stays in the bucket. */
 export async function removePassportDocument(orgId: string, kind: PassportKind): Promise<void> {
   if (kind === 'coi') {
-    const profile = await getOrderProfile(orgId);
+    const profile = await getOrderProfileForUpdate(orgId);
     const insurance = { ...profile.insurance };
     delete insurance.coiDocument;
     await updateOrderProfile(orgId, { ...profile, insurance });
     return;
   }
-  const stored = await getStoredPassport(orgId);
+  const stored = await getStoredPassportForUpdate(orgId);
   const documents = { ...stored.documents };
   delete documents[kind];
   await updateStoredPassport(orgId, { documents });

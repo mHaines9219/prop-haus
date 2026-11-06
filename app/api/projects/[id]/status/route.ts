@@ -24,6 +24,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+  }
   if (!isProjectStatus(body.status)) {
     return NextResponse.json({ error: `invalid status: ${String(body.status)}` }, { status: 400 });
   }

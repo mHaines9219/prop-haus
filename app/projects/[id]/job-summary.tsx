@@ -81,7 +81,7 @@ export function JobSummary({ projectId, summary }: { projectId: string; summary:
           <button
             type="submit"
             disabled={busy || !dirty}
-            className="h-8 shrink-0 rounded-md border border-accent px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-40"
+            className="h-8 shrink-0 border border-accent px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-accent-text transition-colors hover:bg-accent/15 disabled:opacity-40"
           >
             Save
           </button>

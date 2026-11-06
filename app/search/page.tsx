@@ -188,7 +188,7 @@ function KeywordResults({
           disabled={aiExhausted}
           title={aiExhausted ? 'No AI searches left on your plan' : undefined}
           className={cn(
-            'h-9 rounded-md border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
+            'h-9 border border-border px-4 font-mono text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-150',
             aiExhausted
               ? 'cursor-not-allowed text-text-disabled line-through'
               : 'text-text-secondary hover:border-border-strong hover:text-foreground',
@@ -310,7 +310,7 @@ function Chip({ children, title }: { children: React.ReactNode; title?: string }
   return (
     <span
       title={title}
-      className="rounded-md border border-border bg-surface-inset px-2 py-1 font-mono text-[11px] leading-[14px] text-text-secondary"
+      className="border border-border bg-surface-inset px-2 py-1 font-mono text-[11px] leading-[14px] text-text-secondary"
     >
       {children}
     </span>

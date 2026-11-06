@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -19,6 +20,15 @@ export async function generateStaticParams() {
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return { title: `${categoryName(slug)} · Prop Haus` };
+}
 
 /**
  * One category, browsed or narrowed. The filter rail (every attribute an item

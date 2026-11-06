@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import type { Source } from './types';
+import { isSafeExternalUrl } from './safe-url';
 import type { Address } from './order-profile';
 import { createAdminClient } from './supabase/admin';
 import { DEFAULT_JOB_STATUS, isJobStatus, type JobStatus } from './job-status';
@@ -71,6 +73,50 @@ export type CartLineInput = {
   priceCents?: number;
 };
 
+/** The most lines one checkout accepts. A cart is a few dozen pieces, not thousands. */
+export const MAX_CART_LINES = 200;
+
+/**
+ * One cart line as the checkout body sends it. Every field is untrusted: the
+ * line is snapshotted into order_items and printed into the vendor's email, so
+ * the link must be http(s). An unusable photo is dropped rather than refused.
+ * `source` is a slug, not the SOURCES enum, so a vendor loaded into the
+ * catalog ahead of lib/types.ts can still be ordered from.
+ */
+const CartLineSchema = z.object({
+  itemId: z.string().min(1).max(512),
+  source: z.string().regex(/^[a-z0-9_-]{1,64}$/),
+  sourceId: z.string().min(1).max(2048),
+  name: z.string().min(1).max(300),
+  image: z
+    .string()
+    .max(2048)
+    .nullish()
+    .transform((v) => (isSafeExternalUrl(v) ? (v as string) : undefined)),
+  sourceUrl: z.string().max(2048).refine(isSafeExternalUrl, 'must be an http(s) URL'),
+  vendor: z.string().min(1).max(200),
+  priceCents: z
+    .number()
+    .int()
+    .min(0)
+    .max(1_000_000_000)
+    .nullish()
+    .transform((v) => v ?? undefined),
+});
+
+const CartLinesSchema = z.array(CartLineSchema).min(1).max(MAX_CART_LINES);
+
+/** The body's `lines`, validated, or null when any line is unusable. */
+export function parseCartLines(raw: unknown): CartLineInput[] | null {
+  const parsed = CartLinesSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return parsed.data.map(({ image, priceCents, ...line }) => ({
+    ...line,
+    ...(image ? { image } : {}),
+    ...(priceCents !== undefined ? { priceCents } : {}),
+  }));
+}
+
 export type CreateOrderInput = {
   orgId: string;
   /** Verified by the caller to belong to `orgId` before it gets here. */
@@ -130,7 +176,13 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
         price_cents: l.priceCents ?? null,
       })),
     );
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      // Without its lines the order is a husk, and its idempotency key would
+      // hand that husk back to every retry. Remove it so the retry can place
+      // the order whole.
+      await db.from('orders').delete().eq('id', order.id).eq('org_id', input.orgId);
+      throw itemsError;
+    }
   }
 
   return getOrderById(order.id, input.orgId);
@@ -205,23 +257,24 @@ export async function setJobStatus(orderId: string, orgId: string, jobStatus: Jo
 /**
  * Move a single line item to a new coordination status. Verifies the item's
  * parent order belongs to `orgId` before writing (a caller must not be able to
- * flip another org's line by guessing an id). `note`/`quotedCents` are only
- * written when explicitly provided.
+ * flip another org's line by guessing an id), and to `orderId` when given.
+ * `note`/`quotedCents` are only written when explicitly provided.
  */
 export async function setItemStatus(
   orderItemId: string,
   orgId: string,
   status: ItemStatus,
-  opts?: { note?: string | null; quotedCents?: number | null },
+  opts?: { note?: string | null; quotedCents?: number | null; orderId?: string },
 ): Promise<void> {
   const db = createAdminClient();
 
-  const { data: owned, error: checkError } = await db
+  let check = db
     .from('order_items')
     .select('id, orders!inner(org_id)')
     .eq('id', orderItemId)
-    .eq('orders.org_id', orgId)
-    .maybeSingle();
+    .eq('orders.org_id', orgId);
+  if (opts?.orderId) check = check.eq('order_id', opts.orderId);
+  const { data: owned, error: checkError } = await check.maybeSingle();
 
   if (checkError) throw checkError;
   if (!owned) throw new Error('Order item not found');

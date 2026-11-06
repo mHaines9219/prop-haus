@@ -154,7 +154,7 @@ export async function markDocumentSigned(doc: OrderDocument, opts: { userId?: st
   if (doc.anvilDocumentGroupEid) {
     const filler = await formFiller();
     const signed = await filler.downloadSigned(doc.anvilDocumentGroupEid);
-    signedPath = `orgs/${doc.orgId}/orders/${doc.orderId}/${doc.vendorId}/${doc.kind}.signed.${signed.ext}`;
+    signedPath = `orgs/${doc.orgId}/orders/${doc.orderId}/${doc.vendorId}/${doc.kind}.${doc.id}.signed.${signed.ext}`;
     const up = await db.storage
       .from(paperworkBucket())
       .upload(signedPath, signed.bytes, { contentType: signed.contentType, upsert: true });

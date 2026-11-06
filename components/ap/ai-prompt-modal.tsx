@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { useDialogFocus } from '@/hooks/use-dialog-focus';
 import { cn } from '@/lib/utils';
 
 export type AIPromptResult = { inspiration: string; budget: number | null };
@@ -26,14 +27,12 @@ export function AIPromptModal({
   const reduce = useReducedMotion();
   const [inspiration, setInspiration] = useState(initialInspiration ?? '');
   const [budget, setBudget] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, modalRef);
 
   // Sync initialInspiration when modal opens.
   useEffect(() => {
-    if (open) {
-      setInspiration(initialInspiration ?? '');
-      setTimeout(() => textareaRef.current?.focus(), 50);
-    }
+    if (open) setInspiration(initialInspiration ?? '');
   }, [open, initialInspiration]);
 
   // Close on Escape.
@@ -79,6 +78,7 @@ export function AIPromptModal({
           {/* Modal */}
           <motion.div
             key="modal"
+            ref={modalRef}
             role="dialog"
             aria-modal
             aria-label="AI set curation"
@@ -120,7 +120,7 @@ export function AIPromptModal({
                     Inspiration
                   </label>
                   <textarea
-                    ref={textareaRef}
+                    data-autofocus
                     id="ai-inspiration"
                     value={inspiration}
                     onChange={(e) => setInspiration(e.target.value)}

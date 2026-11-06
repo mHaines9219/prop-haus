@@ -162,10 +162,14 @@ export async function retryOutboundMessage(id: string, orgId: string): Promise<R
 
   const bodyText = refreshVendorLinks(message.bodyText);
   const bodyHtml = refreshVendorLinks(message.bodyHtml);
-  await db
+  // Claim the row only while it is still failed, so a double-click sends once.
+  const { data: claimed } = await db
     .from('outbound_messages')
     .update({ status: 'sending', error: null, body_text: bodyText, body_html: bodyHtml, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('status', 'failed')
+    .select('id');
+  if (!claimed?.length) return { ok: false, reason: 'not_failed' };
   const sent = await deliver({ ...message, bodyText, bodyHtml, status: 'sending', error: undefined }, orgId);
   return { ok: true, message: sent };
 }

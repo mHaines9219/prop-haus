@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { createClient } from '@/lib/supabase/client';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { ThemeToggle } from './theme-toggle';
 import { ViewAsControl } from './view-as-control';
 
@@ -63,8 +64,7 @@ export function SiteNav() {
 function CartLink() {
   const lines = useCart((s) => s.lines);
   const reduce = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
   const count = mounted ? lines.length : 0;
 
   return (

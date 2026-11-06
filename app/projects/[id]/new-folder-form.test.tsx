@@ -43,7 +43,7 @@ function stubFetch(handler: (url: string, init: RequestInit | undefined) => Resp
 }
 
 const toggle = () => screen.getByRole('button', { name: /Add a scene|Cancel/ });
-const nameBox = () => screen.getByPlaceholderText(/^Scene 3 — e\.g\./);
+const nameBox = () => screen.getByRole('textbox', { name: 'Folder name' });
 
 beforeEach(() => resetNavigation());
 afterEach(() => vi.unstubAllGlobals());
@@ -61,6 +61,7 @@ describe('NewFolderForm', () => {
     await user.click(toggle());
     expect(toggle()).toHaveTextContent('Cancel');
     expect(nameBox()).toHaveAttribute('maxlength', '120');
+    expect(nameBox().getAttribute('placeholder')).toMatch(/^Scene 3 — e\.g\./);
     expect(screen.getByRole('button', { name: 'Add scene' })).toBeEnabled();
   });
 

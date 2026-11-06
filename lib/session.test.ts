@@ -237,3 +237,36 @@ describe('sandbox', () => {
     expect((await (await load()).currentSession())?.sandbox).toBe(false);
   });
 });
+
+describe('requireOrgId', () => {
+  function mockRedirect() {
+    const redirect = vi.fn((to: string) => {
+      throw new Error(`NEXT_REDIRECT ${to}`);
+    });
+    vi.doMock('next/navigation', () => ({ redirect }));
+    return redirect;
+  }
+
+  afterEach(() => vi.doUnmock('next/navigation'));
+
+  it('returns the org for a signed-in caller without redirecting', async () => {
+    const redirect = mockRedirect();
+    mockSupabase({ user: { id: 'user-1' }, profile: { org_id: 'org-1', organizations: { plan: 'free' } } });
+    expect(await (await load()).requireOrgId('/projects')).toBe('org-1');
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it('sends a signed-out visitor to sign in, carrying where they were headed', async () => {
+    const redirect = mockRedirect();
+    mockSupabase({ user: null });
+    await expect((await load()).requireOrgId('/projects/p1?tab=paperwork')).rejects.toThrow('NEXT_REDIRECT');
+    expect(redirect).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%3Ftab%3Dpaperwork');
+  });
+
+  it('sends a signed-out visitor to plain sign-in when there is nowhere to return to', async () => {
+    const redirect = mockRedirect();
+    mockSupabase({ user: null });
+    await expect((await load()).requireOrgId()).rejects.toThrow('NEXT_REDIRECT');
+    expect(redirect).toHaveBeenCalledWith('/login');
+  });
+});

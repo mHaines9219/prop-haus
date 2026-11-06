@@ -70,7 +70,7 @@ function stubRoutes(clip: Handler = () => json({ item: parsed }), save: Handler 
 }
 
 const toggle = () => screen.getByRole('button', { name: /Add from the web|Cancel/ });
-const urlBox = () => screen.getByPlaceholderText('Paste a product link (e.g. wayfair.com/…)');
+const urlBox = () => screen.getByRole('textbox', { name: 'Product link' });
 const fetchButton = () => screen.getByRole('button', { name: /Fetch|Reading…/ });
 
 async function openWith(user: ReturnType<typeof userEvent.setup>, url: string) {
@@ -208,6 +208,18 @@ describe('preview', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
+  it('sends a signed-out user to login when the save is refused', async () => {
+    const user = userEvent.setup();
+    nav.pathname = '/projects/p1/folders/f1';
+    stubRoutes(undefined, () => json({ error: 'not signed in' }, 401));
+    renderForm();
+    await openWith(user, 'https://wayfair.com/p/1');
+    await user.click(await screen.findByRole('button', { name: 'Save to folder' }));
+    await waitFor(() => expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%2Ffolders%2Ff1'));
+    expect(screen.queryByText('Couldn’t save that item. Try again.')).not.toBeInTheDocument();
+    expect(nav.router.refresh).not.toHaveBeenCalled();
+  });
+
   it('shows Saving… while the save is open', async () => {
     const user = userEvent.setup();
     let resolve!: (r: Response) => void;
@@ -253,12 +265,13 @@ describe('fetch failures', () => {
 
   it('sends a signed-out user to login without showing an error', async () => {
     const user = userEvent.setup();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    nav.pathname = '/projects/p1/folders/f1';
     const fetchMock = stubRoutes(() => json({ error: 'not signed in' }, 401));
     renderForm();
     await openWith(user, 'https://wayfair.com/p/1');
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/went wrong|can’t be reached/)).not.toBeInTheDocument();
+    expect(nav.router.push).toHaveBeenCalledWith('/login?next=%2Fprojects%2Fp1%2Ffolders%2Ff1');
   });
 });
 

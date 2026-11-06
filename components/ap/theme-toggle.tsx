@@ -2,7 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 /**
  * Day/lamplight switch in the nav chrome. "Light" is the house default: the
@@ -15,10 +15,9 @@ export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   // Hydration guard: the theme comes from localStorage, so the server render
   // can't know it.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const hydrated = useHydrated();
 
-  if (!mounted) {
+  if (!hydrated) {
     return <span aria-hidden className="size-5" />;
   }
 

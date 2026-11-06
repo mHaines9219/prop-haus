@@ -91,17 +91,25 @@ describe('POST refusals', () => {
     expect(userDb.rows('crew_requests')).toEqual([]);
   });
 
-  // Observed: `contractor_id?.trim()` throws TypeError on a number, so the
-  // handler rejects instead of answering 400.
-  it.fails('400 when contractor_id is not a string', async () => {
+  it('400 when contractor_id is not a string', async () => {
     const res = await POST(jsonRequest('/api/crew/requests', { contractor_id: 42 }));
     expect(res.status).toBe(400);
   });
 
-  // Observed: a string requested_dates is written as-is (201); Postgres would
-  // reject the text[] column, the fake does not.
-  it.fails('400 when requested_dates is not an array', async () => {
+  it('400 when requested_dates is not an array', async () => {
     const res = await POST(jsonRequest('/api/crew/requests', { contractor_id: 'c-1', requested_dates: '2026-09-10' }));
+    expect(res.status).toBe(400);
+    expect(userDb.rows('crew_requests')).toEqual([]);
+  });
+
+  it.each([
+    ['a non-string date', { requested_dates: [20260910] }],
+    ['a non-string location', { location: 4 }],
+    ['an over-long location', { location: 'x'.repeat(501) }],
+    ['over-long notes', { notes: 'x'.repeat(4001) }],
+    ['a JSON array body', null],
+  ])('400 for %s, writing nothing', async (_label, over) => {
+    const res = await POST(jsonRequest('/api/crew/requests', over === null ? [] : { contractor_id: 'c-1', ...over }));
     expect(res.status).toBe(400);
     expect(userDb.rows('crew_requests')).toEqual([]);
   });

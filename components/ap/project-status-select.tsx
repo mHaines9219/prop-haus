@@ -76,7 +76,7 @@ export function ProjectStatusSelect({
       <span
         data-busy={busy || undefined}
         className={cn(
-          'relative inline-flex items-center rounded-[2px] border border-border transition-colors duration-150',
+          'relative inline-flex items-center border border-border transition-colors duration-150',
           'hover:border-border-strong has-[:focus-visible]:border-border-strong',
           'data-[busy]:opacity-60',
         )}

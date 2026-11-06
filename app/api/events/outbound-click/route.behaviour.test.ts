@@ -46,9 +46,7 @@ describe('dropped beacons', () => {
     expect(db.rows('events')).toEqual([]);
   });
 
-  // Observed: isSource uses `v in SOURCE_META`, so 'toString' passes and a row
-  // with source 'toString' is written to the demand stream.
-  it.fails('drops a prototype key posing as a source', async () => {
+  it('drops a prototype key posing as a source', async () => {
     await POST(jsonRequest('/api/events/outbound-click', { ...VALID, source: 'toString' }));
     expect(db.rows('events')).toEqual([]);
   });

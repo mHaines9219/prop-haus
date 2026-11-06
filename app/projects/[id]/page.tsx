@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, ClipboardList, FileText } from 'lucide-react';
@@ -22,6 +23,8 @@ import { toJobRow } from './job-rows';
 import { JobSummary } from './job-summary';
 import { JobsTable } from './jobs-table';
 import { NewFolderForm } from './new-folder-form';
+
+export const metadata: Metadata = { title: 'Project · Prop Haus' };
 
 /**
  * /projects/[id] — one production, in five sections:
@@ -122,7 +125,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               </p>
               <Link
                 href="/search"
-                className="mt-5 inline-block rounded-md border border-border px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:border-foreground hover:text-foreground"
+                className="mt-5 inline-block border border-border px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-text-secondary transition-colors duration-150 hover:border-foreground hover:text-foreground"
               >
                 Browse catalog
               </Link>
@@ -155,7 +158,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               </p>
               <Link
                 href={`/crew?project=${encodeURIComponent(project.id)}`}
-                className="mt-5 inline-block rounded-md border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors duration-150 hover:bg-accent hover:text-accent-foreground"
+                className="mt-5 inline-block border border-accent px-5 py-2.5 font-mono text-[13px] font-medium text-accent-text transition-colors duration-150 hover:bg-accent hover:text-accent-foreground"
               >
                 Need a crew?
               </Link>

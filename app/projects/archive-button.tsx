@@ -19,17 +19,24 @@ export function ArchiveButton({
   });
 
   return (
-    <button
-      type="button"
-      disabled={mutation.isPending}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        mutation.mutate(!isArchived);
-      }}
-      className="h-8 rounded-md border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-accent-text disabled:opacity-40"
-    >
-      {isArchived ? 'Restore' : 'Archive'}
-    </button>
+    <span className="inline-flex flex-col items-end gap-1">
+      <button
+        type="button"
+        disabled={mutation.isPending}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          mutation.mutate(!isArchived);
+        }}
+        className="h-8 border border-border px-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary transition-colors duration-150 hover:border-accent hover:text-accent-text disabled:opacity-40"
+      >
+        {isArchived ? 'Restore' : 'Archive'}
+      </button>
+      {mutation.isError && (
+        <span role="alert" className="font-mono text-[11px] text-destructive">
+          {isArchived ? 'Couldn’t restore. Try again.' : 'Couldn’t archive. Try again.'}
+        </span>
+      )}
+    </span>
   );
 }

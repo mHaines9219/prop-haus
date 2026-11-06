@@ -5,13 +5,26 @@ import { recordEvents } from '@/lib/analytics';
 import { getProject } from '@/lib/projects';
 
 type RequestBody = {
-  contractor_id: string;
-  requested_dates?: string[];
-  location?: string;
-  notes?: string;
+  contractor_id?: unknown;
+  requested_dates?: unknown;
+  location?: unknown;
+  notes?: unknown;
   /** The project the crew is for (its Crew section lists the request). Optional. */
   project_id?: unknown;
 };
+
+const MAX_DATES = 60;
+const DATE_MAX = 32;
+const LOCATION_MAX = 500;
+const NOTES_MAX = 4000;
+const LIST_LIMIT = 200;
+
+/** Optional free text: trimmed, null when blank, `false` when not text or too long. */
+function optionalText(v: unknown, max: number): string | null | false {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string' || v.length > max) return false;
+  return v.trim() || null;
+}
 
 /** List the org's crew requests (with contractor name). Auth required. */
 export async function GET() {
@@ -25,7 +38,8 @@ export async function GET() {
       'id, project_id, contractor_id, requested_dates, location, notes, status, created_at, updated_at, contractors(name, photo)',
     )
     .eq('org_id', orgId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(LIST_LIMIT);
 
   if (error) {
     console.error('[crew/requests] list error', error);
@@ -48,10 +62,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
 
-  const { contractor_id, requested_dates, location, notes, project_id } = body;
-  if (!contractor_id?.trim()) {
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+  }
+  const { project_id } = body;
+  const contractor_id = typeof body.contractor_id === 'string' ? body.contractor_id.trim() : '';
+  if (!contractor_id || contractor_id.length > 128) {
     return NextResponse.json({ error: 'contractor_id is required' }, { status: 400 });
   }
+  const requested_dates = body.requested_dates ?? [];
+  if (
+    !Array.isArray(requested_dates) ||
+    requested_dates.length > MAX_DATES ||
+    !requested_dates.every((d) => typeof d === 'string' && d.length > 0 && d.length <= DATE_MAX)
+  ) {
+    return NextResponse.json({ error: 'requested_dates must be a list of dates' }, { status: 400 });
+  }
+  const location = optionalText(body.location, LOCATION_MAX);
+  const notes = optionalText(body.notes, NOTES_MAX);
+  if (location === false) return NextResponse.json({ error: 'location must be short text' }, { status: 400 });
+  if (notes === false) return NextResponse.json({ error: 'notes must be text' }, { status: 400 });
 
   // Only the session org's own project may be attached; a foreign or unknown
   // id is refused so a request never lands on someone else's project page.
@@ -73,9 +103,9 @@ export async function POST(req: Request) {
       org_id: orgId,
       project_id: projectId,
       contractor_id,
-      requested_dates: requested_dates ?? [],
-      location: location?.trim() || null,
-      notes: notes?.trim() || null,
+      requested_dates,
+      location,
+      notes,
     })
     .select('id')
     .single();

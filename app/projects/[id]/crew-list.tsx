@@ -111,7 +111,7 @@ function CrewRow({ row, expanded, onToggle }: { row: CrewRequestRow; expanded: b
                 {row.contractorSkills.map((s) => (
                   <li
                     key={s}
-                    className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[11px] uppercase leading-none tracking-[0.06em] text-text-tertiary"
+                    className="border border-border px-1.5 py-0.5 font-mono text-[11px] uppercase leading-none tracking-[0.06em] text-text-tertiary"
                   >
                     {CREW_SKILL_LABELS[s] ?? s}
                   </li>

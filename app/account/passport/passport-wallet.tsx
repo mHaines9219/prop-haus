@@ -15,7 +15,7 @@ import {
 import { StatusToken } from '@/components/ap/status-token';
 
 const INPUT =
-  'w-full rounded-[2px] border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:outline-none focus:ring-1 focus:ring-foreground';
+  'w-full border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-text-disabled focus:outline-none focus:ring-1 focus:ring-foreground';
 
 type Props = { initialPassport: Passport; initialSummary: PassportSummary };
 
@@ -225,9 +225,7 @@ function DocumentRow({
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return iso;
-  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
