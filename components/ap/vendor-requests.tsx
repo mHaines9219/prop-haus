@@ -106,7 +106,7 @@ export function VendorRequests({ initial, sandbox = false }: { initial: Outbound
 }
 
 /** "Sent to 3 vendors." / "Sent to 2 of 3 vendors. 1 failed." / "Sending to 3 vendors." */
-export function headline(messages: { status: string; to: string }[]): string {
+export function headline(messages: { status: string; to?: string }[]): string {
   const total = messages.length;
   const sent = messages.filter((m) => m.status === 'sent').length;
   const failed = messages.filter((m) => m.status === 'failed').length;
